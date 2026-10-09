@@ -14,7 +14,14 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   - **Validation coverage by confidence band:** correct/validated, next to the number of predictions in each band.
   - A confidence ECDF per species.
   - The two files and how they relate.
-- **Birds methodology (Wood & Kahl 2024):** the paper's method, with interactive schematics.
+- **Birds methodology:** one tab per paper, plus an **Overview** that shows where each paper plugs in (score → probability → decision → ecology) and compares them side by side. Every tab has a paper header (citation, link, OpenAlex citations as of 2026-10-09, and its role relative to the brief), a clickable flowchart, an interactive schematic on **simulated data**, and a "what it means for this challenge" note.
+  - *Thompson 2025 (extension):* partial pooling of species curves, from complete pooling to none. It uses an empirical-Bayes approximation of a mixed model, labelled as such.
+  - *Tseng 2025 (decision rule):* the precision of the whole kept set above T (Σ TPR·N / Σ N) vs pr(correct) at T. It follows the paper's stratified 10-per-class design with a GLM on raw confidence, and compares universal vs species-specific thresholds.
+  - *Schwinger 2025 (diagnostics):* a reliability diagram and ECE before and after Platt scaling.
+  - *Navine 2024 (different endpoint):* log-quantile bins, per-bin Beta (c = 0.1) and a bootstrap 90% CI for call density, compared with threshold counts.
+  - *Clare 2021 (downstream):* occupancy with false positives. It compares naive estimates, a model that ignores false positives, and an MLE that accounts for them using site confirmation.
+  - Paper descriptions were checked against the papers themselves (full text, or abstracts via OpenAlex where the publisher blocks access).
+- **Wood & Kahl tab (the baseline the brief requires):**
   - A clickable 9-step pipeline (BirdNET → validation → thresholding). Each step shows what the paper says next to where it appears in our data, with a "Show me" link.
   - A logit ↔ confidence explorer with a compression ruler.
   - Approach A, *review down to a threshold*.
@@ -94,7 +101,8 @@ src/
   charts/presets.ts  quick views per dataset
   charts/describe.ts "How to read this chart" sentence from the current settings
   lib/logistic.ts    logistic regression (IRLS), threshold + delta-method CI, seeded RNG
-  components/Methodology.tsx  Wood & Kahl page and interactive schematics
+  lib/simstats.ts    Beta/Gamma/normal samplers, Nelder–Mead, binomial pmf (unit-checked)
+  components/Methodology.tsx  paper tabs; components/methods/* one file per paper + Overview
   data/dictionary.ts column meanings (ODK form questions + documented formats)
   lib/help.ts        every tooltip and Guide entry (single source)
   components/        Overview, Explore, Table, Map, FilterBar, Plot wrapper, UI atoms

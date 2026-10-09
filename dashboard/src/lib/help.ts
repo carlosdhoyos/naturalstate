@@ -19,7 +19,7 @@ export const HELP = {
   'nav.find': { label: 'Find a dataset', text: 'Type to filter the list by dataset title or file name.' },
   'app.challenge': { label: 'Challenge', text: 'Switch between the two parts of the take-home. Each challenge has its own summary page and only shows its own files in the sidebar.' },
   'nav.summary': { label: 'Summary', text: 'Landing page of the challenge: the task, headline numbers and how the files fit together — all computed from the CSVs.' },
-  'nav.method': { label: 'Methodology', text: 'How Wood & Kahl (2024) turn BirdNET scores into observations — the method Natural State uses — explained with interactive schematics on simulated data.' },
+  'nav.method': { label: 'Methodology', text: 'Wood & Kahl (2024) — the method the brief requires — plus five related papers (Thompson, Tseng, Schwinger, Navine, Clare), one tab each, with flowcharts and interactive schematics on simulated data, and an overview of how they fit together.' },
   'nav.birdfiles': { label: 'BirdNET files', text: 'The two bird files: every BirdNET prediction kept (score ≥ 0.1), and the clips an ornithologist checked by ear.' },
   'nav.submissions': { label: 'Field submissions (ODK forms)', text: 'What field teams recorded with the ODK app: plot registrations and herbaceous surveys. A form with repeated sections exports one table per repeat (quadrats, additional species), linked by KEY → PARENT_KEY.' },
   'nav.plots': { label: 'Plots & sampling design', text: 'Entity lists describing where to sample: prescribed centroids from the design, and plots as registered in the field.' },

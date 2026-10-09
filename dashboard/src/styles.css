@@ -2108,3 +2108,326 @@ code {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── methodology: tabs, flowcharts, overview ──────────────────────────────── */
+.method-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.paper-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 58px;
+  z-index: 15;
+  background: var(--bg);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.paper-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.paper-tab:hover {
+  border-color: var(--axis);
+}
+.paper-tab.on {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+}
+.role-dot {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.role-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.role-badge.sm {
+  font-size: 9.5px;
+  padding: 1px 6px;
+  margin-top: 2px;
+}
+.m-block .role-badge,
+.stage-detail .role-badge {
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+.role-baseline .role-badge,
+.role-badge.role-baseline {
+  background: var(--accent);
+  color: #fff;
+}
+.paper-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.paper-cites {
+  font-size: 12px;
+  color: var(--ns-teal-light);
+  cursor: help;
+}
+.paper-card h1 {
+  font-size: 22px;
+  margin: 8px 0 4px;
+}
+.paper-ref {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+.for-us {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-wash);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.for-us ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ink);
+}
+.m-two.wide {
+  grid-template-columns: 320px minmax(0, 1fr);
+}
+.row-on td {
+  background: var(--accent-wash);
+}
+.compact-table td,
+.compact-table th {
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+/* generic flowchart */
+.flow-row {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding: 4px 2px 6px;
+}
+.flow-node {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--lane);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 8px 10px 10px;
+  cursor: pointer;
+}
+.flow-node:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  right: -15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 14px;
+}
+.flow-node:hover {
+  border-color: var(--lane);
+}
+.flow-node.on {
+  box-shadow: 0 0 0 2px var(--lane) inset;
+  border-color: var(--lane);
+}
+.flow-lane {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lane);
+}
+.flow-title {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.25;
+}
+.flow-n {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--lane);
+  color: #fff;
+  font-size: 10.5px;
+  flex: none;
+}
+.flow-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.flow-detail {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--lane);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.flow-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.flow-detail-body p {
+  margin: 6px 0 0;
+  color: var(--ink-2);
+}
+.lane-data {
+  --lane: #2a78d6;
+}
+.lane-human {
+  --lane: #eb6834;
+}
+.lane-model {
+  --lane: #4a3aa7;
+}
+.lane-decision {
+  --lane: #1f9e8c;
+}
+.lane-ecology {
+  --lane: #7a8c00;
+}
+:root[data-theme='dark'] .lane-model {
+  --lane: #9085e9;
+}
+
+/* overview stages */
+.stages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+.stage {
+  position: relative;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+}
+.stage-head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.stage-papers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.paper-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 9px;
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+.paper-chip span {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.paper-chip.on,
+.paper-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+.paper-chip.role-baseline {
+  border-left: 3px solid var(--accent);
+}
+.stage-arrow {
+  position: absolute;
+  right: -22px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 18px;
+}
+.bypass {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.bypass-line {
+  flex: 0 0 120px;
+  height: 0;
+  border-top: 2px solid var(--axis);
+  position: relative;
+}
+.bypass-line::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: -5px;
+  border: 4px solid transparent;
+  border-left: 7px solid var(--axis);
+}
+.stage-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+@media (max-width: 1100px) {
+  .stages {
+    grid-template-columns: 1fr;
+  }
+  .stage-arrow {
+    display: none;
+  }
+  .m-two.wide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

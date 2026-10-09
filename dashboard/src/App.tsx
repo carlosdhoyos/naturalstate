@@ -281,7 +281,7 @@ export default function App() {
               <span className="nav-item-title">
                 <Icon name="book" size={14} /> Methodology
               </span>
-              <span className="nav-item-sub">Wood &amp; Kahl 2024</span>
+              <span className="nav-item-sub">6 papers</span>
             </button>
           )}
           <div className="search" {...tip('nav.find')}>
