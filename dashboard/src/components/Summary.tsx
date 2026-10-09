@@ -11,6 +11,7 @@ import { fmtDate, fmtInt, fmtNum, fmtPct, quantileSorted, wilson } from '../data
 import type { Dataset, Row } from '../data/types'
 import { tip, tipText, type HelpKey } from '../lib/help'
 import type { ThemeTokens } from '../lib/palette'
+import { BirdsBalance } from './BirdsBalance'
 import { Plot } from './Plot'
 import { Icon, Stat } from './ui'
 
@@ -297,6 +298,8 @@ export function BirdsSummary({ reg, tokens, onOpen }: Props) {
           ])}
         />
       </Section>
+
+      <BirdsBalance pred={pred} val={val} tokens={tokens} />
 
       <div className="sum-grid">
         <Section title="How confident is BirdNET, per species?" tipKey="sum.b.ecdf" sub="Cumulative share of each species’ predictions at or below a confidence score. A curve that rises early means most predictions are low-confidence.">

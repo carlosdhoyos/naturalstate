@@ -12,6 +12,14 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   - Headline counts: predictions, validated clips, species, confidence range, dates.
   - **Species included:** volume, recorders/files, confidence min·median·max, validated correct/wrong, raw share correct with a Wilson CI, and the link to the predictions file.
   - **Validation coverage by confidence band:** correct/validated, next to the number of predictions in each band.
+  - **How balanced are the data and the validation?** Five live checks:
+    1. Species: prediction volume vs validation effort.
+    2. Correct vs incorrect: the rarer outcome, flagged against a ≥ 20 rule of thumb, with separation called out.
+    3. Confidence range: predictions vs validated shares per band, plus a two-sample KS test of whether validation mirrors the predictions or over-samples high scores.
+    4. Recorders and files: never-validated recorders, recorder concentration per species, files contributing several clips (clustering).
+    5. Time coverage.
+
+    It ends with the consequences for each species' threshold.
   - A confidence ECDF per species.
   - The two files and how they relate.
 - **Birds methodology:** one tab per paper, plus an **Overview** that shows where each paper plugs in (score → probability → decision → ecology) and compares them side by side. Every tab has a paper header (citation, link, OpenAlex citations as of 2026-10-09, and its role relative to the brief), a clickable flowchart, an interactive schematic on **simulated data**, and a "what it means for this challenge" note.
