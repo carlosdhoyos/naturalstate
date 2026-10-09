@@ -16,12 +16,50 @@ export interface Source {
   title: string
   group: string
   description: string
+  challenge: Challenge
   /** Raw CSV text. */
   text: string
   order: number
 }
 
-export const GROUPS = ['Birds', 'Vegetation · ODK exports', 'Vegetation · Entity lists', 'Uploaded'] as const
+export type Challenge = 'birds' | 'vegetation'
+
+export const CHALLENGES: Record<Challenge, { number: number; title: string; short: string; task: string }> = {
+  birds: {
+    number: 1,
+    title: 'Bird challenge',
+    short: 'Birds',
+    task: 'Turn BirdNET predictions into observations: for each species, find the confidence score above which a prediction is correct with ≥ 99% probability (Wood & Kahl 2024), label every clip, and specify how the Tech team can automate it.',
+  },
+  vegetation: {
+    number: 2,
+    title: 'Vegetation challenge',
+    short: 'Vegetation',
+    task: 'Clean, join and QA/QC the herbaceous vegetation survey data from ODK — flag errors, never fix them — and produce a data quality report (survey-level, plot-level, sampling effort, transect map) plus the spec for an automated QA/QC dashboard.',
+  },
+}
+
+/** Sidebar groups, in display order, per challenge. */
+export const GROUPS = [
+  'BirdNET files',
+  'Field submissions (ODK forms)',
+  'Plots & sampling design',
+  'Taxonomy',
+  'Lookups',
+  'Uploaded',
+] as const
+
+const VEG_GROUP: Record<string, string> = {
+  herbaceous_veg_survey: 'Field submissions (ODK forms)',
+  'herbaceous_veg_survey-quadrat_repeat': 'Field submissions (ODK forms)',
+  'herbaceous_veg_survey-additional_species_repeat': 'Field submissions (ODK forms)',
+  register_vegetation_plots: 'Field submissions (ODK forms)',
+  centroids: 'Plots & sampling design',
+  vegplots: 'Plots & sampling design',
+  species: 'Taxonomy',
+  species_extra: 'Taxonomy',
+  species_extra_ids: 'Taxonomy',
+}
 
 const META: Record<string, { title: string; description: string; order: number }> = {
   birdnet_predictions: {
@@ -74,10 +112,9 @@ const META: Record<string, { title: string; description: string; order: number }
   projects: { title: 'Projects', description: 'Lookup.', order: 11 },
 }
 
-function groupFor(path: string): string {
-  if (path.includes('/Data Birds/')) return 'Birds'
-  if (path.includes('/ODK Data Exports/')) return 'Vegetation · ODK exports'
-  return 'Vegetation · Entity lists'
+function groupFor(path: string, id: string): string {
+  if (path.includes('/Data Birds/')) return 'BirdNET files'
+  return VEG_GROUP[id] ?? 'Lookups'
 }
 
 export const SOURCES: Source[] = Object.entries(texts)
@@ -91,7 +128,8 @@ export const SOURCES: Source[] = Object.entries(texts)
       file,
       folder: parts.slice(3, -1).join('/'),
       title: meta?.title ?? id,
-      group: groupFor(path),
+      group: groupFor(path, id),
+      challenge: (path.includes('/Data Birds/') ? 'birds' : 'vegetation') as Challenge,
       description: meta?.description ?? '',
       text,
       order: meta?.order ?? 99,

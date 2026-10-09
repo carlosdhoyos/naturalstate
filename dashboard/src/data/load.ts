@@ -87,7 +87,7 @@ export function columnStats(rows: Row[], name: string): { distinct: number; nonN
 }
 
 export function buildDataset(
-  meta: Pick<Dataset, 'id' | 'title' | 'group' | 'file' | 'description'>,
+  meta: Pick<Dataset, 'id' | 'title' | 'group' | 'file' | 'description' | 'challenge'>,
   raw: RawTable,
 ): Dataset {
   const labels = labelsFor(raw.fields)

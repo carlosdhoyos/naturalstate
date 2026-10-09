@@ -17,9 +17,13 @@ export const HELP = {
 
   // ── sidebar ──
   'nav.find': { label: 'Find a dataset', text: 'Type to filter the list by dataset title or file name.' },
-  'nav.birds': { label: 'Birds', text: 'Passive acoustic monitoring: BirdNET’s predictions on the audio, and the subset an ornithologist checked by ear.' },
-  'nav.odk': { label: 'ODK exports', text: 'Raw submissions from the ODK forms field teams fill in. A form with repeated sections exports one table per repeat (quadrats, additional species), linked by KEY → PARENT_KEY.' },
-  'nav.entities': { label: 'Entity lists', text: 'Shared reference tables in ODK Central (plots, species, team, lookups). Forms read them to offer choices, and some forms write new rows to them (e.g. a new unknown species).' },
+  'app.challenge': { label: 'Challenge', text: 'Switch between the two parts of the take-home. Each challenge has its own summary page and only shows its own files in the sidebar.' },
+  'nav.summary': { label: 'Summary', text: 'Landing page of the challenge: the task, headline numbers and how the files fit together — all computed from the CSVs.' },
+  'nav.birdfiles': { label: 'BirdNET files', text: 'The two bird files: every BirdNET prediction kept (score ≥ 0.1), and the clips an ornithologist checked by ear.' },
+  'nav.submissions': { label: 'Field submissions (ODK forms)', text: 'What field teams recorded with the ODK app: plot registrations and herbaceous surveys. A form with repeated sections exports one table per repeat (quadrats, additional species), linked by KEY → PARENT_KEY.' },
+  'nav.plots': { label: 'Plots & sampling design', text: 'Entity lists describing where to sample: prescribed centroids from the design, and plots as registered in the field.' },
+  'nav.taxonomy': { label: 'Taxonomy', text: 'Entity lists of species: the project list, provisional taxa created in the field (unknown / missing species), and the curated identification of those taxa.' },
+  'nav.lookups': { label: 'Lookups', text: 'Small reference lists the forms offer as choices (team, surveys, ecosystem types, transport, area, project).' },
   'nav.uploaded': { label: 'Uploaded', text: 'CSV files you opened in this browser session. They are parsed locally and disappear when you reload.' },
   'nav.counts': { label: 'rows × columns', text: 'Number of rows and the number of columns in the original CSV (derived columns not counted). A dot means the dataset has active filters.' },
   'nav.upload': { label: 'Open another CSV', text: 'Explore any other CSV with the same tools. The file is read in your browser only — nothing is uploaded.' },
@@ -134,6 +138,24 @@ export const HELP = {
   'map.points': { label: 'Points', text: 'Number of GPS points drawn from the filtered rows.' },
   'map.how': { label: 'Map interaction', text: 'Scroll to zoom, drag to pan. Hover a point for the plot name, coordinates and GPS accuracy. Click legend items to hide layers.' },
 
+  // ── summaries ──
+  'sum.b.preds': { label: 'BirdNET predictions', text: 'Rows in birdnet_predictions.csv: each is a 3-second segment where BirdNET scored a species ≥ 0.1.' },
+  'sum.b.vals': { label: 'Validated clips', text: 'Clips an ornithologist listened to and marked correct (1) or wrong (0). They are the evidence used to fit each species’ threshold.' },
+  'sum.b.species': { label: 'Species', text: 'Distinct species across both files.' },
+  'sum.b.conf': { label: 'Confidence range', text: 'Smallest and largest BirdNET confidence in the predictions (the export kept scores ≥ 0.1), the median, and the range among validated clips.' },
+  'sum.b.dates': { label: 'Recording dates', text: 'First and last recording day, parsed from the audio file names (recorder clock).' },
+  'sum.b.speciesTable': { label: 'Species included', text: 'One row per species: prediction volume, where it was detected, its confidence distribution, and the validated sample. “Correct in sample” is a raw proportion, not the 99% threshold — that comes from the fitted curve.' },
+  'sum.b.coverage': { label: 'Validation coverage', text: 'How the validated clips are spread over confidence bands, and how many were correct. The threshold can only be trusted where there are enough validated clips; the prediction counts show how many clips each band would label.' },
+  'sum.b.ecdf': { label: 'Confidence ECDF', text: 'For each species, the share of its predictions at or below each confidence score. Hover to read exact percentages.' },
+  'sum.b.files': { label: 'The two files', text: 'What one row means in each bird file, and the facts that matter when combining them.' },
+  'sum.v.surveys': { label: 'Herbaceous surveys', text: 'Submissions of the herbaceous survey form (one plot visit each), the number of distinct plots surveyed, and how many submissions were rejected in ODK Central review.' },
+  'sum.v.quadrats': { label: 'Quadrats', text: 'Quadrat rows (the SOP asks for 20 per survey) and the number of species-from-the-list records across them.' },
+  'sum.v.extra': { label: 'Additional species records', text: 'Species recorded outside the project list, and how many provisional taxon slots are in use.' },
+  'sum.v.plots': { label: 'Plots registered', text: 'Plot registration submissions, compared with the prescribed primary and backup centroids of the sampling design.' },
+  'sum.v.dates': { label: 'Field dates', text: 'First and last form start time across registrations and surveys (UTC), and the number of devices used.' },
+  'sum.v.files': { label: 'Files', text: 'Every vegetation table, what one row represents, and its size.' },
+  'sum.v.joins': { label: 'How the tables join', text: 'Every key linking a table to another, and the share of references that resolve. These are the joins the QA/QC pipeline relies on.' },
+
   // ── concepts ──
   'c.derived': { label: 'Derived column', text: 'Added by the explorer by parsing a value (e.g. recorder and date from a file name) or copying a parent attribute down to a child table (e.g. plot name onto each quadrat). Never edits a source value. Marked with dashed cards, a derived group in pickers and a derived: prefix in exports.' },
   'c.utc': { label: 'UTC', text: 'Timestamps are shown in UTC so nothing shifts with the viewer’s timezone. ODK times carry the device offset (+02:00 here).' },
@@ -157,7 +179,8 @@ export function tipText(text: string | undefined, title?: string): Record<string
 }
 
 export const GUIDE: { title: string; intro: string; keys: HelpKey[] }[] = [
-  { title: 'Header & navigation', intro: 'The top bar and the dataset list on the left.', keys: ['app.brand', 'app.author', 'app.theme', 'app.guide', 'nav.find', 'nav.birds', 'nav.odk', 'nav.entities', 'nav.uploaded', 'nav.counts', 'nav.upload'] },
+  { title: 'Header & navigation', intro: 'The top bar and the dataset list on the left.', keys: ['app.brand', 'app.challenge', 'app.author', 'app.theme', 'app.guide', 'nav.find', 'nav.summary', 'nav.birdfiles', 'nav.submissions', 'nav.plots', 'nav.taxonomy', 'nav.lookups', 'nav.uploaded', 'nav.counts', 'nav.upload'] },
+  { title: 'Challenge summaries', intro: 'Landing page of each challenge. Every number is computed from the CSVs.', keys: ['sum.b.preds', 'sum.b.vals', 'sum.b.species', 'sum.b.conf', 'sum.b.dates', 'sum.b.speciesTable', 'sum.b.coverage', 'sum.b.ecdf', 'sum.b.files', 'sum.v.surveys', 'sum.v.quadrats', 'sum.v.extra', 'sum.v.plots', 'sum.v.dates', 'sum.v.files', 'sum.v.joins'] },
   { title: 'Dataset header & tabs', intro: 'What you see at the top of every table.', keys: ['ds.group', 'ds.file', 'tab.overview', 'tab.explore', 'tab.table', 'tab.map'] },
   { title: 'Filters', intro: 'One filter bar scopes every tab of the current table.', keys: ['filter.count', 'filter.add', 'filter.chip', 'filter.clear', 'filter.range', 'filter.values', 'filter.text', 'filter.keepNull', 'filter.exclude', 'filter.datarange'] },
   { title: 'Column types', intro: 'Detected automatically; a column is numeric or date only if every non-empty value parses.', keys: ['type.number', 'type.datetime', 'type.category', 'type.boolean', 'type.multi', 'type.text'] },

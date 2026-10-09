@@ -4,6 +4,23 @@ An interactive explorer for every CSV in this take-home: the bird data (BirdNET 
 
 **Open `standalone/index.html` in any browser by double-clicking it.** No server, no install and no network are needed. The JavaScript, styles, font and all 17 CSVs are inlined in that one ~10 MB file. The only thing fetched online is the map's basemap tiles. Points and transects draw without them.
 
+## Layout: one section per challenge
+
+The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge has its own sidebar, which shows only its files, and its own **Summary** page. Every number on a Summary page is computed from the CSVs when the page loads.
+
+- **Birds summary:**
+  - Headline counts: predictions, validated clips, species, confidence range, dates.
+  - **Species included:** volume, recorders/files, confidence min·median·max, validated correct/wrong, raw share correct with a Wilson CI, and the link to the predictions file.
+  - **Validation coverage by confidence band:** correct/validated, next to the number of predictions in each band.
+  - A confidence ECDF per species.
+  - The two files and how they relate.
+- **Vegetation summary:**
+  - Headline counts.
+  - Every table, with what one row means.
+  - **How the tables join:** each key and the % of references that resolve.
+
+The vegetation tables are grouped as *Field submissions (ODK forms)*, *Plots & sampling design*, *Taxonomy* and *Lookups*.
+
 ## What you can do
 
 | Tab | Purpose |

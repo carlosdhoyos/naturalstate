@@ -7,12 +7,13 @@ import { MapView } from './components/MapView'
 import { ProfileView } from './components/ProfileView'
 import { TableView } from './components/TableView'
 import { GuidePanel, TooltipLayer } from './components/Help'
+import { BirdsSummary, VegetationSummary, type OpenView } from './components/Summary'
 import { Icon } from './components/ui'
 import { describeColumn } from './data/dictionary'
 import { enrichAll } from './data/enrich'
 import { applyFilters, isDiscrete, newId, type Filter } from './data/filter'
 import { buildDataset, parseCsv } from './data/load'
-import { GROUPS, SOURCES } from './data/registry'
+import { CHALLENGES, GROUPS, SOURCES, type Challenge } from './data/registry'
 import { fmtInt } from './data/stats'
 import type { Column, Dataset } from './data/types'
 import { tip, type HelpKey } from './lib/help'
@@ -28,7 +29,7 @@ interface ViewState {
 
 function loadAll(): Map<string, Dataset> {
   const reg = new Map<string, Dataset>()
-  for (const s of SOURCES) reg.set(s.id, buildDataset({ id: s.id, title: s.title, group: s.group, file: `${s.folder}/${s.file}`, description: s.description }, parseCsv(s.text)))
+  for (const s of SOURCES) reg.set(s.id, buildDataset({ id: s.id, title: s.title, group: s.group, challenge: s.challenge, file: `${s.folder}/${s.file}`, description: s.description }, parseCsv(s.text)))
   // Attach the data dictionary (form questions, file formats) to every source column.
   for (const ds of reg.values()) for (const c of ds.columns) if (!c.derived) c.description = describeColumn(ds.id, c.name)
   enrichAll(reg)
@@ -36,11 +37,16 @@ function loadAll(): Map<string, Dataset> {
 }
 
 const GROUP_TIP: Record<string, HelpKey> = {
-  Birds: 'nav.birds',
-  'Vegetation · ODK exports': 'nav.odk',
-  'Vegetation · Entity lists': 'nav.entities',
+  'BirdNET files': 'nav.birdfiles',
+  'Field submissions (ODK forms)': 'nav.submissions',
+  'Plots & sampling design': 'nav.plots',
+  Taxonomy: 'nav.taxonomy',
+  Lookups: 'nav.lookups',
   Uploaded: 'nav.uploaded',
 }
+
+const SUMMARY = (c: Challenge) => `summary:${c}`
+const challengeOf = (id: string): Challenge | null => (id.startsWith('summary:') ? (id.slice(8) as Challenge) : null)
 
 function readHash(): { id?: string; tab?: Tab } {
   const [, id, tab] = window.location.hash.split('/')
@@ -56,7 +62,9 @@ export default function App() {
   const { pref, setPref, tokens } = useTheme()
   const [reg, setReg] = useState<Map<string, Dataset> | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [current, setCurrent] = useState<string>(() => readHash().id ?? load('current', 'birdnet_predictions'))
+  const [current, setCurrent] = useState<string>(() => readHash().id ?? load('current', SUMMARY('birds')))
+  // Last page visited in each challenge, so switching challenges returns where you were.
+  const [lastIn, setLastIn] = useState<Record<Challenge, string>>(() => load('lastIn', { birds: SUMMARY('birds'), vegetation: SUMMARY('vegetation') }))
   const [views, setViews] = useState<Record<string, ViewState>>(() => {
     // The URL hash (#/<dataset>/<tab>) wins on first load so links open the right view.
     const v = load<Record<string, ViewState>>('views', {})
@@ -80,7 +88,54 @@ export default function App() {
     return () => clearTimeout(t)
   }, [])
 
-  const ds = reg?.get(current) ?? reg?.values().next().value ?? null
+  const summaryOf = challengeOf(current)
+  const ds = summaryOf ? null : (reg?.get(current) ?? null)
+  const challenge: Challenge = summaryOf ?? (ds && ds.challenge !== 'other' ? ds.challenge : (load<Challenge>('challenge', 'birds')))
+
+  useEffect(() => {
+    if (!reg) return
+    if (!summaryOf && !reg.get(current)) setCurrent(SUMMARY('birds')) // stale id from an old session
+  }, [reg, current, summaryOf])
+
+  useEffect(() => {
+    save('challenge', challenge)
+    setLastIn((prev) => {
+      if (prev[challenge] === current) return prev
+      const next = { ...prev, [challenge]: current }
+      save('lastIn', next)
+      return next
+    })
+  }, [challenge, current])
+
+  useEffect(() => {
+    if (!summaryOf) return
+    save('current', current)
+    const h = `#/${current}`
+    if (window.location.hash !== h) window.history.replaceState(null, '', h)
+  }, [summaryOf, current])
+
+  const openView: OpenView = useCallback(
+    (id, patch) => {
+      const target = reg?.get(id)
+      if (!target) return
+      setViews((prev) => {
+        const base = prev[id] ?? { tab: 'overview', filters: [], spec: initialSpec(target) }
+        const next = {
+          ...prev,
+          [id]: {
+            ...base,
+            ...(patch?.tab ? { tab: patch.tab } : {}),
+            ...(patch?.spec ? { spec: normalizeSpec(target, { ...DEFAULT_SPEC, ...patch.spec }) } : {}),
+          } as ViewState,
+        }
+        save('views', next)
+        return next
+      })
+      setCurrent(id)
+      setNavOpen(false)
+    },
+    [reg],
+  )
 
   const view: ViewState | null = useMemo(() => {
     if (!ds) return null
@@ -148,16 +203,16 @@ export default function App() {
   const onUpload = async (file: File) => {
     const text = await file.text()
     const id = `upload:${file.name.replace(/\.csv$/i, '')}`
-    const d = buildDataset({ id, title: file.name, group: 'Uploaded', file: file.name, description: 'Uploaded in this browser session (not saved).' }, parseCsv(text))
+    const d = buildDataset({ id, title: file.name, group: 'Uploaded', challenge: 'other', file: file.name, description: 'Uploaded in this browser session (not saved).' }, parseCsv(text))
     setReg((prev) => new Map(prev ?? []).set(id, d))
     setCurrent(id)
   }
 
   const groups = useMemo(() => {
     if (!reg) return []
-    const all = [...reg.values()].filter((d) => `${d.title} ${d.file}`.toLowerCase().includes(q.toLowerCase()))
+    const all = [...reg.values()].filter((d) => (d.challenge === challenge || d.challenge === 'other') && `${d.title} ${d.file}`.toLowerCase().includes(q.toLowerCase()))
     return GROUPS.map((g) => ({ group: g, items: all.filter((d) => d.group === g) })).filter((g) => g.items.length)
-  }, [reg, q])
+  }, [reg, q, challenge])
 
   return (
     <div className="app">
@@ -171,9 +226,17 @@ export default function App() {
             <path d="M6 19c3.2-8 6.8-8 10 0s6.8 8 10 0" />
           </svg>
           <div>
-            <div className="brand-eyebrow">Natural State · Senior Data Scientist take-home</div>
+            <div className="brand-eyebrow">Natural State</div>
             <div className="brand-title">Data Explorer</div>
           </div>
+        </div>
+        <div className="challenge-switch" role="tablist" aria-label="Challenge" {...tip('app.challenge')}>
+          {(['birds', 'vegetation'] as Challenge[]).map((c) => (
+            <button key={c} type="button" role="tab" aria-selected={challenge === c} className={challenge === c ? 'on' : ''} onClick={() => setCurrent(c === challenge ? SUMMARY(c) : lastIn[c] ?? SUMMARY(c))}>
+              <span className="challenge-num">{CHALLENGES[c].number}</span>
+              {CHALLENGES[c].short}
+            </button>
+          ))}
         </div>
         <div className="topbar-right">
           <button type="button" className="guide-btn" {...tip('app.guide')} onClick={() => setGuideOpen(true)}>
@@ -181,7 +244,7 @@ export default function App() {
           </button>
           <div className="author" {...tip('app.author')}>
             <span className="author-name">Carlos Hoyos</span>
-            <span className="author-sub">Birds &amp; vegetation challenges</span>
+            <span className="author-sub">Senior Data Scientist take-home</span>
           </div>
           <div className="theme-switch" role="radiogroup" aria-label="Theme" {...tip('app.theme')}>
             {(['light', 'system', 'dark'] as ThemePref[]).map((p) => (
@@ -195,13 +258,25 @@ export default function App() {
 
       <div className="shell">
         <nav className={`sidebar ${navOpen ? 'open' : ''}`} aria-label="Datasets">
+          <div className="nav-challenge">
+            <span className="challenge-num lg">{CHALLENGES[challenge].number}</span>
+            <div>
+              <div className="nav-challenge-eyebrow">Challenge {CHALLENGES[challenge].number}</div>
+              <div className="nav-challenge-title">{CHALLENGES[challenge].title}</div>
+            </div>
+          </div>
+          <button type="button" className={`nav-item summary ${summaryOf ? 'on' : ''}`} {...tip('nav.summary')} onClick={() => { setCurrent(SUMMARY(challenge)); setNavOpen(false) }}>
+            <span className="nav-item-title">
+              <Icon name="grid" size={14} /> Summary
+            </span>
+          </button>
           <div className="search" {...tip('nav.find')}>
             <Icon name="search" size={14} />
-            <input className="input bare" placeholder="Find a dataset…" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input className="input bare" placeholder="Find a table…" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           {groups.map((g) => (
             <div key={g.group} className="nav-group">
-              <div className="nav-group-title has-tip" {...tip(GROUP_TIP[g.group] ?? 'nav.birds', true)}>
+              <div className="nav-group-title has-tip" {...tip(GROUP_TIP[g.group] ?? 'nav.lookups', true)}>
                 {g.group}
               </div>
               {g.items.map((d) => (
@@ -229,7 +304,7 @@ export default function App() {
             <Icon name="upload" size={14} /> Open another CSV…
             <input type="file" accept=".csv,text/csv" hidden onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])} />
           </label>
-          <p className="sidebar-foot muted small">All {SOURCES.length} source CSVs are embedded in this page. Nothing is uploaded anywhere.</p>
+          <p className="sidebar-foot muted small">All {SOURCES.length} source CSVs ({SOURCES.filter((x) => x.challenge === 'birds').length} bird, {SOURCES.filter((x) => x.challenge === 'vegetation').length} vegetation) are embedded in this page. Nothing is uploaded anywhere.</p>
         </nav>
 
         <main className="main">
@@ -240,11 +315,23 @@ export default function App() {
               <span>Parsing {SOURCES.length} CSV files…</span>
             </div>
           )}
+          {reg && summaryOf === 'birds' && <BirdsSummary reg={reg} tokens={tokens} onOpen={openView} />}
+          {reg && summaryOf === 'vegetation' && <VegetationSummary reg={reg} tokens={tokens} onOpen={openView} />}
           {ds && view && (
             <>
               <div className="ds-head">
-                <div className="ds-eyebrow has-tip" {...tip(GROUP_TIP[ds.group] ?? 'ds.group', true)}>
-                  {ds.group}
+                <div className="ds-eyebrow">
+                  {ds.challenge !== 'other' && (
+                    <>
+                      <button type="button" className="crumb" onClick={() => setCurrent(SUMMARY(ds.challenge as Challenge))}>
+                        Challenge {CHALLENGES[ds.challenge].number} · {CHALLENGES[ds.challenge].short}
+                      </button>
+                      <span className="crumb-sep">›</span>
+                    </>
+                  )}
+                  <span className="has-tip" {...tip(GROUP_TIP[ds.group] ?? 'ds.group', true)}>
+                    {ds.group}
+                  </span>
                 </div>
                 <h1>{ds.title}</h1>
                 <p className="ds-desc">{ds.description}</p>

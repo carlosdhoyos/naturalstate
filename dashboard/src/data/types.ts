@@ -47,6 +47,8 @@ export interface Dataset {
   id: string
   title: string
   group: string
+  /** Which take-home challenge the table belongs to ('other' for user-opened CSVs). */
+  challenge: 'birds' | 'vegetation' | 'other'
   file: string
   description: string
   /** Facts worth surfacing next to the data (e.g. join coverage). */
