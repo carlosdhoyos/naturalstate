@@ -19,6 +19,7 @@ export const HELP = {
   'nav.find': { label: 'Find a dataset', text: 'Type to filter the list by dataset title or file name.' },
   'app.challenge': { label: 'Challenge', text: 'Switch between the two parts of the take-home. Each challenge has its own summary page and only shows its own files in the sidebar.' },
   'nav.summary': { label: 'Summary', text: 'Landing page of the challenge: the task, headline numbers and how the files fit together — all computed from the CSVs.' },
+  'nav.method': { label: 'Methodology', text: 'How Wood & Kahl (2024) turn BirdNET scores into observations — the method Natural State uses — explained with interactive schematics on simulated data.' },
   'nav.birdfiles': { label: 'BirdNET files', text: 'The two bird files: every BirdNET prediction kept (score ≥ 0.1), and the clips an ornithologist checked by ear.' },
   'nav.submissions': { label: 'Field submissions (ODK forms)', text: 'What field teams recorded with the ODK app: plot registrations and herbaceous surveys. A form with repeated sections exports one table per repeat (quadrats, additional species), linked by KEY → PARENT_KEY.' },
   'nav.plots': { label: 'Plots & sampling design', text: 'Entity lists describing where to sample: prescribed centroids from the design, and plots as registered in the field.' },
@@ -179,7 +180,7 @@ export function tipText(text: string | undefined, title?: string): Record<string
 }
 
 export const GUIDE: { title: string; intro: string; keys: HelpKey[] }[] = [
-  { title: 'Header & navigation', intro: 'The top bar and the dataset list on the left.', keys: ['app.brand', 'app.challenge', 'app.author', 'app.theme', 'app.guide', 'nav.find', 'nav.summary', 'nav.birdfiles', 'nav.submissions', 'nav.plots', 'nav.taxonomy', 'nav.lookups', 'nav.uploaded', 'nav.counts', 'nav.upload'] },
+  { title: 'Header & navigation', intro: 'The top bar and the dataset list on the left.', keys: ['app.brand', 'app.challenge', 'app.author', 'app.theme', 'app.guide', 'nav.find', 'nav.summary', 'nav.method', 'nav.birdfiles', 'nav.submissions', 'nav.plots', 'nav.taxonomy', 'nav.lookups', 'nav.uploaded', 'nav.counts', 'nav.upload'] },
   { title: 'Challenge summaries', intro: 'Landing page of each challenge. Every number is computed from the CSVs.', keys: ['sum.b.preds', 'sum.b.vals', 'sum.b.species', 'sum.b.conf', 'sum.b.dates', 'sum.b.speciesTable', 'sum.b.coverage', 'sum.b.ecdf', 'sum.b.files', 'sum.v.surveys', 'sum.v.quadrats', 'sum.v.extra', 'sum.v.plots', 'sum.v.dates', 'sum.v.files', 'sum.v.joins'] },
   { title: 'Dataset header & tabs', intro: 'What you see at the top of every table.', keys: ['ds.group', 'ds.file', 'tab.overview', 'tab.explore', 'tab.table', 'tab.map'] },
   { title: 'Filters', intro: 'One filter bar scopes every tab of the current table.', keys: ['filter.count', 'filter.add', 'filter.chip', 'filter.clear', 'filter.range', 'filter.values', 'filter.text', 'filter.keepNull', 'filter.exclude', 'filter.datarange'] },

@@ -14,6 +14,12 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   - **Validation coverage by confidence band:** correct/validated, next to the number of predictions in each band.
   - A confidence ECDF per species.
   - The two files and how they relate.
+- **Birds methodology (Wood & Kahl 2024):** the paper's method, with interactive schematics.
+  - A clickable 9-step pipeline (BirdNET → validation → thresholding). Each step shows what the paper says next to where it appears in our data, with a "Show me" link.
+  - A logit ↔ confidence explorer with a compression ruler.
+  - Approach A, *review down to a threshold*.
+  - An Approach B simulator. You set the true score–accuracy curve, the sampling design (random / random + high / per band), the sample size and the target p. It draws validation clips, fits `logit(p) = β₀ + β·score` live, and solves the threshold with a delta-method 95% CI. It also shows the consequences: share of predictions labelled, their true precision, and recall. It reproduces perfect separation and unreachable targets. **The simulator uses synthetic data only.**
+  - The fitter (`src/lib/logistic.ts`, IRLS, same maximum-likelihood estimate as R's `glm(binomial)`) was checked on synthetic data: score equations ≈ 1e-15, it recovers the true coefficients, and the threshold CI covers the truth.
 - **Vegetation summary:**
   - Headline counts.
   - Every table, with what one row means.
@@ -87,6 +93,8 @@ src/
   charts/build.ts    ChartSpec + rows → Plotly figure + table twin + click-to-filter map
   charts/presets.ts  quick views per dataset
   charts/describe.ts "How to read this chart" sentence from the current settings
+  lib/logistic.ts    logistic regression (IRLS), threshold + delta-method CI, seeded RNG
+  components/Methodology.tsx  Wood & Kahl page and interactive schematics
   data/dictionary.ts column meanings (ODK form questions + documented formats)
   lib/help.ts        every tooltip and Guide entry (single source)
   components/        Overview, Explore, Table, Map, FilterBar, Plot wrapper, UI atoms

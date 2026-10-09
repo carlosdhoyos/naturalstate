@@ -7,6 +7,7 @@ import { MapView } from './components/MapView'
 import { ProfileView } from './components/ProfileView'
 import { TableView } from './components/TableView'
 import { GuidePanel, TooltipLayer } from './components/Help'
+import { Methodology } from './components/Methodology'
 import { BirdsSummary, VegetationSummary, type OpenView } from './components/Summary'
 import { Icon } from './components/ui'
 import { describeColumn } from './data/dictionary'
@@ -46,7 +47,12 @@ const GROUP_TIP: Record<string, HelpKey> = {
 }
 
 const SUMMARY = (c: Challenge) => `summary:${c}`
-const challengeOf = (id: string): Challenge | null => (id.startsWith('summary:') ? (id.slice(8) as Challenge) : null)
+const METHOD = 'method:birds'
+/** Pages that are not datasets: summary:<challenge>, method:birds. */
+const challengeOf = (id: string): Challenge | null => {
+  const m = /^(summary|method):(birds|vegetation)$/.exec(id)
+  return m ? (m[2] as Challenge) : null
+}
 
 function readHash(): { id?: string; tab?: Tab } {
   const [, id, tab] = window.location.hash.split('/')
@@ -265,11 +271,19 @@ export default function App() {
               <div className="nav-challenge-title">{CHALLENGES[challenge].title}</div>
             </div>
           </div>
-          <button type="button" className={`nav-item summary ${summaryOf ? 'on' : ''}`} {...tip('nav.summary')} onClick={() => { setCurrent(SUMMARY(challenge)); setNavOpen(false) }}>
+          <button type="button" className={`nav-item summary ${current === SUMMARY(challenge) ? 'on' : ''}`} {...tip('nav.summary')} onClick={() => { setCurrent(SUMMARY(challenge)); setNavOpen(false) }}>
             <span className="nav-item-title">
               <Icon name="grid" size={14} /> Summary
             </span>
           </button>
+          {challenge === 'birds' && (
+            <button type="button" className={`nav-item summary ${current === METHOD ? 'on' : ''}`} {...tip('nav.method')} onClick={() => { setCurrent(METHOD); setNavOpen(false) }}>
+              <span className="nav-item-title">
+                <Icon name="book" size={14} /> Methodology
+              </span>
+              <span className="nav-item-sub">Wood &amp; Kahl 2024</span>
+            </button>
+          )}
           <div className="search" {...tip('nav.find')}>
             <Icon name="search" size={14} />
             <input className="input bare" placeholder="Find a table…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -315,8 +329,9 @@ export default function App() {
               <span>Parsing {SOURCES.length} CSV files…</span>
             </div>
           )}
-          {reg && summaryOf === 'birds' && <BirdsSummary reg={reg} tokens={tokens} onOpen={openView} />}
-          {reg && summaryOf === 'vegetation' && <VegetationSummary reg={reg} tokens={tokens} onOpen={openView} />}
+          {reg && current === SUMMARY('birds') && <BirdsSummary reg={reg} tokens={tokens} onOpen={openView} />}
+          {reg && current === METHOD && <Methodology tokens={tokens} onOpen={openView} />}
+          {reg && current === SUMMARY('vegetation') && <VegetationSummary reg={reg} tokens={tokens} onOpen={openView} />}
           {ds && view && (
             <>
               <div className="ds-head">

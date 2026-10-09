@@ -329,7 +329,7 @@ function bucketize(
 
 // ── layout helpers ────────────────────────────────────────────────────────────
 
-function axisStyle(t: ThemeTokens): Record<string, unknown> {
+export function axisStyle(t: ThemeTokens): Record<string, unknown> {
   return {
     gridcolor: t.grid,
     linecolor: t.axis,
@@ -344,7 +344,7 @@ function axisStyle(t: ThemeTokens): Record<string, unknown> {
   }
 }
 
-function baseLayout(t: ThemeTokens): Record<string, unknown> {
+export function baseLayout(t: ThemeTokens): Record<string, unknown> {
   return {
     paper_bgcolor: t.surface,
     plot_bgcolor: t.surface,
