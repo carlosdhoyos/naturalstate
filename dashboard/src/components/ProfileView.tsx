@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from 'react'
 import { valueCounts } from '../data/filter'
 import { binEdges, binIndex, fmtDate, fmtDuration, fmtInt, fmtNum, fmtPct, summarize } from '../data/stats'
 import { NULL_KEY, type Column, type Dataset, type Row } from '../data/types'
+import { tip, tipText } from '../lib/help'
 import { Icon, Segmented, Stat, Toggle, TypeBadge, TYPE_NAME } from './ui'
 
 interface Props {
@@ -35,17 +36,19 @@ export function ProfileView({ ds, rows, onPlot, onFilter }: Props) {
   return (
     <div className="profile">
       <div className="stats-row">
-        <Stat label="Rows" value={fmtInt(rows.length)} sub={rows.length !== ds.rows.length ? `of ${fmtInt(ds.rows.length)} (filtered)` : 'all rows'} />
-        <Stat label="Columns" value={fmtInt(ds.columns.length - nDerived)} sub={nDerived ? `+ ${nDerived} derived` : 'from the CSV'} />
-        <Stat label="Empty cells" value={fmtPct(cells ? missing / cells : NaN)} sub={`${fmtInt(missing)} of ${fmtInt(cells)}`} />
-        <Stat label="Empty or constant columns" value={fmtInt(nBoring)} sub="ODK notes, unused fields" />
+        <Stat tipKey="kpi.rows" label="Rows" value={fmtInt(rows.length)} sub={rows.length !== ds.rows.length ? `of ${fmtInt(ds.rows.length)} (filtered)` : 'all rows'} />
+        <Stat tipKey="kpi.columns" label="Columns" value={fmtInt(ds.columns.length - nDerived)} sub={nDerived ? `+ ${nDerived} derived` : 'from the CSV'} />
+        <Stat tipKey="kpi.empty" label="Empty cells" value={fmtPct(cells ? missing / cells : NaN)} sub={`${fmtInt(missing)} of ${fmtInt(cells)}`} />
+        <Stat tipKey="kpi.boring" label="Empty or constant columns" value={fmtInt(nBoring)} sub="ODK notes, unused fields" />
       </div>
 
       {ds.notes.length > 0 && (
         <div className="notes">
           {ds.notes.map((n) => (
             <div key={n} className="note">
-              <Icon name="info" size={16} />
+              <span {...tip('ov.notes')} className="note-icon">
+                <Icon name="info" size={16} />
+              </span>
               <span>{n}</span>
             </div>
           ))}
@@ -53,7 +56,7 @@ export function ProfileView({ ds, rows, onPlot, onFilter }: Props) {
       )}
 
       <div className="toolbar">
-        <div className="search">
+        <div className="search" {...tip('ov.search')}>
           <Icon name="search" size={14} />
           <input className="input bare" placeholder="Search columns…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
@@ -62,13 +65,13 @@ export function ProfileView({ ds, rows, onPlot, onFilter }: Props) {
           value={sort}
           onChange={setSort}
           options={[
-            { value: 'file', label: 'File order' },
-            { value: 'missing', label: 'Most empty' },
-            { value: 'distinct', label: 'Most distinct' },
+            { value: 'file', label: 'File order', title: 'Columns in the order they appear in the CSV.' },
+            { value: 'missing', label: 'Most empty', title: 'Least complete columns first — where data is missing.' },
+            { value: 'distinct', label: 'Most distinct', title: 'Columns with the most different values first (ids, free text, measurements).' },
           ]}
         />
         <span className="grow" />
-        <Toggle checked={hideBoring} onChange={setHideBoring} label={`Hide empty & constant (${nBoring})`} />
+        <Toggle tipKey="ov.hide" checked={hideBoring} onChange={setHideBoring} label={`Hide empty & constant (${nBoring})`} />
       </div>
 
       <div className="card-grid">
@@ -89,30 +92,32 @@ const ColumnCard = memo(function ColumnCard({ col, rows, onPlot, onFilter }: { c
       <header>
         <TypeBadge type={col.type} />
         <div className="col-card-title">
-          <h3 title={col.name}>{col.label}</h3>
-          <div className="col-card-sub" title={col.name}>
+          <h3 className={col.description ? 'has-tip' : ''} {...tipText(col.description ? `${col.description}\n\nCSV column: ${col.name}` : `CSV column: ${col.name}`, col.label)} tabIndex={0}>
+            {col.label}
+          </h3>
+          <div className="col-card-sub" {...tip(col.derived ? 'c.derived' : 'card.section')}>
             {col.derived ? 'derived · ' : ''}
             {col.section || TYPE_NAME[col.type]}
           </div>
         </div>
         <div className="col-card-actions">
-          <button type="button" className="icon-btn" title="Plot this column" onClick={() => onPlot(col)}>
+          <button type="button" className="icon-btn" {...tip('card.plot')} aria-label="Plot this column" onClick={() => onPlot(col)}>
             <Icon name="chart" size={15} />
           </button>
-          <button type="button" className="icon-btn" title="Filter on this column" onClick={() => onFilter(col)}>
+          <button type="button" className="icon-btn" {...tip('card.filter')} aria-label="Filter on this column" onClick={() => onFilter(col)}>
             <Icon name="filter" size={15} />
           </button>
         </div>
       </header>
-      {col.description && <p className="col-card-desc">{col.description}</p>}
+      {col.description && <p className="col-card-desc">{col.description.split('\n')[0]}</p>}
       <div className="col-card-meta">
-        <span>
+        <span {...tip('card.values')}>
           <b>{fmtInt(nonNull)}</b> values
         </span>
-        <span className={missingShare > 0 ? 'warn-text' : ''}>
+        <span className={missingShare > 0 ? 'warn-text' : ''} {...tip('card.empty')}>
           <b>{fmtPct(missingShare, 0)}</b> empty
         </span>
-        <span>
+        <span {...tip('card.distinct')}>
           <b>{fmtInt(col.distinct)}</b> distinct
         </span>
       </div>
@@ -133,29 +138,29 @@ function ColumnBody({ col, rows }: { col: Column; rows: Row[] }) {
           <Spark values={v} />
           <dl className="mini-stats">
             <div>
-              <dt>min</dt>
+              <dt {...tip('stat.min')}>min</dt>
               <dd>{f(s.min)}</dd>
             </div>
             <div>
-              <dt>median</dt>
+              <dt {...tip('stat.median')}>median</dt>
               <dd>{f(s.median)}</dd>
             </div>
             <div>
-              <dt>max</dt>
+              <dt {...tip('stat.max')}>max</dt>
               <dd>{f(s.max)}</dd>
             </div>
             {col.type === 'number' ? (
               <>
                 <div>
-                  <dt>mean</dt>
+                  <dt {...tip('stat.mean')}>mean</dt>
                   <dd>{fmtNum(s.mean)}</dd>
                 </div>
                 <div>
-                  <dt>sd</dt>
+                  <dt {...tip('stat.sd')}>sd</dt>
                   <dd>{fmtNum(s.sd)}</dd>
                 </div>
                 <div>
-                  <dt>IQR</dt>
+                  <dt {...tip('stat.iqr')}>IQR</dt>
                   <dd>
                     {fmtNum(s.q1)} – {fmtNum(s.q3)}
                   </dd>
@@ -163,7 +168,7 @@ function ColumnBody({ col, rows }: { col: Column; rows: Row[] }) {
               </>
             ) : (
               <div className="span-3">
-                <dt>span</dt>
+                <dt {...tip('stat.span')}>span</dt>
                 <dd>{fmtDuration(s.max - s.min)} (UTC)</dd>
               </div>
             )}
@@ -177,7 +182,7 @@ function ColumnBody({ col, rows }: { col: Column; rows: Row[] }) {
     const top = counts.slice(0, col.type === 'text' ? 4 : 6)
     const maxN = top[0][1]
     return (
-      <div className="topk">
+      <div className="topk" {...tip('card.topk')}>
         {top.map(([k, n]) => (
           <div key={k} className="topk-row" title={`${k}: ${n}`}>
             <span className="topk-label">{k}</span>
@@ -217,7 +222,7 @@ function Spark({ values }: { values: number[] }) {
   const H = 44
   const bw = W / n.length
   return (
-    <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Distribution">
+    <svg {...tip('card.spark')} className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Distribution">
       <line x1={0} x2={W} y1={H - 0.5} y2={H - 0.5} className="spark-base" />
       {n.map((c, i) => {
         const h = top ? (c / top) * (H - 2) : 0

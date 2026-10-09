@@ -6,13 +6,16 @@ import { FilterBar } from './components/FilterBar'
 import { MapView } from './components/MapView'
 import { ProfileView } from './components/ProfileView'
 import { TableView } from './components/TableView'
+import { GuidePanel, TooltipLayer } from './components/Help'
 import { Icon } from './components/ui'
+import { describeColumn } from './data/dictionary'
 import { enrichAll } from './data/enrich'
 import { applyFilters, isDiscrete, newId, type Filter } from './data/filter'
 import { buildDataset, parseCsv } from './data/load'
 import { GROUPS, SOURCES } from './data/registry'
 import { fmtInt } from './data/stats'
 import type { Column, Dataset } from './data/types'
+import { tip, type HelpKey } from './lib/help'
 import { load, save } from './lib/storage'
 import { useTheme, type ThemePref } from './lib/theme'
 
@@ -26,8 +29,17 @@ interface ViewState {
 function loadAll(): Map<string, Dataset> {
   const reg = new Map<string, Dataset>()
   for (const s of SOURCES) reg.set(s.id, buildDataset({ id: s.id, title: s.title, group: s.group, file: `${s.folder}/${s.file}`, description: s.description }, parseCsv(s.text)))
+  // Attach the data dictionary (form questions, file formats) to every source column.
+  for (const ds of reg.values()) for (const c of ds.columns) if (!c.derived) c.description = describeColumn(ds.id, c.name)
   enrichAll(reg)
   return reg
+}
+
+const GROUP_TIP: Record<string, HelpKey> = {
+  Birds: 'nav.birds',
+  'Vegetation · ODK exports': 'nav.odk',
+  'Vegetation · Entity lists': 'nav.entities',
+  Uploaded: 'nav.uploaded',
 }
 
 function readHash(): { id?: string; tab?: Tab } {
@@ -53,6 +65,7 @@ export default function App() {
   })
   const [filterRequest, setFilterRequest] = useState<{ column: string; nonce: number } | null>(null)
   const [navOpen, setNavOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const [q, setQ] = useState('')
 
   // Parse after first paint so the loading state is visible.
@@ -152,7 +165,7 @@ export default function App() {
         <button type="button" className="icon-btn nav-toggle" aria-label="Datasets" onClick={() => setNavOpen(!navOpen)}>
           <Icon name="grid" />
         </button>
-        <div className="brand">
+        <div className="brand" {...tip('app.brand', true)}>
           <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden>
             <rect width="32" height="32" rx="9" />
             <path d="M6 19c3.2-8 6.8-8 10 0s6.8 8 10 0" />
@@ -163,13 +176,16 @@ export default function App() {
           </div>
         </div>
         <div className="topbar-right">
-          <div className="author">
+          <button type="button" className="guide-btn" {...tip('app.guide')} onClick={() => setGuideOpen(true)}>
+            <Icon name="book" size={15} /> Guide
+          </button>
+          <div className="author" {...tip('app.author')}>
             <span className="author-name">Carlos Hoyos</span>
             <span className="author-sub">Birds &amp; vegetation challenges</span>
           </div>
-          <div className="theme-switch" role="radiogroup" aria-label="Theme">
+          <div className="theme-switch" role="radiogroup" aria-label="Theme" {...tip('app.theme')}>
             {(['light', 'system', 'dark'] as ThemePref[]).map((p) => (
-              <button key={p} type="button" role="radio" aria-checked={pref === p} className={pref === p ? 'on' : ''} title={`${p[0].toUpperCase()}${p.slice(1)} theme`} onClick={() => setPref(p)}>
+              <button key={p} type="button" role="radio" aria-checked={pref === p} className={pref === p ? 'on' : ''} aria-label={`${p[0].toUpperCase()}${p.slice(1)} theme`} onClick={() => setPref(p)}>
                 <Icon name={p === 'light' ? 'sun' : p === 'dark' ? 'moon' : 'auto'} size={14} />
               </button>
             ))}
@@ -179,13 +195,15 @@ export default function App() {
 
       <div className="shell">
         <nav className={`sidebar ${navOpen ? 'open' : ''}`} aria-label="Datasets">
-          <div className="search">
+          <div className="search" {...tip('nav.find')}>
             <Icon name="search" size={14} />
             <input className="input bare" placeholder="Find a dataset…" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           {groups.map((g) => (
             <div key={g.group} className="nav-group">
-              <div className="nav-group-title">{g.group}</div>
+              <div className="nav-group-title has-tip" {...tip(GROUP_TIP[g.group] ?? 'nav.birds', true)}>
+                {g.group}
+              </div>
               {g.items.map((d) => (
                 <button
                   key={d.id}
@@ -195,10 +213,11 @@ export default function App() {
                     setCurrent(d.id)
                     setNavOpen(false)
                   }}
-                  title={d.file}
+                  data-tip={`${d.description}\n\n${d.file}`}
+                  data-tip-title={d.title}
                 >
                   <span className="nav-item-title">{d.title}</span>
-                  <span className="nav-item-sub">
+                  <span className="nav-item-sub" {...tip('nav.counts')}>
                     {fmtInt(d.rows.length)} × {d.columns.filter((c) => !c.derived).length}
                     {(views[d.id]?.filters?.length ?? 0) > 0 && <span className="dot" title="Has active filters" />}
                   </span>
@@ -206,7 +225,7 @@ export default function App() {
               ))}
             </div>
           ))}
-          <label className="btn ghost sm upload">
+          <label className="btn ghost sm upload" {...tip('nav.upload')}>
             <Icon name="upload" size={14} /> Open another CSV…
             <input type="file" accept=".csv,text/csv" hidden onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])} />
           </label>
@@ -224,10 +243,14 @@ export default function App() {
           {ds && view && (
             <>
               <div className="ds-head">
-                <div className="ds-eyebrow">{ds.group}</div>
+                <div className="ds-eyebrow has-tip" {...tip(GROUP_TIP[ds.group] ?? 'ds.group', true)}>
+                  {ds.group}
+                </div>
                 <h1>{ds.title}</h1>
                 <p className="ds-desc">{ds.description}</p>
-                <code className="ds-file">{ds.file}</code>
+                <code className="ds-file has-tip" {...tip('ds.file', true)}>
+                  {ds.file}
+                </code>
               </div>
               <div className="tabs" role="tablist">
                 {(
@@ -238,7 +261,7 @@ export default function App() {
                     ...(ds.geo.length ? [['map', 'Map', 'map']] : []),
                   ] as [Tab, string, 'grid'][]
                 ).map(([t, label, icon]) => (
-                  <button key={t} type="button" role="tab" aria-selected={view.tab === t} className={`tab ${view.tab === t ? 'on' : ''}`} onClick={() => update({ tab: t })}>
+                  <button key={t} type="button" role="tab" aria-selected={view.tab === t} className={`tab ${view.tab === t ? 'on' : ''}`} {...tip(`tab.${t}` as HelpKey)} onClick={() => update({ tab: t })}>
                     <Icon name={icon} size={15} /> {label}
                   </button>
                 ))}
@@ -252,6 +275,8 @@ export default function App() {
               </div>
             </>
           )}
+          <GuidePanel open={guideOpen} onClose={() => setGuideOpen(false)} />
+          <TooltipLayer />
           <footer className="footer muted small">
             Built by Carlos Hoyos for the Natural State take-home. Source data is shown as provided: derived columns are marked, and nothing is corrected.
           </footer>

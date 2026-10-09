@@ -4,6 +4,7 @@ import { fmtNum } from '../data/stats'
 import { NULL_KEY, type Dataset, type Row } from '../data/types'
 import { MAX_SERIES, OTHER, SERIES, type ThemeTokens } from '../lib/palette'
 import { Plot } from './Plot'
+import { tip } from '../lib/help'
 import { ColumnSelect, Field, Segmented, Toggle } from './ui'
 
 type Basemap = 'light' | 'dark' | 'satellite' | 'streets' | 'none'
@@ -122,7 +123,9 @@ export function MapView({ ds, rows, tokens }: { ds: Dataset; rows: Row[]; tokens
     <div className="mapview">
       <aside className="controls">
         <div className="control-group">
-          <div className="field-label">Layers</div>
+          <div className="field-label has-tip" {...tip('map.layers', true)}>
+            Layers
+          </div>
           {ds.paths.map((p) => (
             <Toggle key={p.id} checked={!!on[p.id]} onChange={(v) => setOn({ ...on, [p.id]: v })} label={p.label} />
           ))}
@@ -131,25 +134,25 @@ export function MapView({ ds, rows, tokens }: { ds: Dataset; rows: Row[]; tokens
           ))}
         </div>
         <div className="control-group">
-          <Field label="Color by">
+          <Field label="Color by" tipKey="map.color">
             <ColumnSelect columns={ds.columns.filter((c) => isDiscrete(c) && c.distinct > 1)} value={color} onChange={setColor} allowNone noneLabel="— by layer —" />
           </Field>
-          <Field label="Basemap">
+          <Field label="Basemap" tipKey="map.basemap">
             <Segmented
               size="sm"
               value={basemap}
               onChange={setBasemap}
               options={[
-                { value: 'light', label: 'Light' },
-                { value: 'dark', label: 'Dark' },
-                { value: 'satellite', label: 'Satellite' },
-                { value: 'streets', label: 'Streets' },
-                { value: 'none', label: 'None' },
+                { value: 'light', label: 'Light', title: 'CARTO Positron — quiet grey basemap.' },
+                { value: 'dark', label: 'Dark', title: 'CARTO Dark Matter.' },
+                { value: 'satellite', label: 'Satellite', title: 'Esri World Imagery — see vegetation, tracks and clearings.' },
+                { value: 'streets', label: 'Streets', title: 'OpenStreetMap standard tiles.' },
+                { value: 'none', label: 'None', title: 'No background: points only (works offline).' },
               ]}
             />
           </Field>
         </div>
-        <p className="muted small">
+        <p className="muted small has-tip" {...tip('map.how', true)}>
           {fig.points.toLocaleString('en-US')} points from the filtered rows. Basemap tiles load from the internet; points and transects draw offline.
         </p>
       </aside>

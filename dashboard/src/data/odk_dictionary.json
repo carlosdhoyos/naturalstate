@@ -1,0 +1,794 @@
+{
+ "herbaceous_veg_survey": {
+  "note_overview": {
+   "type": "note",
+   "label": "This form is to be used by field data teams to capture data according to the PVN herbaceous vegetation protocol. Refer to the appropriate Standard Operating Procedures to guide you through the data collection process. Complete this form before leaving the plot Refrain from using *Save as Draft* and select *Send* when you have finished collecting your data. 💡 Tip To remove a selection in ODK Collect, press and hold down on the question text to *Remove response*."
+  },
+  "field_team_specifics-selected_transport_type_uuid": {
+   "type": "select_one transport.csv",
+   "label": "Select the the mode of transport:",
+   "choices_from": "transport.csv"
+  },
+  "field_team_specifics-transport_type_label": {
+   "type": "calculate",
+   "calc": "instance(\"transport\")/root/item[name = ${selected_transport_type_uuid}]/label"
+  },
+  "field_team_specifics-selected_project_team_uuid_multi": {
+   "type": "select_multiple_from_file project_team.csv",
+   "label": "Select all the team members involved in this collection activity:",
+   "choices_from": "project_team.csv"
+  },
+  "field_team_specifics-recorder_uuid": {
+   "type": "select_one_from_file project_team.csv",
+   "label": "Who is recording the data:",
+   "choices_from": "project_team.csv"
+  },
+  "field_team_specifics-recorder_label": {
+   "type": "calculate",
+   "calc": "instance(\"project_team\")/root/item[name = ${recorder_uuid}]/label"
+  },
+  "survey_begin-start_time": {
+   "type": "start",
+   "label": "Start time"
+  },
+  "survey_begin-survey_year": {
+   "type": "calculate",
+   "calc": "format-date(${start_time}, '%Y')"
+  },
+  "survey_begin-selected_survey_uuid": {
+   "type": "select_one_from_file surveys.csv",
+   "label": "Select a Survey:",
+   "choices_from": "surveys.csv"
+  },
+  "survey_begin-get_survey_label": {
+   "type": "calculate",
+   "calc": "instance('surveys')/root/item[selected(${selected_survey_uuid}, name)]/label"
+  },
+  "survey_begin-project_label": {
+   "type": "calculate",
+   "calc": "instance(\"surveys\")/root/item[name = ${selected_survey_uuid}]/project_label"
+  },
+  "survey_begin-project_abbr": {
+   "type": "calculate",
+   "calc": "instance(\"surveys\")/root/item[name = ${selected_survey_uuid}]/project_abbr"
+  },
+  "survey_begin-area_label": {
+   "type": "calculate",
+   "calc": "instance(\"surveys\")/root/item[name = ${selected_survey_uuid}]/area_label"
+  },
+  "survey_begin-baseline_year": {
+   "type": "calculate",
+   "calc": "instance(\"surveys\")/root/item[name = ${selected_survey_uuid}]/baseline_year"
+  },
+  "survey_begin-replicate_index": {
+   "type": "calculate",
+   "calc": "${survey_year} - ${baseline_year}"
+  },
+  "survey_begin-replicate": {
+   "type": "calculate",
+   "calc": "if(\n  ${replicate_index} != '' and ${area_label} != '', \n  if(\n    ${replicate_index} = 0, \n    concat(${area_label}, '_baseline'), \n    concat(${area_label}, '_yr', ${replicate_index})\n  ), \n  ''\n)"
+  },
+  "survey_begin-survey_type": {
+   "type": "calculate",
+   "calc": "instance(\"surveys\")/root/item[name=${selected_survey_uuid}]/survey_type_label"
+  },
+  "survey_begin-target_group": {
+   "type": "calculate",
+   "calc": "instance(\"surveys\")/root/item[name=${selected_survey_uuid}]/target_group"
+  },
+  "survey_begin-note_parent_labels": {
+   "type": "note",
+   "label": "Project Name: ${project_label} Project Area: ${area_label} Survey Type: ${survey_type} Target Group: ${target_group} Replicate: ${replicate}"
+  },
+  "plot_selection-selected_plot_uuid": {
+   "type": "select_one_from_file vegplots.csv",
+   "label": "Select the Vegetation Plot. This is the transect registered in the field:",
+   "hint": "If you do not see the plot you are looking for, it may mean that the plot has not been registered. See form Register, Vegetation Plots",
+   "choices_from": "vegplots.csv"
+  },
+  "plot_selection-plot_name": {
+   "type": "calculate",
+   "calc": "instance('vegplots')/root/item[name = ${selected_plot_uuid}]/label"
+  },
+  "plot_selection-get_plot_status": {
+   "type": "calculate",
+   "calc": "instance('vegplots')/root/item[name = ${selected_plot_uuid}]/plot_status"
+  },
+  "plot_selection-plot_status": {
+   "type": "note",
+   "label": "Plot Status: ${get_plot_status}"
+  },
+  "plot_selection-quadrat_note": {
+   "type": "note",
+   "label": "You are now ready to begin collecting quadrat observations. Note that 20 quadrats are required to submit the form."
+  },
+  "base_active_herb_count": {
+   "type": "calculate",
+   "calc": "count(instance('species_extra')/root/item[choice_status = 'active' and group_type = 'herb'])"
+  },
+  "new_unknown_index_list": {
+   "type": "calculate",
+   "calc": "join('|', /data/observations/quadrat_repeat/additional_species_repeat[species_entry_mode = 'new_unknown']/assigned_unknown_index)"
+  },
+  "new_missing_index_list": {
+   "type": "calculate",
+   "calc": "join('|', /data/observations/quadrat_repeat/additional_species_repeat[species_entry_mode = 'new_missing']/assigned_unknown_index)"
+  },
+  "survey_end-quadrats_with_species": {
+   "type": "calculate",
+   "calc": "count(/data/observations/quadrat_repeat[selected_herb_species_uuids != '' or count(additional_species_repeat/validated_name[. != '']) > 0])"
+  },
+  "survey_end-quadrat_check_heading": {
+   "type": "note",
+   "label": "Activity Summary"
+  },
+  "survey_end-quadrat_check": {
+   "type": "note",
+   "label": "Of 20 quadrats: ${quadrats_with_species} had species recorded."
+  },
+  "survey_end-background_geopoint": {
+   "type": "background-geopoint"
+  },
+  "survey_end-note_field_submission": {
+   "type": "note",
+   "label": "To avoid data loss and mistakes, Send your completed form now. When an internet connection is available, sync to ODK Central."
+  },
+  "survey_end-confirm_submission": {
+   "type": "select_one yes_no",
+   "label": "Are you sure that the data entered is complete and correct?",
+   "hint": "Select 'no' if you think you may still get new information.",
+   "choices": [
+    [
+     "no",
+     "No"
+    ],
+    [
+     "yes",
+     "Yes"
+    ]
+   ]
+  },
+  "survey_end-herbaceous_veg_notes": {
+   "type": "text",
+   "label": "Provide any relevant details not captured above:"
+  }
+ },
+ "herbaceous_veg_survey-quadrat_repeat": {
+  "quadrat_number": {
+   "type": "calculate",
+   "label": "Quadrat Number",
+   "calc": "position(..)"
+  },
+  "note_new_quadrat": {
+   "type": "note",
+   "label": "Move to Quadrat ${quadrat_number}"
+  },
+  "herbs_present": {
+   "type": "select_one yes_no",
+   "label": "Are there any herbaceous species present?",
+   "hint": "grasses, forbs, sedges, non-woody succulents",
+   "choices": [
+    [
+     "no",
+     "No"
+    ],
+    [
+     "yes",
+     "Yes"
+    ]
+   ]
+  },
+  "herb_species-all_unknown_unidentifiable": {
+   "type": "select_one yes_no",
+   "label": "Are ALL of the specimens either unidentifiable or missing from the list below?",
+   "hint": "Approved species list only.",
+   "choices": [
+    [
+     "no",
+     "No"
+    ],
+    [
+     "yes",
+     "Yes"
+    ]
+   ]
+  },
+  "herb_species-selected_herb_species_uuids": {
+   "type": "select_multiple species.csv",
+   "label": "Select ALL of the species present:",
+   "hint": "Press and hold down on the question to *Remove response*",
+   "choices_from": "species.csv"
+  },
+  "herb_species-count_herb_species": {
+   "type": "calculate",
+   "calc": "count-selected(${selected_herb_species_uuids})"
+  },
+  "herb_species-note_herb_species_count": {
+   "type": "note",
+   "label": "${count_herb_species} species selected"
+  },
+  "additional_species_present": {
+   "type": "select_one yes_no",
+   "label": "Are there any species present in the quadrat that are not included in the provided species list, or that you cannot identify?",
+   "hint": "Includes unknowns and species missing from the list",
+   "choices": [
+    [
+     "no",
+     "No"
+    ],
+    [
+     "yes",
+     "Yes"
+    ]
+   ]
+  },
+  "species_list-known_species_list": {
+   "type": "calculate",
+   "calc": "if(${selected_herb_species_uuids} != '', join('<br/>', instance('species')/root/item[selected(${selected_herb_species_uuids}, name)]/label), '')"
+  },
+  "species_list-additional_species_list": {
+   "type": "calculate",
+   "calc": "join('<br/>', ${validated_name}[. != ''])"
+  },
+  "species_list-all_species_list": {
+   "type": "calculate",
+   "calc": "if(${known_species_list} != '' and ${additional_species_list} != '', concat(${known_species_list}, '<br/>', ${additional_species_list}), coalesce(${known_species_list}, ${additional_species_list}))"
+  },
+  "species_list-note_species_summary_heading": {
+   "type": "note",
+   "label": "Quadrat ${quadrat_number} — Species recorded:"
+  },
+  "species_list-note_species_list": {
+   "type": "note",
+   "label": "Known:${known_species_list} Additional:${additional_species_list}"
+  },
+  "quadrat_image": {
+   "type": "image",
+   "label": "Take a photograph of the quadrat from above, including the entire quadrat in the field of view of the camera.",
+   "hint": "Avoid casting a shadow over the quadrat if possible."
+  },
+  "location_quadrat": {
+   "type": "geopoint",
+   "label": "Record current location standing over the quadrat"
+  },
+  "quadrat_comment": {
+   "type": "text",
+   "label": "Add any details that should be noted about this specific quadrat in order to properly interpret the data?",
+   "hint": "Optional"
+  }
+ },
+ "herbaceous_veg_survey-additional_species_repeat": {
+  "observation_index": {
+   "type": "calculate",
+   "calc": "position(..)"
+  },
+  "species_entry_mode": {
+   "type": "select_one species_entry_mode",
+   "label": "How do you want to record this species?",
+   "hint": "Choose the option that matches the specimen in front of you.",
+   "choices": [
+    [
+     "new_unknown",
+     "Register a new Unknown — this specimen can't be identified and hasn't been recorded yet"
+    ],
+    [
+     "reuse_unknown",
+     "Reuse an unknown — already activated in this or a previous submission"
+    ],
+    [
+     "new_missing",
+     "Add a missing species — canonical name not in the provided list"
+    ],
+    [
+     "reuse_missing",
+     "Reuse a missing species — already activated in this or a previous submission"
+    ]
+   ]
+  },
+  "count_prior_new_in_submission": {
+   "type": "calculate",
+   "calc": "count(/data/observations/quadrat_repeat[quadrat_number < current()/../../quadrat_number]/additional_species_repeat[species_entry_mode = 'new_unknown' or species_entry_mode = 'new_missing']) + count(../../additional_species_repeat[position() < position(current()/..)][species_entry_mode = 'new_unknown' or species_entry_mode = 'new_missing'])"
+  },
+  "target_extra_name": {
+   "type": "calculate",
+   "calc": "instance('species_extra')/root/item[choice_status='inactive' and group_type='herb'][position() = (number(${count_prior_new_in_submission}) + 1)]/name"
+  },
+  "assigned_unknown_index": {
+   "type": "calculate",
+   "calc": "int(${base_active_herb_count}) + int(${count_prior_new_in_submission}) + 1"
+  },
+  "auto_new_unknown_label": {
+   "type": "calculate",
+   "calc": "instance('species_extra')/root/item[name = ${target_extra_name}]/label"
+  },
+  "note_new_unknown": {
+   "type": "note",
+   "label": "New Record: ${auto_new_unknown_label} This is the entity name. Use it consistently in all plots for the same specimen."
+  },
+  "select_reuse_unknown": {
+   "type": "select_one_from_file species_extra.csv",
+   "label": "Select the unknown to reuse",
+   "hint": "Lists unknowns already activated in this submission. No typing.",
+   "choices_from": "species_extra.csv"
+  },
+  "reused_unknown_label": {
+   "type": "calculate",
+   "calc": "instance('species_extra')/root/item[name = ${select_reuse_unknown}]/label"
+  },
+  "note_reuse_unknown": {
+   "type": "note",
+   "label": "Linked to ${reused_unknown_label}"
+  },
+  "auto_new_missing_label": {
+   "type": "calculate",
+   "calc": "instance('species_extra')/root/item[name = ${target_extra_name}]/label"
+  },
+  "new_missing_canonical": {
+   "type": "text",
+   "label": "Input the canonical species name not included in the herbaceous species list:",
+   "hint": "e.g. *Chloris virgata*"
+  },
+  "note_new_missing": {
+   "type": "note",
+   "label": "Important You recorded ${new_missing_canonical} as a new missing species. It has been assigned the entity ID ${auto_new_missing_label}. If you encounter this species again in another quadrat in THIS PLOT (during this submission), you will see it listed as ${auto_new_missing_label} in the reuse picker — *not* by its canonical name. The canonical name is saved and will appear future plots after submission of this form."
+  },
+  "select_reuse_missing": {
+   "type": "select_one_from_file species_extra.csv",
+   "label": "Select the missing species to reuse",
+   "hint": "Lists missing-species entries already activated in this submission. No typing.",
+   "choices_from": "species_extra.csv"
+  },
+  "reused_missing_label": {
+   "type": "calculate",
+   "calc": "if(/data/observations/quadrat_repeat/additional_species_repeat[target_extra_name = ${select_reuse_missing} and species_entry_mode = 'new_missing']/new_missing_canonical != '', concat(instance('species_extra')/root/item[name = ${select_reuse_missing}]/label, ' (', /data/observations/quadrat_repeat/additional_species_repeat[target_extra_name = ${select_reuse_missing} and species_entry_mode = 'new_missing']/new_missing_canonical, ')'), instance('species_extra')/root/item[name = ${select_reuse_missing}]/label)"
+  },
+  "note_reuse_missing": {
+   "type": "note",
+   "label": "Linked to ${reused_missing_label}"
+  },
+  "validated_name": {
+   "type": "calculate",
+   "calc": "if(${species_entry_mode} = 'new_unknown', ${auto_new_unknown_label}, if(${species_entry_mode} = 'reuse_unknown', ${reused_unknown_label}, if(${species_entry_mode} = 'new_missing', concat(${auto_new_missing_label}, ' (', ${new_missing_canonical}, ')'), ${reused_missing_label})))"
+  },
+  "entity_label_to_write": {
+   "type": "calculate",
+   "calc": "if(${species_entry_mode} = 'new_missing', ${new_missing_canonical}, instance('species_extra')/root/item[name = ${target_extra_name}]/label)"
+  },
+  "review_status": {
+   "type": "calculate",
+   "calc": "if(${species_entry_mode} = 'new_unknown' or ${species_entry_mode} = 'new_missing', 'pending', '')"
+  },
+  "new_record_reason": {
+   "type": "calculate",
+   "calc": "if(${species_entry_mode} = 'new_unknown', 'unknown_species', if(${species_entry_mode} = 'new_missing', 'missing_species', ''))"
+  },
+  "write_choice_status": {
+   "type": "calculate",
+   "calc": "'active'"
+  },
+  "macro_images-note_images": {
+   "type": "note",
+   "label": "Take at least one close-up photograph of the herbaceous plant to capture the leaf arrangement, flowers, seeds, etc. Highly recommended for all species without an existing high-performing classifier and required if marked as unknown.",
+   "hint": "One photo required for unknowns. Max. five images"
+  },
+  "macro_images-macro_1": {
+   "type": "image",
+   "label": "Image 1"
+  },
+  "macro_images-macro_2": {
+   "type": "image",
+   "label": "Image 2"
+  },
+  "macro_images-macro_3": {
+   "type": "image",
+   "label": "Image 3"
+  },
+  "macro_images-macro_4": {
+   "type": "image",
+   "label": "Image 4"
+  },
+  "macro_images-macro_5": {
+   "type": "image",
+   "label": "Image 5"
+  }
+ },
+ "register_vegetation_plots": {
+  "note_overview": {
+   "type": "note",
+   "label": "This form is to be used by field data teams to establish vegetation plots that will be sampled according to the PVN herbaceous vegetation and/or woody vegetation protocol. Refer to the appropriate Standard Operating Procedures to guide you through the data collection process. Complete this form before leaving the plot. Refrain from using *Save as Draft* and select *Send* when you have finished collecting your data."
+  },
+  "field_team_specifics-selected_transport_type_uuid": {
+   "type": "select_one transport.csv",
+   "label": "Select the the mode of transport:",
+   "choices_from": "transport.csv"
+  },
+  "field_team_specifics-transport_type_label": {
+   "type": "calculate",
+   "calc": "instance(\"transport\")/root/item[name = ${selected_transport_type_uuid}]/label"
+  },
+  "field_team_specifics-selected_project_team_uuid_multi": {
+   "type": "select_multiple_from_file project_team.csv",
+   "label": "Select all the team members involved in this collection activity:",
+   "choices_from": "project_team.csv"
+  },
+  "field_team_specifics-recorder_uuid": {
+   "type": "select_one_from_file project_team.csv",
+   "label": "Who is recording the data:",
+   "choices_from": "project_team.csv"
+  },
+  "field_team_specifics-recorder_label": {
+   "type": "calculate",
+   "calc": "instance(\"project_team\")/root/item[name = ${recorder_uuid}]/label"
+  },
+  "field_team_specifics-default_survey_uuids": {
+   "type": "calculate",
+   "calc": "join(' ', instance('surveys')/root/item[target_parent_taxon = 'plants']/name)"
+  },
+  "survey_begin-start_time": {
+   "type": "start",
+   "label": "Start time"
+  },
+  "survey_begin-survey_year": {
+   "type": "calculate",
+   "calc": "format-date(${start_time}, '%Y')"
+  },
+  "survey_begin-selected_survey_uuid_multi": {
+   "type": "select_multiple_from_file surveys.csv",
+   "label": "Select the vegetation survey(s) that will occur in this plot:",
+   "calc": "join(' ', instance('surveys')/root/item[target_parent_taxon = 'plants']/name)",
+   "choices_from": "surveys.csv"
+  },
+  "survey_begin-get_survey_label_multi": {
+   "type": "calculate",
+   "calc": "join(' ', instance('surveys')/root/item[selected(${selected_survey_uuid_multi}, name)]/label)"
+  },
+  "survey_begin-project_label": {
+   "type": "calculate",
+   "calc": "instance(\"surveys\")/root/item[name = selected-at(${selected_survey_uuid_multi}, 0)]/project_label"
+  },
+  "survey_begin-project_abbr": {
+   "type": "calculate",
+   "calc": "instance(\"surveys\")/root/item[name = selected-at(${selected_survey_uuid_multi}, 0)]/project_abbr"
+  },
+  "survey_begin-area_label": {
+   "type": "calculate",
+   "calc": "instance(\"surveys\")/root/item[name = selected-at(${selected_survey_uuid_multi}, 0)]/area_label"
+  },
+  "survey_begin-baseline_year": {
+   "type": "calculate",
+   "calc": "instance(\"surveys\")/root/item[name = selected-at(${selected_survey_uuid_multi}, 0)]/baseline_year"
+  },
+  "survey_begin-replicate_index": {
+   "type": "calculate",
+   "calc": "if(${selected_survey_uuid_multi} = '', '', number(${survey_year}) - number(${baseline_year}))"
+  },
+  "survey_begin-replicate": {
+   "type": "calculate",
+   "calc": "if(${selected_survey_uuid_multi} = '', '',\n  if(number(${replicate_index}) = 0,\n    concat(${area_label}, '_baseline'),\n    concat(${area_label}, '_yr', string(${replicate_index}))\n  )\n)"
+  },
+  "survey_begin-note_parent_labels": {
+   "type": "note",
+   "label": "Project Name: ${project_label} Area: ${area_label} Replicate: ${replicate}"
+  },
+  "plot_selection-selected_plot_uuid": {
+   "type": "select_one_from_file centroids.csv",
+   "label": "Select the Vegetation Plot represented by a centroid point",
+   "hint": "Purple: primary; Blue: backup; Grey: visited",
+   "choices_from": "centroids.csv"
+  },
+  "plot_selection-plot_label": {
+   "type": "calculate",
+   "calc": "instance('centroids')/root/item[name = ${selected_plot_uuid}]/label"
+  },
+  "plot_selection-plot_name": {
+   "type": "calculate",
+   "calc": "instance('centroids')/root/item[name = ${selected_plot_uuid}]/choice_name"
+  },
+  "plot_selection-geohash": {
+   "type": "calculate",
+   "calc": "instance('centroids')/root/item[name = ${selected_plot_uuid}]/geohash"
+  },
+  "plot_selection-stratum_label": {
+   "type": "calculate",
+   "calc": "instance('centroids')/root/item[name = ${selected_plot_uuid}]/stratum_label"
+  },
+  "plot_selection-sample_status": {
+   "type": "calculate",
+   "calc": "instance('centroids')/root/item[name = ${selected_plot_uuid}]/sample_status"
+  },
+  "plot_selection-is_plot_viable": {
+   "type": "select_one yes_no",
+   "label": "Is this plot viable?",
+   "hint": "Reasons for plots being not viable include, but are not limited to, inaccessibility, flooding, obstruction, or unavoidable road or track interference. Midpoints can be moved no further than 25m from the prescribed location to avoid obstructions, roads or tracks.",
+   "choices": [
+    [
+     "no",
+     "No"
+    ],
+    [
+     "yes",
+     "Yes"
+    ]
+   ]
+  },
+  "plot_selection-plot_establishment_notes": {
+   "type": "text",
+   "label": "Explain why you are discarding this plot"
+  },
+  "plot_metadata-selected_ecosystem_type_uuid": {
+   "type": "select_one_from_file ecosystem_types.csv",
+   "label": "What ecosystem type is this plot located in:",
+   "choices_from": "ecosystem_types.csv"
+  },
+  "plot_metadata-ecosystem_type_name": {
+   "type": "calculate",
+   "calc": "instance('ecosystem_types')/root/item[name = ${selected_ecosystem_type_uuid}]/label"
+  },
+  "plot_metadata-woody_species_present": {
+   "type": "select_one yes_no",
+   "label": "Are there woody species present?",
+   "choices": [
+    [
+     "no",
+     "No"
+    ],
+    [
+     "yes",
+     "Yes"
+    ]
+   ]
+  },
+  "plot_metadata-known_dominant_woody_species_present": {
+   "type": "select_one yes_no",
+   "label": "Are any of these dominant woody species present in the woody species list?",
+   "choices": [
+    [
+     "no",
+     "No"
+    ],
+    [
+     "yes",
+     "Yes"
+    ]
+   ]
+  },
+  "plot_metadata-known_dominant_woody_species": {
+   "type": "select_multiple species.csv",
+   "label": "What dominant woody species are present?",
+   "choices_from": "species.csv"
+  },
+  "plot_metadata-unknown_dominant_woody_species_present": {
+   "type": "select_one yes_no",
+   "label": "Are any of these dominant woody species not present in the woody species list?",
+   "choices": [
+    [
+     "no",
+     "No"
+    ],
+    [
+     "yes",
+     "Yes"
+    ]
+   ]
+  },
+  "plot_metadata-unknown_dominant_woody_species": {
+   "type": "text",
+   "label": "Type the names of the dominant woody species not present in the species list as Genus species. Separate multiple species with commas.",
+   "hint": "e.g. Acacia ataxacantha, Vachellia xanthophloea"
+  },
+  "plot_metadata-canopy_height_m": {
+   "type": "text",
+   "label": "What is the approximate canopy height, to the nearest metre?",
+   "hint": "i.e. Average woody species canopy height across the entire plot, not just the nearest shrub/tree."
+  },
+  "plot_metadata-canopy_structure": {
+   "type": "select_one canopy_structure",
+   "label": "Is the canopy structure:",
+   "hint": "Open = 50%",
+   "choices": [
+    [
+     "open",
+     "Open"
+    ],
+    [
+     "closed",
+     "Closed"
+    ]
+   ]
+  },
+  "plot_metadata-soil_type": {
+   "type": "select_one soil_type",
+   "label": "Briefly describe the soil type:",
+   "choices": [
+    [
+     "grey_sand",
+     "Grey Sand"
+    ],
+    [
+     "beige_sand",
+     "Beige Sand"
+    ],
+    [
+     "red_sand",
+     "Red Sand"
+    ],
+    [
+     "white_sand",
+     "White Sand"
+    ],
+    [
+     "pan_soils_caliche_soils",
+     "Pan Soils (Caliche Soils)"
+    ],
+    [
+     "fluvial_soils",
+     "Fluvial Soils"
+    ],
+    [
+     "loam soils",
+     "Loam Soils"
+    ],
+    [
+     "clay soils",
+     "Clay Soils"
+    ],
+    [
+     "rock",
+     "Rock"
+    ],
+    [
+     "gravel",
+     "Gravel"
+    ]
+   ]
+  },
+  "plot_metadata-ground_cover": {
+   "type": "select_multiple ground_cover",
+   "label": "Briefly describe the ground cover:",
+   "choices": [
+    [
+     "grasses",
+     "Grasses"
+    ],
+    [
+     "forbs",
+     "Forbs"
+    ],
+    [
+     "dwarf_shrubs",
+     "Dwarf Shrubs"
+    ],
+    [
+     "non-dwarf_shrubs",
+     "Non-Dwarf Shrubs"
+    ],
+    [
+     "litter",
+     "Litter"
+    ],
+    [
+     "standing_npv",
+     "Standing NPV"
+    ],
+    [
+     "soil",
+     "Soil"
+    ]
+   ]
+  },
+  "plot_metadata-water_present": {
+   "type": "select_one yes_no",
+   "label": "Is there a water source nearby?",
+   "hint": "Within 100m of the vegetation plot centroid?",
+   "choices": [
+    [
+     "no",
+     "No"
+    ],
+    [
+     "yes",
+     "Yes"
+    ]
+   ]
+  },
+  "plot_metadata-disturbance_types": {
+   "type": "select_multiple disturbance_type",
+   "label": "Are there any signs of disturbance that occurred within the last year?",
+   "choices": [
+    [
+     "none",
+     "None"
+    ],
+    [
+     "wildlife_disturbance",
+     "Wildlife Disturbance"
+    ],
+    [
+     "human_or_livestock_disturbance",
+     "Human or Livestock Disturbance"
+    ],
+    [
+     "flood",
+     "Flood"
+    ],
+    [
+     "fire",
+     "Fire"
+    ]
+   ]
+  },
+  "plot_metadata-collect_points-transect_orientation_note": {
+   "type": "note"
+  },
+  "plot_metadata-collect_points-endpoint_a-image_endpoint_a": {
+   "type": "image",
+   "label": "Stand at endpoint A and take a photo facing toward endpoint B.",
+   "hint": "Take photo in portrait orientation, with the horizon bisecting the image."
+  },
+  "plot_metadata-collect_points-endpoint_a-location_endpoint_a": {
+   "type": "geopoint",
+   "label": "Record your current location at endpoint A."
+  },
+  "plot_metadata-collect_points-midpoint-image_midpoint_toward_a": {
+   "type": "image",
+   "label": "Move to the midpoint. Take a photo facing toward endpoint A.",
+   "hint": "Take photo in portrait orientation, with the horizon bisecting the image."
+  },
+  "plot_metadata-collect_points-midpoint-image_midpoint_toward_b": {
+   "type": "image",
+   "label": "Standing at the midpoint, take a photo facing toward endpoint B.",
+   "hint": "Take photo in portrait orientation, with the horizon bisecting the image."
+  },
+  "plot_metadata-collect_points-midpoint-location_midpoint": {
+   "type": "geopoint",
+   "label": "Record your current location at the midpoint."
+  },
+  "plot_metadata-collect_points-endpoint_b-image_endpoint_b": {
+   "type": "image",
+   "label": "Move to endpoint B. Take a photo facing toward endpoint A.",
+   "hint": "Take photo in portrait orientation, with the horizon bisecting the image."
+  },
+  "plot_metadata-collect_points-endpoint_b-location_endpoint_b": {
+   "type": "geopoint",
+   "label": "Record your current location at endpoint B."
+  },
+  "plot_metadata-collect_points-vegplot_transect": {
+   "type": "calculate",
+   "calc": "concat(${location_endpoint_a}, \"; \", ${location_midpoint}, \"; \", ${location_endpoint_b})"
+  },
+  "survey_end-update_vegplot_link": {
+   "type": "calculate",
+   "calc": "\"yes\""
+  },
+  "survey_end-update_marker_color": {
+   "type": "calculate",
+   "calc": "\"#c8cbcc\""
+  },
+  "survey_end-confirm_submission": {
+   "type": "select_one yes_no",
+   "label": "Are you sure that the data entered is complete and correct?",
+   "hint": "Select 'no' if you think you may need to move this plot for data collection.",
+   "choices": [
+    [
+     "no",
+     "No"
+    ],
+    [
+     "yes",
+     "Yes"
+    ]
+   ]
+  },
+  "survey_end-background_geopoint": {
+   "type": "background-geopoint"
+  },
+  "survey_end-note_field_submission": {
+   "type": "note",
+   "label": "To avoid data loss and mistakes, Send your completed form now. When an internet connection is available, sync to ODK Central."
+  },
+  "survey_end-plot_establishment_notes": {
+   "type": "text",
+   "label": "Provide any relevant details not captured above:"
+  }
+ }
+}

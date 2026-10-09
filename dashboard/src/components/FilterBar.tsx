@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { applyFilters, defaultFilterKind, describeFilter, newId, valueCounts, type Filter, type TextOp } from '../data/filter'
 import { fmtDate, fmtInt, fmtNum, isoUTC } from '../data/stats'
 import type { Column, Dataset } from '../data/types'
+import { HELP, tip, tipText } from '../lib/help'
 import { Icon, Segmented, Toggle, TypeBadge } from './ui'
 
 interface Props {
@@ -30,13 +31,13 @@ export function FilterBar({ ds, filters, shown, onChange, request }: Props) {
 
   return (
     <div className="filterbar">
-      <div className="filterbar-count" aria-live="polite">
+      <div className="filterbar-count" aria-live="polite" {...tip('filter.count', true)}>
         <strong>{fmtInt(shown)}</strong> <span>of {fmtInt(ds.rows.length)} rows</span>
       </div>
       <div className="chips">
         {filters.map((f) => (
           <span key={f.id} className={`chip ${colOf(f.column) ? '' : 'stale'}`}>
-            <button type="button" className="chip-body" onClick={() => setEditing({ filter: f, column: f.column })} title="Edit filter">
+            <button type="button" className="chip-body" onClick={() => setEditing({ filter: f, column: f.column })} {...tip('filter.chip')}>
               <Icon name="filter" size={12} />
               {describeFilter(f, colOf(f.column))}
             </button>
@@ -46,7 +47,7 @@ export function FilterBar({ ds, filters, shown, onChange, request }: Props) {
           </span>
         ))}
         <div className="popover-anchor">
-          <button type="button" className="btn ghost sm" onClick={() => setEditing(editing ? null : { filter: null, column: null })}>
+          <button type="button" className="btn ghost sm" {...tip('filter.add')} onClick={() => setEditing(editing ? null : { filter: null, column: null })}>
             <Icon name="plus" size={14} /> Add filter
           </button>
           {editing && (
@@ -61,7 +62,7 @@ export function FilterBar({ ds, filters, shown, onChange, request }: Props) {
           )}
         </div>
         {filters.length > 0 && (
-          <button type="button" className="btn link sm" onClick={() => onChange([])}>
+          <button type="button" className="btn link sm" {...tip('filter.clear')} onClick={() => onChange([])}>
             Clear all
           </button>
         )}
@@ -113,7 +114,7 @@ function FilterEditor({
           </div>
           <div className="col-list">
             {cols.map((c) => (
-              <button key={c.name} type="button" className="col-item" onClick={() => setColName(c.name)} title={c.name}>
+              <button key={c.name} type="button" className="col-item" onClick={() => setColName(c.name)} {...tipText(c.description ? `${c.description}\n\nCSV column: ${c.name}` : `CSV column: ${c.name}`, c.label)}>
                 <TypeBadge type={c.type} />
                 <span className="col-item-label">{c.label}</span>
                 {c.derived && <span className="tag">derived</span>}
@@ -161,10 +162,10 @@ function ColumnFilter({ col, rows, initial, onApply, onBack }: { col: Column; ro
   }
 
   const canRange = col.type === 'number' || isDate
-  const kinds: { value: Filter['kind']; label: string }[] = [
-    ...(canRange ? [{ value: 'range' as const, label: 'Range' }] : []),
-    ...(col.type !== 'text' || col.distinct <= 500 ? [{ value: 'in' as const, label: 'Values' }] : []),
-    { value: 'text', label: 'Text' },
+  const kinds: { value: Filter['kind']; label: string; title: string }[] = [
+    ...(canRange ? [{ value: 'range' as const, label: 'Range', title: HELP['filter.range'].text }] : []),
+    ...(col.type !== 'text' || col.distinct <= 500 ? [{ value: 'in' as const, label: 'Values', title: HELP['filter.values'].text }] : []),
+    { value: 'text', label: 'Text', title: HELP['filter.text'].text },
   ]
   const shownCounts = counts.filter(([k]) => k.toLowerCase().includes(search.toLowerCase())).slice(0, 300)
 
@@ -177,13 +178,13 @@ function ColumnFilter({ col, rows, initial, onApply, onBack }: { col: Column; ro
           </button>
         )}
         <TypeBadge type={col.type} />
-        <strong title={col.name}>{col.label}</strong>
+        <strong {...tipText(col.description ? `${col.description}\n\nCSV column: ${col.name}` : `CSV column: ${col.name}`, col.label)}>{col.label}</strong>
       </div>
       {kinds.length > 1 && <Segmented size="sm" value={kind} options={kinds} onChange={setKind} />}
 
       {kind === 'range' && (
         <div className="colfilter-body">
-          <div className="muted small">
+          <div className="muted small" {...tip('filter.datarange')}>
             Data range: {isDate ? fmtDate(dmin) : fmtNum(dmin)} → {isDate ? fmtDate(dmax) : fmtNum(dmax)} {isDate && '(UTC)'}
           </div>
           <div className="range-inputs">
@@ -191,7 +192,7 @@ function ColumnFilter({ col, rows, initial, onApply, onBack }: { col: Column; ro
             <span>to</span>
             <input className="input" type={isDate ? 'datetime-local' : 'number'} step="any" placeholder="max" value={hi} onChange={(e) => setHi(e.target.value)} />
           </div>
-          <Toggle checked={keepNull} onChange={setKeepNull} label="Keep empty values" />
+          <Toggle tipKey="filter.keepNull" checked={keepNull} onChange={setKeepNull} label="Keep empty values" />
         </div>
       )}
 
@@ -206,7 +207,7 @@ function ColumnFilter({ col, rows, initial, onApply, onBack }: { col: Column; ro
               None
             </button>
             <span className="grow" />
-            <Toggle checked={exclude} onChange={setExclude} label="Exclude" />
+            <Toggle tipKey="filter.exclude" checked={exclude} onChange={setExclude} label="Exclude" />
           </div>
           <div className="value-list">
             {shownCounts.map(([k, n]) => (

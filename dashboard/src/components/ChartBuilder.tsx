@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import { allowedColumns, buildFigure, DEFAULT_SPEC, KIND_NEEDS, type ChartKind, type ChartSpec, type FilterSeed, type Role } from '../charts/build'
 import { PRESETS } from '../charts/presets'
+import { readingGuide } from '../charts/describe'
+import { HELP, tip, type HelpKey } from '../lib/help'
 import { isDiscrete } from '../data/filter'
 import { fmtInt, fmtNum, invertTransform, type Agg, type Transform } from '../data/stats'
 import type { Dataset, Row } from '../data/types'
@@ -102,19 +104,21 @@ export function ChartBuilder({ ds, rows, spec, onSpec, onAddFilters, tokens }: P
   const usesAgg = k === 'bar' || k === 'line' || k === 'heatmap'
   const aggNeedsValue = spec.agg !== 'count' && spec.agg !== 'share'
 
-  const tr: { value: Transform; label: string }[] = [
-    { value: 'none', label: 'Linear' },
-    { value: 'log10', label: 'log₁₀' },
-    { value: 'logit', label: 'logit' },
+  const tr: { value: Transform; label: string; title: string }[] = [
+    { value: 'none', label: 'Linear', title: 'Raw values, evenly spaced.' },
+    { value: 'log10', label: 'log₁₀', title: 'Each step is ×10. For positive values spanning orders of magnitude.' },
+    { value: 'logit', label: 'logit', title: HELP['c.logit'].text },
   ]
 
   return (
     <div className="builder">
       {presets.length > 0 && (
         <div className="presets">
-          <span className="presets-label">Quick views</span>
+          <span className="presets-label has-tip" {...tip('ex.presets', true)}>
+            Quick views
+          </span>
           {presets.map((p) => (
-            <button key={p.label} type="button" className="preset" title={p.hint} onClick={() => onSpec(normalizeSpec(ds, { ...DEFAULT_SPEC, ...p.spec }))}>
+            <button key={p.label} type="button" className="preset" data-tip={p.hint} data-tip-title={p.label} onClick={() => onSpec(normalizeSpec(ds, { ...DEFAULT_SPEC, ...p.spec }))}>
               {p.label}
             </button>
           ))}
@@ -125,7 +129,7 @@ export function ChartBuilder({ ds, rows, spec, onSpec, onAddFilters, tokens }: P
         <aside className="controls" aria-label="Chart settings">
           <div className="kind-grid" role="radiogroup" aria-label="Chart type">
             {KINDS.map((x) => (
-              <button key={x.kind} type="button" role="radio" aria-checked={k === x.kind} className={`kind ${k === x.kind ? 'on' : ''}`} title={x.hint} onClick={() => set({ kind: x.kind })}>
+              <button key={x.kind} type="button" role="radio" aria-checked={k === x.kind} className={`kind ${k === x.kind ? 'on' : ''}`} {...tip(`kind.${x.kind}` as HelpKey)} onClick={() => set({ kind: x.kind })}>
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d={x.icon} />
                 </svg>
@@ -135,26 +139,26 @@ export function ChartBuilder({ ds, rows, spec, onSpec, onAddFilters, tokens }: P
           </div>
 
           <div className="control-group">
-            <Field label={k === 'box' || k === 'violin' || k === 'strip' ? 'Group (x)' : 'X'}>
+            <Field label={k === 'box' || k === 'violin' || k === 'strip' ? 'Group (x)' : 'X'} tipKey={k === 'box' || k === 'violin' || k === 'strip' ? 'ctl.group' : 'ctl.x'}>
               <ColumnSelect columns={allowedColumns(ds, k, 'x')} value={spec.x} onChange={(v) => set({ x: v })} allowNone={!needs('x')} noneLabel="— all rows —" />
             </Field>
             {(hasNumX && k !== 'box' && k !== 'violin' && k !== 'strip') && (
-              <Field label="X scale">
+              <Field label="X scale" tipKey="ctl.xscale">
                 <Segmented size="sm" value={spec.xTransform} options={tr} onChange={(v) => set({ xTransform: v })} />
               </Field>
             )}
             {(needs('y') || (usesAgg && aggNeedsValue && k !== 'heatmap')) && (
-              <Field label={usesAgg && k !== 'heatmap' ? `Value (${spec.agg})` : 'Y'}>
+              <Field label={usesAgg && k !== 'heatmap' ? `Value (${spec.agg})` : 'Y'} tipKey={usesAgg && k !== 'heatmap' ? 'ctl.value' : 'ctl.y'}>
                 <ColumnSelect columns={allowedColumns(ds, k, 'y')} value={spec.y} onChange={(v) => set({ y: v })} allowNone={!needs('y')} />
               </Field>
             )}
             {(k === 'scatter' || k === 'box' || k === 'violin' || k === 'strip') && yc?.type === 'number' && (
-              <Field label="Y scale">
+              <Field label="Y scale" tipKey="ctl.yscale">
                 <Segmented size="sm" value={spec.yTransform} options={tr} onChange={(v) => set({ yTransform: v })} />
               </Field>
             )}
             {usesAgg && (
-              <Field label={k === 'heatmap' ? 'Cell value' : 'Aggregate'}>
+              <Field label={k === 'heatmap' ? 'Cell value' : 'Aggregate'} tipKey={k === 'heatmap' ? 'ctl.cell' : 'ctl.agg'}>
                 <select className="select" value={spec.agg} onChange={(e) => set({ agg: e.target.value as Agg })}>
                   {AGGS.filter((a) => !(k === 'heatmap' && a.value === 'share')).map((a) => (
                     <option key={a.value} value={a.value}>
@@ -165,7 +169,7 @@ export function ChartBuilder({ ds, rows, spec, onSpec, onAddFilters, tokens }: P
               </Field>
             )}
             {k === 'heatmap' && aggNeedsValue && (
-              <Field label={`Value (${spec.agg})`}>
+              <Field label={`Value (${spec.agg})`} tipKey="ctl.value">
                 <ColumnSelect columns={allowedColumns(ds, k, 'z')} value={spec.z} onChange={(v) => set({ z: v })} />
               </Field>
             )}
@@ -173,24 +177,24 @@ export function ChartBuilder({ ds, rows, spec, onSpec, onAddFilters, tokens }: P
 
           <div className="control-group">
             {k !== 'heatmap' && (
-              <Field label="Color by">
+              <Field label="Color by" tipKey="ctl.color">
                 <ColumnSelect columns={allowedColumns(ds, k, 'color')} value={spec.color} onChange={(v) => set({ color: v })} allowNone />
               </Field>
             )}
-            <Field label="Small multiples by">
+            <Field label="Small multiples by" tipKey="ctl.facet">
               <ColumnSelect columns={allowedColumns(ds, k, 'facet')} value={spec.facet} onChange={(v) => set({ facet: v })} allowNone />
             </Field>
-            {spec.facet && <Toggle checked={spec.sharedY} onChange={(v) => set({ sharedY: v })} label="Same y-axis in every panel" />}
+            {spec.facet && <Toggle tipKey="ctl.sharedY" checked={spec.sharedY} onChange={(v) => set({ sharedY: v })} label="Same y-axis in every panel" />}
           </div>
 
           <div className="control-group">
             {(binnedX || (k === 'scatter' && spec.trend)) && (
-              <Field label="Bins">
+              <Field label="Bins" tipKey="ctl.bins">
                 <Range value={spec.bins} min={3} max={100} step={1} onChange={(v) => set({ bins: v })} />
               </Field>
             )}
             {(hasDateX || (k === 'heatmap' && (xc?.type === 'datetime' || yc?.type === 'datetime'))) && (
-              <Field label="Time unit">
+              <Field label="Time unit" tipKey="ctl.timeunit">
                 <Segmented
                   size="sm"
                   value={spec.timeUnit}
@@ -205,76 +209,76 @@ export function ChartBuilder({ ds, rows, spec, onSpec, onAddFilters, tokens }: P
               </Field>
             )}
             {k === 'histogram' && (
-              <Field label="Normalize">
+              <Field label="Normalize" tipKey="ctl.norm">
                 <Segmented
                   size="sm"
                   value={spec.norm}
                   onChange={(v) => set({ norm: v })}
                   options={[
-                    { value: 'count', label: 'Count' },
-                    { value: 'percent', label: '% of group' },
-                    { value: 'density', label: 'Density' },
+                    { value: 'count', label: 'Count', title: 'Rows per bin.' },
+                    { value: 'percent', label: '% of group', title: 'Each group sums to 100% — compares shapes of groups with different sizes.' },
+                    { value: 'density', label: 'Density', title: 'Share per unit of x; bar areas sum to 1.' },
                   ]}
                 />
               </Field>
             )}
             {(k === 'histogram' || k === 'bar') && spec.color && (
-              <Field label="Groups">
+              <Field label="Groups" tipKey="ctl.barmode">
                 <Segmented
                   size="sm"
                   value={spec.barmode}
                   onChange={(v) => set({ barmode: v })}
                   options={[
-                    { value: 'overlay', label: 'Overlay' },
-                    { value: 'stack', label: 'Stack' },
-                    { value: 'group', label: 'Side by side' },
+                    { value: 'overlay', label: 'Overlay', title: 'Series drawn on top of each other, semi-transparent.' },
+                    { value: 'stack', label: 'Stack', title: 'Series piled up; the top of the pile is the total.' },
+                    { value: 'group', label: 'Side by side', title: 'Series next to each other within each position.' },
                   ]}
                 />
               </Field>
             )}
             {(k === 'bar' || k === 'heatmap' || k === 'box' || k === 'violin' || k === 'strip') && (
-              <Field label="Max categories">
+              <Field label="Max categories" tipKey="ctl.topn">
                 <Range value={spec.topN} min={3} max={80} step={1} onChange={(v) => set({ topN: v })} />
               </Field>
             )}
             {k === 'bar' && (
               <>
-                <Field label="Order">
+                <Field label="Order" tipKey="ctl.order">
                   <Segmented
                     size="sm"
                     value={spec.sort}
                     onChange={(v) => set({ sort: v })}
                     options={[
-                      { value: 'value', label: 'By count' },
-                      { value: 'label', label: 'A → Z' },
+                      { value: 'value', label: 'By count', title: 'Largest first.' },
+                      { value: 'label', label: 'A → Z', title: 'Alphabetical / natural order (numbers in numeric order).' },
                     ]}
                   />
                 </Field>
-                <Toggle checked={spec.horizontal} onChange={(v) => set({ horizontal: v })} label="Horizontal bars" />
+                <Toggle tipKey="ctl.horizontal" checked={spec.horizontal} onChange={(v) => set({ horizontal: v })} label="Horizontal bars" />
               </>
             )}
             {(k === 'histogram' || k === 'bar' || k === 'line' || k === 'box' || k === 'violin' || k === 'strip' || k === 'scatter') && (
-              <Toggle checked={spec.logY} onChange={(v) => set({ logY: v })} label="Log y-axis" />
+              <Toggle tipKey="ctl.logy" checked={spec.logY} onChange={(v) => set({ logY: v })} label="Log y-axis" />
             )}
             {k === 'scatter' && (
               <>
-                <Toggle checked={spec.trend} onChange={(v) => set({ trend: v })} label="Binned mean of Y (± 95% CI)" />
-                {spec.trend && spec.color && <Toggle checked={spec.trendByGroup} onChange={(v) => set({ trendByGroup: v })} label="One binned mean per color group" />}
-                <Field label="Jitter X">
+                <Toggle tipKey="ctl.trend" checked={spec.trend} onChange={(v) => set({ trend: v })} label="Binned mean of Y (± 95% CI)" />
+                {spec.trend && spec.color && <Toggle tipKey="ctl.trendByGroup" checked={spec.trendByGroup} onChange={(v) => set({ trendByGroup: v })} label="One binned mean per color group" />}
+                <Field label="Jitter X" tipKey="ctl.jitterx">
                   <Range value={spec.jitterX} min={0} max={0.2} step={0.01} onChange={(v) => set({ jitterX: v })} format={(v) => `${Math.round(v * 100)}%`} />
                 </Field>
-                <Field label="Jitter Y" hint="Spreads 0/1 outcomes so overlapping points are visible">
+                <Field label="Jitter Y" tipKey="ctl.jittery">
                   <Range value={spec.jitterY} min={0} max={0.2} step={0.01} onChange={(v) => set({ jitterY: v })} format={(v) => `${Math.round(v * 100)}%`} />
                 </Field>
               </>
             )}
             {(k === 'scatter' || k === 'strip') && (
-              <Field label="Point opacity">
+              <Field label="Point opacity" tipKey="ctl.opacity">
                 <Range value={spec.opacity} min={0.1} max={1} step={0.05} onChange={(v) => set({ opacity: v })} format={(v) => `${Math.round(v * 100)}%`} />
               </Field>
             )}
           </div>
-          <button type="button" className="btn link sm" onClick={() => onSpec(normalizeSpec(ds, { ...DEFAULT_SPEC, kind: spec.kind }))}>
+          <button type="button" className="btn link sm" {...tip('ctl.reset')} onClick={() => onSpec(normalizeSpec(ds, { ...DEFAULT_SPEC, kind: spec.kind }))}>
             Reset chart settings
           </button>
         </aside>
@@ -287,7 +291,12 @@ export function ChartBuilder({ ds, rows, spec, onSpec, onAddFilters, tokens }: P
               <Plot data={fig.data} layout={fig.layout} height={fig.height} onClickIndex={onClickIndex} onSelectRange={spec.kind === 'scatter' ? onSelectRange : undefined} filename={`${ds.id}_${spec.kind}`} />
             )}
           </div>
-          <div className="chart-hint muted small">
+          {!fig.message && (
+            <p className="reading">
+              <span className="reading-label">How to read this chart</span> {readingGuide(ds, spec)}
+            </p>
+          )}
+          <div className="chart-hint muted small has-tip" {...tip('ex.hint', true)}>
             {k === 'scatter'
               ? 'Drag a box on the chart to filter to that region · double-click to reset zoom.'
               : fig.clicks.length
@@ -299,7 +308,7 @@ export function ChartBuilder({ ds, rows, spec, onSpec, onAddFilters, tokens }: P
           {fig.table.rows.length > 0 && (
             <div className="data-twin">
               <div className="data-twin-head">
-                <button type="button" className="btn link sm" onClick={() => setShowTable(!showTable)} aria-expanded={showTable}>
+                <button type="button" className="btn link sm" {...tip('ex.twin')} onClick={() => setShowTable(!showTable)} aria-expanded={showTable}>
                   <Icon name="table" size={14} /> Data behind this chart ({fmtInt(fig.table.rows.length)} rows) {showTable ? '▾' : '▸'}
                 </button>
                 <span className="grow" />

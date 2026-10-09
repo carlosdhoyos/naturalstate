@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { naturalCompare } from '../data/filter'
 import { fmtDate, fmtInt, fmtNum, isoUTC } from '../data/stats'
 import type { Column, Dataset, Row, Value } from '../data/types'
+import { tip, tipText } from '../lib/help'
 import { Icon, Toggle, TypeBadge } from './ui'
 
 export function downloadCsv(name: string, columns: string[], rows: (Value | undefined)[][]) {
@@ -69,7 +70,7 @@ export function TableView({ ds, rows }: { ds: Dataset; rows: Row[] }) {
   return (
     <div className="tableview">
       <div className="toolbar">
-        <div className="search">
+        <div className="search" {...tip('tb.search')}>
           <Icon name="search" size={14} />
           <input
             className="input bare"
@@ -81,10 +82,10 @@ export function TableView({ ds, rows }: { ds: Dataset; rows: Row[] }) {
             }}
           />
         </div>
-        <Toggle checked={hideBoring} onChange={setHideBoring} label="Hide empty & constant columns" />
-        <Toggle checked={showDerived} onChange={setShowDerived} label="Show derived columns" />
+        <Toggle tipKey="tb.hide" checked={hideBoring} onChange={setHideBoring} label="Hide empty & constant columns" />
+        <Toggle tipKey="tb.derived" checked={showDerived} onChange={setShowDerived} label="Show derived columns" />
         <span className="grow" />
-        <button type="button" className="btn ghost sm" onClick={() => exportRows(ds, sorted)} title="All columns, current filters and search">
+        <button type="button" className="btn ghost sm" onClick={() => exportRows(ds, sorted)} {...tip('tb.csv')}>
           <Icon name="download" size={14} /> CSV ({fmtInt(sorted.length)} rows)
         </button>
       </div>
@@ -92,12 +93,14 @@ export function TableView({ ds, rows }: { ds: Dataset; rows: Row[] }) {
         <table className="data-table">
           <thead>
             <tr>
-              <th className="rownum">#</th>
+              <th className="rownum" {...tip('tb.rownum')}>
+                #
+              </th>
               {cols.map((c) => (
                 <th
                   key={c.name}
                   className={`${c.type === 'number' ? 'num' : ''} ${c.derived ? 'derived' : ''}`}
-                  title={`${c.name}${c.description ? `\n${c.description}` : ''}\nClick to sort`}
+                  {...tipText(`${c.description ? `${c.description}\n\n` : ''}CSV column: ${c.derived ? `derived:${c.name}` : c.name}\nClick to sort ▲, again ▼, again to clear.`, c.label)}
                   onClick={() => setSort(sort?.col === c.name ? (sort.dir === 1 ? { col: c.name, dir: -1 } : null) : { col: c.name, dir: 1 })}
                 >
                   <span className="th-inner">

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ColType, Column } from '../data/types'
+import { HELP, tip, type HelpKey } from '../lib/help'
 
 export const TYPE_GLYPH: Record<ColType, string> = {
   number: '#',
@@ -20,16 +21,16 @@ export const TYPE_NAME: Record<ColType, string> = {
 
 export function TypeBadge({ type }: { type: ColType }) {
   return (
-    <span className={`type-badge t-${type}`} title={TYPE_NAME[type]}>
+    <span className={`type-badge t-${type}`} data-tip={HELP[`type.${type}` as HelpKey].text} data-tip-title={HELP[`type.${type}` as HelpKey].label}>
       {TYPE_GLYPH[type]}
     </span>
   )
 }
 
-export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+export function Field({ label, children, tipKey }: { label: string; children: ReactNode; tipKey?: HelpKey }) {
   return (
     <label className="field">
-      <span className="field-label" title={hint}>
+      <span className={`field-label ${tipKey ? 'has-tip' : ''}`} {...(tipKey ? tip(tipKey) : {})}>
         {label}
       </span>
       {children}
@@ -64,7 +65,7 @@ export function ColumnSelect({
       {[...sections.entries()].map(([s, cols]) => (
         <optgroup key={s} label={s}>
           {cols.map((c) => (
-            <option key={c.name} value={c.name} title={c.name}>
+            <option key={c.name} value={c.name} title={c.description ? `${c.name}\n${c.description}` : c.name}>
               {TYPE_GLYPH[c.type]}  {c.label}
             </option>
           ))}
@@ -88,7 +89,7 @@ export function Segmented<T extends string>({
   return (
     <div className={`segmented ${size}`} role="radiogroup">
       {options.map((o) => (
-        <button key={o.value} type="button" role="radio" aria-checked={value === o.value} className={value === o.value ? 'on' : ''} title={o.title} onClick={() => onChange(o.value)}>
+        <button key={o.value} type="button" role="radio" aria-checked={value === o.value} className={value === o.value ? 'on' : ''} data-tip={o.title} onClick={() => onChange(o.value)}>
           {o.label}
         </button>
       ))}
@@ -96,9 +97,9 @@ export function Segmented<T extends string>({
   )
 }
 
-export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+export function Toggle({ checked, onChange, label, tipKey }: { checked: boolean; onChange: (v: boolean) => void; label: string; tipKey?: HelpKey }) {
   return (
-    <label className="toggle">
+    <label className="toggle" {...(tipKey ? tip(tipKey) : {})}>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span className="toggle-track" aria-hidden />
       <span>{label}</span>
@@ -115,17 +116,19 @@ export function Range({ value, min, max, step, onChange, format }: { value: numb
   )
 }
 
-export function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
+export function Stat({ label, value, sub, tipKey }: { label: string; value: ReactNode; sub?: ReactNode; tipKey?: HelpKey }) {
   return (
     <div className="stat">
-      <div className="stat-label">{label}</div>
+      <div className={`stat-label ${tipKey ? 'has-tip' : ''}`} {...(tipKey ? tip(tipKey, true) : {})}>
+        {label}
+      </div>
       <div className="stat-value">{value}</div>
       {sub && <div className="stat-sub">{sub}</div>}
     </div>
   )
 }
 
-export function Icon({ name, size = 16 }: { name: 'filter' | 'plus' | 'x' | 'download' | 'chart' | 'table' | 'grid' | 'map' | 'sun' | 'moon' | 'auto' | 'search' | 'info' | 'upload' | 'chev'; size?: number }) {
+export function Icon({ name, size = 16 }: { name: 'filter' | 'plus' | 'x' | 'download' | 'chart' | 'table' | 'grid' | 'map' | 'sun' | 'moon' | 'auto' | 'search' | 'info' | 'upload' | 'chev' | 'book'; size?: number }) {
   const p: Record<string, ReactNode> = {
     filter: <path d="M3 5h18l-7 8v6l-4 2v-8z" />,
     plus: <path d="M12 5v14M5 12h14" />,
@@ -142,6 +145,7 @@ export function Icon({ name, size = 16 }: { name: 'filter' | 'plus' | 'x' | 'dow
     info: <path d="M12 21a9 9 0 100-18 9 9 0 000 18zm0-5v-5m0-3h.01" />,
     upload: <path d="M12 20V9m0 0l-4 4m4-4l4 4M5 4h14" />,
     chev: <path d="M9 6l6 6-6 6" />,
+    book: <path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2V5zm0 16a2 2 0 012-2h13M8 7h7M8 11h5" />,
   }
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>

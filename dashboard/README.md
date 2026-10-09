@@ -15,7 +15,15 @@ An interactive explorer for every CSV in this take-home: the bird data (BirdNET 
 
 Filters sit in one bar above every tab and apply to all of them. You can add a filter from the bar, from a column card, **by clicking a bar, histogram bin or heatmap cell**, or **by dragging a box on a scatter**. Filters, chart settings and the open tab are remembered per dataset in your browser. The URL hash (`#/<dataset>/<tab>`) links to a view.
 
-Every chart has a **"Data behind this chart"** table, with CSV export, holding the exact numbers that were plotted.
+Every chart has a **"Data behind this chart"** table, with CSV export, holding the exact numbers that were plotted. Each chart also has a one-line **"How to read this chart"** caption, written from the current settings.
+
+## Built-in explanations
+
+- **Hover (or keyboard-focus) any label** for a tooltip explaining it. Labels with a dotted underline have one, as do buttons, chart types, every setting, stat tiles, mini-stat names, type badges and filter options.
+- **Hover a column name** (card title, table header, filter list) for what that *data* column means:
+  - *ODK exports:* the form question, hint, ODK type and choice list, read from Natural State's XLSForms by [`scripts/build_odk_dictionary.py`](scripts/build_odk_dictionary.py) into `src/data/odk_dictionary.json`. Re-run the script if the forms change.
+  - *ODK Central system columns, entity-list system columns, BirdNET/Raven columns and entity attributes:* written by hand in `src/data/dictionary.ts`. Claims were checked against the data (e.g. every segment is 3 s, `file_offset_s` = `begin_time_s`, `selection` is unique within an audio file). Meanings that the provided files don't document are marked as such.
+- **Guide** (top right): every explanation in one searchable panel, grouped by section. It reads the same entries as the tooltips (`src/lib/help.ts`), so the two never disagree.
 
 ## Data handling decisions
 
@@ -61,6 +69,9 @@ src/
   data/stats.ts      binning, quantiles, Wilson interval, formatting
   charts/build.ts    ChartSpec + rows → Plotly figure + table twin + click-to-filter map
   charts/presets.ts  quick views per dataset
+  charts/describe.ts "How to read this chart" sentence from the current settings
+  data/dictionary.ts column meanings (ODK form questions + documented formats)
+  lib/help.ts        every tooltip and Guide entry (single source)
   components/        Overview, Explore, Table, Map, FilterBar, Plot wrapper, UI atoms
   lib/palette.ts     validated palette and theme tokens
 ```
