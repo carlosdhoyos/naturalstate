@@ -15,3 +15,8 @@ __pycache__/
 .Rhistory
 .RData
 .Rproj.user/
+
+# Dashboard
+node_modules/
+dashboard/dist/
+*.tsbuildinfo

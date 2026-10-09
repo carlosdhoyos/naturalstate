@@ -1,0 +1,62 @@
+/**
+ * Column types the explorer understands.
+ * - number    finite numeric values (ints and floats)
+ * - datetime  stored as epoch milliseconds (UTC) in the row
+ * - category  low-cardinality strings (≤ ~60 distinct, or repetitive)
+ * - boolean   yes/no, true/false
+ * - multi     ODK multi-select: several tokens in one cell (split by `sep`)
+ * - text      everything else (ids, free text, file names)
+ */
+export type ColType = 'number' | 'datetime' | 'category' | 'boolean' | 'multi' | 'text'
+
+export type Value = string | number | null
+export type Row = Record<string, Value>
+
+export interface Column {
+  name: string
+  /** Short display name (last path segment of an ODK column). */
+  label: string
+  /** ODK group path, e.g. "plot_metadata › collect_points". Empty for top-level columns. */
+  section: string
+  type: ColType
+  /** True when the column was computed by the explorer, not present in the CSV. */
+  derived?: boolean
+  description?: string
+  /** Token separator for multi columns (whitespace by default). */
+  sep?: string
+  distinct: number
+  nonNull: number
+}
+
+export interface GeoLayer {
+  id: string
+  label: string
+  lat: string
+  lon: string
+  accuracy?: string
+}
+
+/** A polyline drawn per row through several lat/lon column pairs (e.g. transect A → midpoint → B). */
+export interface GeoPath {
+  id: string
+  label: string
+  points: { lat: string; lon: string }[]
+}
+
+export interface Dataset {
+  id: string
+  title: string
+  group: string
+  file: string
+  description: string
+  /** Facts worth surfacing next to the data (e.g. join coverage). */
+  notes: string[]
+  columns: Column[]
+  rows: Row[]
+  /** Column used to name a row in tooltips and on the map. */
+  labelColumn?: string
+  geo: GeoLayer[]
+  paths: GeoPath[]
+}
+
+export const NULL_KEY = '(empty)'
