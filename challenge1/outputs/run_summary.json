@@ -1,0 +1,75 @@
+{
+  "run_utc": "2026-10-10T15:11:31+00:00",
+  "python": "3.13.7",
+  "packages": {
+    "numpy": "2.1.3",
+    "pandas": "2.2.3",
+    "matplotlib": "3.9.2"
+  },
+  "inputs": {
+    "birdnet_predictions.csv": "377f0dc861a3ad46a3d2ee714863a593dd0e4892cf973415aaf864a3015c2fca",
+    "validation_results.csv": "6a00f177097f925774c14d1ebb35633e1e84da7c15d7d056ceaf8c433e7e6ad7"
+  },
+  "settings": {
+    "target": 0.99,
+    "eps": 0.0001,
+    "min_events_for_ml": 10,
+    "bootstrap_resamples": 2000,
+    "seed": 20261010,
+    "cluster": "audio file (recorder-date-hour)"
+  },
+  "validation_clips_raw": 551,
+  "validation_clips_after_dedup": 547,
+  "dropped_duplicates": 4,
+  "labelled_policy_a": 3247,
+  "labelled_policy_b": 3147,
+  "review_flagged": 2277,
+  "review_flagged_and_labelled": 9,
+  "species": {
+    "African Black-headed Oriole": {
+      "method": "firth",
+      "status": "no supported threshold: fitted slope not positive",
+      "threshold": null,
+      "labelled_a": 0,
+      "labelled_b": 0,
+      "boot_labelled_95": [
+        0,
+        17646
+      ]
+    },
+    "Abyssinian Nightjar": {
+      "method": "ml",
+      "status": "accepted",
+      "threshold": 0.6666,
+      "labelled_a": 3147,
+      "labelled_b": 3147,
+      "boot_labelled_95": [
+        2332,
+        4280
+      ]
+    },
+    "Three-banded Plover": {
+      "method": "firth",
+      "status": "accepted",
+      "threshold": 0.8485,
+      "labelled_a": 100,
+      "labelled_b": 0,
+      "boot_labelled_95": [
+        0,
+        187
+      ]
+    },
+    "Red-billed Firefinch": {
+      "method": "firth",
+      "status": "not reached within validated range",
+      "threshold": null,
+      "labelled_a": 0,
+      "labelled_b": 0,
+      "boot_labelled_95": [
+        0,
+        0
+      ]
+    }
+  },
+  "oriole_alternative_flat_level_labelled": 17646
+}
