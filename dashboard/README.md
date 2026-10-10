@@ -46,8 +46,14 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   - **Birds:** the files carry no time zone. Oriole dawn onset and Nightjar dusk onset are compared with sunrise and sunset computed (NOAA approximation) for candidate East African sites over the recording period. 41 recorders match local time (EAT, UTC+3); RBS40 and RBS71 match UTC. There is a toggle between the hours as recorded and corrected to local time.
   - **Vegetation (ODK):** every form time is stamped +02:00, although Kenya is +03:00. The instants are correct: the server never receives a form before it ended, and all 640 photos fall inside their survey window. Only the label is wrong, so wall-clock times read off the stamps are 1 h behind local time.
   - **Impact table:** thresholds are unaffected; time-of-day and daily views are affected.
+- **Birds diurnal cycles:** hour by hour, in corrected local time (with an "as recorded" toggle).
+  - Relative average confidence: the hourly mean ÷ the species' mean, with 95% CIs. Mean, mean logit and share ≥ 0.5 are also available.
+  - The diurnal cycle of the validation sample vs the predictions.
+  - The share correct by hour, with Wilson CIs.
+  - A period table (dawn / day / evening / night) and the hours that were predicted but never validated.
+  - Validated clips are placed exactly in their file's clock hour, because segment times count from the top of the hour.
 - **Derived time columns:**
-  - Birds: `clock_correction_h`, `detection_time_local`, `hour_local`, `date_local`. The correction is inferred from bird activity in `src/data/clocks.ts`, not hard-coded.
+  - Birds: `clock_correction_h`, `detection_time_local`, `hour_local`, `date_local`; validations: `hour_local`. The correction is inferred from bird activity in `src/data/clocks.ts`, not hard-coded.
   - Vegetation: `start_hour_eat`.
   - Every date-time column now records the UTC offsets found in its raw text, shown on its Overview card.
 - **Vegetation summary:**

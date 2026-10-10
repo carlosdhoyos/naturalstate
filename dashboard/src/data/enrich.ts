@@ -97,6 +97,8 @@ function indexBy(ds: Dataset | undefined, key: string): Map<Value, Row> {
 function enrichBirds(reg: Registry) {
   const pred = reg.get('birdnet_predictions')
   const val = reg.get('validation_results')
+  // Clock corrections per recorder (inferred from the predictions), reused for the validated clips.
+  let corrections = new Map<string, number>()
 
   if (pred) {
     const parsed = pred.rows.map((r) => parseRecordingStem(stemOf(String(r.begin_path ?? ''))))
@@ -130,7 +132,7 @@ function enrichBirds(reg: Registry) {
 
     // Recorder clocks: most recorders run on local time (EAT, UTC+3); a few look like UTC.
     // The correction is inferred from bird activity (see data/clocks.ts), never hard-coded.
-    const { corrections } = inferClocks(pred.rows, (r) => (typeof r.detection_time === 'number' ? hourOfMs(r.detection_time) : null))
+    corrections = inferClocks(pred.rows, (r) => (typeof r.detection_time === 'number' ? hourOfMs(r.detection_time) : null)).corrections
     const corr = (r: Row) => corrections.get(String(r.folder)) ?? 0
     addColumn(
       pred,
@@ -175,8 +177,13 @@ function enrichBirds(reg: Registry) {
     )
     addColumn(val, { name: 'recording_start', type: 'datetime', description: 'Start of the source audio file (recorder clock).' }, (_, i) => parts[i].rec?.start ?? null)
     addColumn(val, { name: 'recording_date', type: 'datetime', description: 'Calendar day of the source recording.' }, (_, i) => parts[i].rec?.day ?? null)
-    addColumn(val, { name: 'file_start_hour', type: 'number', description: 'Hour the source audio file starts (the clip offset inside the file is unknown).' }, (_, i) =>
+    addColumn(val, { name: 'file_start_hour', type: 'number', description: 'Clock hour of the source audio file (recorder clock). Segment times count from the top of this hour, so the validated clip lies within it.' }, (_, i) =>
       parts[i].rec ? parts[i].rec!.hour : null,
+    )
+    addColumn(
+      val,
+      { name: 'hour_local', type: 'number', description: 'Hour of day of the clip in local time (EAT): file_start_hour + the recorder’s inferred clock correction (+3 h for recorders whose clocks look like UTC).' },
+      (_, i) => (parts[i].rec ? (parts[i].rec!.hour + (corrections.get(parts[i].rec!.recorder) ?? 0)) % 24 : null),
     )
 
     addColumn(
