@@ -1,5 +1,4 @@
 {
-  "run_utc": "2026-10-10T16:14:30+00:00",
   "python": "3.13.7",
   "packages": {
     "numpy": "2.1.3",
@@ -10,66 +9,90 @@
     "birdnet_predictions.csv": "377f0dc861a3ad46a3d2ee714863a593dd0e4892cf973415aaf864a3015c2fca",
     "validation_results.csv": "6a00f177097f925774c14d1ebb35633e1e84da7c15d7d056ceaf8c433e7e6ad7"
   },
-  "settings": {
+  "config": {
     "target": 0.99,
+    "min_each_outcome": 5,
+    "estimator": "auto",
     "eps": 0.0001,
-    "min_events_for_ml": 10,
-    "bootstrap_resamples": 2000,
+    "link_tol": 0.00051,
+    "threshold_decimals": 6,
+    "n_boot": 2000,
     "seed": 20261010,
-    "cluster": "audio file (recorder-date-hour)"
+    "review_min_clips": 5,
+    "review_alpha": 0.05,
+    "pred_path_pattern": "/(?P<recorder>[^/_]+)_(?P<date>\\d{8})_(?P<hour>\\d{2})\\d{4}\\.wav$",
+    "val_name_pattern": "^(?P<score>\\d\\.\\d{3})_(?P<clip>\\d+)_(?P<recorder>[^/_]+)_(?P<date>\\d{8})_(?P<hour>\\d{2})(?P<mmss>\\d{4})\\.wav$",
+    "write_figures": true,
+    "write_dashboard_json": true
   },
+  "predictions": 29491,
   "validation_clips_raw": 551,
   "validation_clips_after_dedup": 547,
   "dropped_duplicates": 4,
-  "labelled_policy_a": 3247,
-  "labelled_policy_b": 3147,
-  "review_flagged": 2277,
-  "review_flagged_and_labelled": 9,
+  "validation_links": {
+    "unique": 476,
+    "tied": 69,
+    "none": 2
+  },
+  "conflicting_unique_links": 0,
+  "observations": 3460,
+  "observations_by_source": {
+    "model": 3097,
+    "validated": 363
+  },
+  "observation_status_counts": {
+    "no_species_threshold": 18933,
+    "below_threshold": 6985,
+    "model_observation": 3097,
+    "validated_correct": 363,
+    "validated_incorrect": 113
+  },
+  "model_observations": 3147,
+  "review_flagged_rows": 2277,
+  "review_flagged_model_observations": 9,
   "species": {
     "African Black-headed Oriole": {
-      "method": "firth",
-      "status": "no supported threshold: fitted slope not positive",
+      "status": "insufficient_validation",
+      "gate_reason": "no_observed_errors",
+      "method": null,
       "threshold": null,
-      "labelled_a": 0,
-      "labelled_b": 0,
-      "boot_labelled_95": [
-        0,
-        17646
-      ]
+      "model_labelled": 0,
+      "observations": 132,
+      "validated_observations": 132,
+      "review_flagged_recorders": []
     },
     "Abyssinian Nightjar": {
-      "method": "ml",
       "status": "accepted",
+      "gate_reason": null,
+      "method": "ml",
       "threshold": 0.666639,
-      "labelled_a": 3147,
-      "labelled_b": 3147,
-      "boot_labelled_95": [
-        2332,
-        4280
+      "model_labelled": 3147,
+      "observations": 3185,
+      "validated_observations": 88,
+      "review_flagged_recorders": [
+        "RBS75",
+        "RBS79"
       ]
     },
     "Three-banded Plover": {
-      "method": "firth",
-      "status": "accepted",
-      "threshold": 0.848478,
-      "labelled_a": 100,
-      "labelled_b": 0,
-      "boot_labelled_95": [
-        0,
-        187
-      ]
+      "status": "insufficient_validation",
+      "gate_reason": "too_few_errors",
+      "method": null,
+      "threshold": null,
+      "model_labelled": 0,
+      "observations": 137,
+      "validated_observations": 137,
+      "review_flagged_recorders": []
     },
     "Red-billed Firefinch": {
-      "method": "firth",
-      "status": "not reached within validated range",
+      "status": "not_reached",
+      "gate_reason": null,
+      "method": "ml",
       "threshold": null,
-      "labelled_a": 0,
-      "labelled_b": 0,
-      "boot_labelled_95": [
-        0,
-        0
-      ]
+      "model_labelled": 0,
+      "observations": 6,
+      "validated_observations": 6,
+      "review_flagged_recorders": []
     }
-  },
-  "oriole_alternative_flat_level_labelled": 17646
+  }
 }

@@ -52,6 +52,17 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   - The share correct by hour, with Wilson CIs.
   - A period table (dawn / day / evening / night) and the hours that were predicted but never validated.
   - Validated clips are placed exactly in their file's clock hour, because segment times count from the top of the hour.
+- **Birds thresholds & observations (the Challenge 1 answer):** eight tabs. All statistics are precomputed by `challenge1/src/run_challenge1.py` and embedded at build time from `challenge1/outputs/dashboard_results.json`, so the page never re-implements an estimator.
+  1. **Results:** a card per species, the decision flowchart, and the label counts. The page re-applies the published rule (human verdict, else confidence ≥ species threshold) to the embedded predictions CSV and shows whether it reproduces the pipeline's counts exactly.
+  2. **Species curves:** validated clips, ordinary ML / Firth / FLIC curves, the threshold, the validated range and the bootstrap interval, with a zoom to 0.95–1. Also a prediction histogram split at the threshold, and calibration by score band with Wilson intervals.
+  3. **Uncertainty:** recorder- vs audio-file-level bootstrap. Conditional threshold intervals, unconditional labelled-count intervals, and the delta method.
+  4. **Evidence gate & estimators:** why species with zero or one error get no threshold, a gate-size switch (k = 1, 3, 5, 10), and why Firth moved the Plover.
+  5. **Recorders:** the leave-one-recorder-out test behind the review flags, and a refit without the flagged recorders.
+  6. **Sensitivity:** 14 variants of the whole procedure; changed cells are highlighted.
+  7. **Validation design:** validated vs predicted score distribution, and why it does not bias the curves.
+  8. **Wood & Kahl alignment:** each recommendation in the paper against what the analysis does.
+
+  Tabs can be deep-linked, e.g. `#/thresholds:birds/curves`.
 - **Birds exploratory analysis:** 10 descriptive views in 7 tabs, each with a "what it shows" note computed from the data:
   1. **Recorder × species evidence matrix:** bubbles colored by share correct, median confidence or volume.
   2. **Score ridgelines by recorder**, with validated clips overlaid.
@@ -152,6 +163,7 @@ src/
   lib/logistic.ts    logistic regression (IRLS), threshold + delta-method CI, seeded RNG
   lib/simstats.ts    Beta/Gamma/normal samplers, Nelder–Mead, binomial pmf (unit-checked)
   components/Methodology.tsx  paper tabs; components/methods/* one file per paper + Overview
+  components/BirdsThresholds.tsx  Challenge 1 results page (reads ../challenge1/outputs/dashboard_results.json)
   data/dictionary.ts column meanings (ODK form questions + documented formats)
   lib/help.ts        every tooltip and Guide entry (single source)
   components/        Overview, Explore, Table, Map, FilterBar, Plot wrapper, UI atoms

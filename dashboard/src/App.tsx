@@ -11,6 +11,7 @@ import { Methodology } from './components/Methodology'
 import { BirdsDiurnal } from './components/BirdsDiurnal'
 import { BirdsEDA } from './components/BirdsEDA'
 import { BirdsQuality } from './components/BirdsQuality'
+import { BirdsThresholds } from './components/BirdsThresholds'
 import { BirdsSummary, VegetationSummary, type OpenView } from './components/Summary'
 import { Icon } from './components/ui'
 import { describeColumn } from './data/dictionary'
@@ -54,10 +55,11 @@ const METHOD = 'method:birds'
 const QUALITY = 'quality:birds'
 const DIURNAL = 'diurnal:birds'
 const EDA = 'eda:birds'
+const THRESHOLDS = 'thresholds:birds'
 /** Pages that are not datasets: summary:<challenge>, method:birds. */
 const challengeOf = (id: string): Challenge | null => {
   // Pages that exist: a summary per challenge; the other pages only for birds.
-  const m = /^(?:summary:(birds|vegetation)|(?:method|quality|diurnal|eda):(birds))$/.exec(id)
+  const m = /^(?:summary:(birds|vegetation)|(?:method|quality|diurnal|eda|thresholds):(birds))$/.exec(id)
   return m ? ((m[1] ?? m[2]) as Challenge) : null
 }
 
@@ -324,6 +326,14 @@ export default function App() {
               <span className="nav-item-sub">10 views</span>
             </button>
           )}
+          {challenge === 'birds' && (
+            <button type="button" className={`nav-item summary ${current === THRESHOLDS ? 'on' : ''}`} {...tip('nav.thresholds')} onClick={() => { setCurrent(THRESHOLDS); setNavOpen(false) }}>
+              <span className="nav-item-title">
+                <Icon name="chart" size={14} /> Thresholds &amp; observations
+              </span>
+              <span className="nav-item-sub">results</span>
+            </button>
+          )}
           <div className="search" {...tip('nav.find')}>
             <Icon name="search" size={14} />
             <input className="input bare" placeholder="Find a table…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -374,6 +384,7 @@ export default function App() {
           {reg && current === QUALITY && <BirdsQuality reg={reg} tokens={tokens} onOpen={openView} />}
           {reg && current === DIURNAL && <BirdsDiurnal reg={reg} tokens={tokens} onOpen={openView} />}
           {reg && current === EDA && <BirdsEDA reg={reg} tokens={tokens} />}
+          {reg && current === THRESHOLDS && <BirdsThresholds reg={reg} tokens={tokens} />}
           {reg && current === SUMMARY('vegetation') && <VegetationSummary reg={reg} tokens={tokens} onOpen={openView} />}
           {ds && view && (
             <>

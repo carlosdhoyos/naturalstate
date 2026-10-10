@@ -10,6 +10,10 @@ Two estimators share one interface:
 
 Every fit carries validity flags. Probabilities and thresholds are only derived from valid fits;
 an invalid fit yields None, never an accidental number.
+
+Also here: FLIC (Firth with intercept correction, a comparison estimator), Wilson intervals, an
+exact Poisson-binomial tail (for per-recorder checks), and cluster-bootstrap resampling. The
+decision rules that use these (evidence gate, acceptance, labels) live in run_challenge1.py.
 """
 
 from __future__ import annotations
@@ -145,10 +149,25 @@ def _firth_penalised_loglik(X: np.ndarray, y: np.ndarray, b: np.ndarray) -> floa
     return _loglik(X, y, b) + 0.5 * logdet if sign > 0 else -np.inf
 
 
-def fit_firth(x: np.ndarray, y: np.ndarray, max_iter: int = 200, tol: float = 1e-10) -> Fit:
-    """Firth's penalised maximum likelihood (Heinze & Schemper 2002), Newton steps on the modified
-    score U*(b) = X'(y - p + h (1/2 - p)), with step halving on the penalised log-likelihood.
-    Finite even under separation; valid when it converges with a finite covariance."""
+def fit_firth(x: np.ndarray, y: np.ndarray, max_iter: int = 200, gtol: float = 1e-8) -> Fit:
+    """Firth's penalised maximum likelihood (Firth 1993; Heinze & Schemper 2002).
+
+    Maximises l(b) + 0.5 log|I(b)|, the log-likelihood plus a Jeffreys-prior penalty. Its score is
+    the modified score U*(b) = X'(y - p + h (1/2 - p)), where h is the diagonal of the hat matrix.
+
+    Iteration: Fisher-scoring steps, inverse information times U*. That inverse is not the exact
+    Jacobian of U*, so a full step can overshoot. On tiny or saturated data it can bounce between
+    two mirror points with the same penalised likelihood. To prevent that:
+      * a step is accepted only if it strictly increases the penalised log-likelihood; otherwise it
+        is halved, up to 30 times;
+      * if the full step improves, its half is also tried and the better one kept, which damps the
+        overshoot instead of bouncing;
+      * convergence is judged on the modified score itself, |U*| < gtol, the quantity that must be
+        zero at the solution (logistf uses the same idea), never on the size of a halved step. When
+        the penalised likelihood is flat to float precision, |U*| < 1000 gtol is accepted (logistf's
+        default score tolerance is 1e-5).
+
+    Finite even under separation. Valid when converged with a finite covariance."""
     X = _design(x)
     y = np.asarray(y, float)
     sep = separation(x, y)
@@ -159,27 +178,34 @@ def fit_firth(x: np.ndarray, y: np.ndarray, max_iter: int = 200, tol: float = 1e
     for it in range(1, max_iter + 1):
         p = sigmoid(_eta(X, b))
         w = np.clip(p * (1 - p), 1e-12, None)
-        info = _info(X, w)
         try:
-            inv = np.linalg.inv(info)
+            inv = np.linalg.inv(_info(X, w))
         except np.linalg.LinAlgError:
             break
         x1 = X[:, 1]
         h = w * (inv[0, 0] + 2 * inv[0, 1] * x1 + inv[1, 1] * x1 * x1)  # diagonal of the hat matrix
-        step = inv @ _score(X, y - p + h * (0.5 - p))
-        # step halving keeps the penalised likelihood from decreasing
-        t = 1.0
-        for _ in range(30):
-            cand = b + t * step
-            pl_new = _firth_penalised_loglik(X, y, cand)
-            if pl_new >= pl - 1e-12:
-                break
-            t /= 2
-        if np.max(np.abs(step)) < tol:  # full Newton step, not the halved one, so halving can't fake convergence
+        u = _score(X, y - p + h * (0.5 - p))  # modified score: zero at the Firth estimate
+        if np.max(np.abs(u)) < gtol:
             converged = True
             break
+        step = inv @ u
+        t, improved = 1.0, False
+        for _ in range(30):
+            pl_new = _firth_penalised_loglik(X, y, b + t * step)
+            if pl_new > pl:
+                improved = True
+                # an overshooting step can still improve; take its half instead if that is better
+                pl_half = _firth_penalised_loglik(X, y, b + 0.5 * t * step)
+                if pl_half > pl_new:
+                    t, pl_new = 0.5 * t, pl_half
+                break
+            t /= 2
+        if not improved:
+            # no ascent direction left within float precision: accept only if the score is ~0 anyway
+            converged = bool(np.max(np.abs(u)) < 1e3 * gtol)
+            break
         b = b + t * step
-        pl = _firth_penalised_loglik(X, y, b)
+        pl = pl_new
         if not np.all(np.isfinite(b)):
             break
     p = sigmoid(_eta(X, b))
@@ -196,7 +222,7 @@ def fit_firth(x: np.ndarray, y: np.ndarray, max_iter: int = 200, tol: float = 1e
 
 
 def fit_method(x: np.ndarray, y: np.ndarray, method: str) -> Fit:
-    return fit_firth(x, y) if method == "firth" else fit_ml(x, y)
+    return {"firth": fit_firth, "flic": fit_flic}.get(method, fit_ml)(x, y)
 
 
 def threshold_logit(fit: Fit, q: float = 0.99) -> float | None:
@@ -217,35 +243,67 @@ def threshold_delta_ci(fit: Fit, q: float = 0.99, z: float = 1.96) -> tuple[floa
     return t - z * se, t + z * se
 
 
-@dataclass
-class Bootstrap:
-    thresholds: np.ndarray  # logit-scale thresholds of successful resamples
-    n_resamples: int
-    n_failed: int  # resamples without a valid, increasing fit
-    all_thresholds: np.ndarray = field(default_factory=lambda: np.array([]))  # every resample, NaN where unusable
-
-    def ci(self, level: float = 0.95) -> tuple[float, float] | None:
-        if len(self.thresholds) < 0.5 * self.n_resamples:
-            return None  # too many failures for a meaningful interval
-        a = (1 - level) / 2
-        lo, hi = np.quantile(self.thresholds, [a, 1 - a])
-        return float(lo), float(hi)
-
-
-def cluster_bootstrap(x: np.ndarray, y: np.ndarray, clusters: np.ndarray, method: str, q: float = 0.99, n_resamples: int = 2000, seed: int = 20261010) -> Bootstrap:
-    """Resample whole clusters (audio files) with replacement and refit, so the interval reflects
-    that clips from the same file are not independent."""
+def cluster_resamples(clusters: np.ndarray, n_resamples: int, seed: int):
+    """Yield index arrays of a cluster bootstrap: whole clusters (audio files or recorders) are drawn
+    with replacement, so dependence within a cluster is kept. Deterministic for a given seed."""
     rng = np.random.default_rng(seed)
-    x = np.asarray(x, float)
-    y = np.asarray(y, int)
     labels, inv = np.unique(np.asarray(clusters), return_inverse=True)
     members = [np.flatnonzero(inv == k) for k in range(len(labels))]
-    every = np.full(n_resamples, np.nan)
-    for i in range(n_resamples):
+    for _ in range(n_resamples):
         pick = rng.integers(0, len(labels), len(labels))
-        idx = np.concatenate([members[k] for k in pick])
-        t = threshold_logit(fit_method(x[idx], y[idx], method), q)
-        if t is not None:
-            every[i] = t
-    ok = every[np.isfinite(every)]
-    return Bootstrap(ok, n_resamples, n_resamples - len(ok), every)
+        yield np.concatenate([members[k] for k in pick])
+
+
+# ── comparison estimator and model-free checks ────────────────────────────────
+
+
+def fit_flic(x: np.ndarray, y: np.ndarray) -> Fit:
+    """FLIC: Firth's logistic regression with intercept correction (Puhr et al. 2017, Stat Med).
+
+    Firth reduces bias in the *coefficients*, but it biases *predicted probabilities* toward 0.5
+    when events are rare: the penalty acts like adding sum(h)/2 = 1 pseudo-event of each outcome.
+    FLIC keeps Firth's slope and re-estimates the intercept by ordinary ML with the slope fixed,
+    so the mean fitted probability equals the observed share of correct predictions again.
+
+    Used here only as a comparison estimator, to show how much a threshold depends on the
+    estimator when errors are rare. The covariance is Firth's, an approximation."""
+    fi = fit_firth(x, y)
+    x = np.asarray(x, float)
+    y = np.asarray(y, float)
+    if not fi.valid or y.sum() in (0, len(y)):
+        # with one outcome only, sum(y - p) = 0 has no finite intercept
+        return Fit("flic", fi.b0, fi.b1, fi.cov, False, fi.separated, False, fi.iterations, len(y), np.nan, ["intercept correction undefined"])
+    b0 = fi.b0
+    for _ in range(100):  # Newton on the intercept alone: sum(y - p) = 0
+        p = sigmoid(b0 + fi.b1 * x)
+        g, hss = float(np.sum(y - p)), float(np.sum(p * (1 - p)))
+        step = g / hss
+        b0 += step
+        if abs(step) < 1e-12:
+            break
+    X = _design(x)
+    return Fit("flic", float(b0), fi.b1, fi.cov, True, fi.separated, bool(np.isfinite(b0)), fi.iterations, len(y), _loglik(X, y, np.array([b0, fi.b1])), [])
+
+
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """Wilson score interval for a binomial proportion k/n. (nan, nan) when n == 0."""
+    if n == 0:
+        return float("nan"), float("nan")
+    ph = k / n
+    den = 1 + z * z / n
+    centre = (ph + z * z / (2 * n)) / den
+    half = z * np.sqrt(ph * (1 - ph) / n + z * z / (4 * n * n)) / den
+    return float(centre - half), float(centre + half)
+
+
+def poisson_binomial_cdf(k: int, p: np.ndarray) -> float:
+    """P(X <= k) where X is a sum of independent Bernoulli(p_i). Exact, by dynamic programming.
+
+    Used to ask: if the pooled curve were right at this recorder, how likely is it to see this few
+    correct predictions among its validated clips?"""
+    dist = np.zeros(len(p) + 1)
+    dist[0] = 1.0
+    for pi in np.asarray(p, float):
+        dist[1:] = dist[1:] * (1 - pi) + dist[:-1] * pi
+        dist[0] *= 1 - pi
+    return float(dist[: k + 1].sum())

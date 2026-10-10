@@ -1,29 +1,57 @@
-variant,species,validated_clips,method,status,b0,b1,threshold_conf_raw,effective_threshold_conf,labelled_a,ml_threshold_conf,ml_labelled
-"primary (eps=1e-4, 4 duplicates dropped)",African Black-headed Oriole,150,firth,no supported threshold: fitted slope not positive,5.054132322873796,-0.05712439580274189,,,0,,0
-"primary (eps=1e-4, 4 duplicates dropped)",Abyssinian Nightjar,150,ml,accepted,3.1589982987070475,2.072270314935195,0.66663805816692,0.666639,3147,0.66663805816692,3147
-"primary (eps=1e-4, 4 duplicates dropped)",Three-banded Plover,146,firth,accepted,4.247900594600717,0.20155387526022522,0.8484778140343687,0.848478,100,0.26107237481682305,536
-"primary (eps=1e-4, 4 duplicates dropped)",Red-billed Firefinch,101,firth,not reached within validated range,-1.45099245164448,0.8700886861079513,0.9990411781816735,,0,0.9983797726298821,0
-eps=5e-4 (half a 3-dp rounding step),African Black-headed Oriole,150,firth,no supported threshold: fitted slope not positive,5.054132322873796,-0.05712439580274189,,,0,,0
-eps=5e-4 (half a 3-dp rounding step),Abyssinian Nightjar,150,ml,accepted,3.1589983406848434,2.0722703413612953,0.6666380517012087,0.666639,3147,0.6666380517012087,3147
-eps=5e-4 (half a 3-dp rounding step),Three-banded Plover,146,firth,accepted,4.247900594600717,0.20155387526022522,0.8484778140343687,0.848478,100,0.26107237481682305,536
-eps=5e-4 (half a 3-dp rounding step),Red-billed Firefinch,101,firth,not reached within validated range,-1.45099245164448,0.8700886861079513,0.9990411781816735,,0,0.9983797726298821,0
-eps=1e-5,African Black-headed Oriole,150,firth,no supported threshold: fitted slope not positive,5.054132322873796,-0.05712439580274189,,,0,,0
-eps=1e-5,Abyssinian Nightjar,150,ml,accepted,3.158998296899281,2.072270313793227,0.666638058445657,0.666639,3147,0.666638058445657,3147
-eps=1e-5,Three-banded Plover,146,firth,accepted,4.247900594600717,0.20155387526022522,0.8484778140343687,0.848478,100,0.26107237481682305,536
-eps=1e-5,Red-billed Firefinch,101,firth,not reached within validated range,-1.45099245164448,0.8700886861079513,0.9990411781816735,,0,0.9983797726298821,0
-eps=1e-6,African Black-headed Oriole,150,firth,no supported threshold: fitted slope not positive,5.054132322873796,-0.05712439580274189,,,0,,0
-eps=1e-6,Abyssinian Nightjar,150,ml,accepted,3.15899829688076,2.072270313781488,0.6666380584485158,0.666639,3147,0.6666380584485158,3147
-eps=1e-6,Three-banded Plover,146,firth,accepted,4.247900594600717,0.20155387526022522,0.8484778140343687,0.848478,100,0.26107237481682305,536
-eps=1e-6,Red-billed Firefinch,101,firth,not reached within validated range,-1.45099245164448,0.8700886861079513,0.9990411781816735,,0,0.9983797726298821,0
-validated scores of exactly 1 excluded,African Black-headed Oriole,150,firth,no supported threshold: fitted slope not positive,5.054132322873796,-0.05712439580274189,,,0,,0
-validated scores of exactly 1 excluded,Abyssinian Nightjar,148,ml,accepted,3.158998296880572,2.0722703137813685,0.6666380584485447,0.666639,3147,0.6666380584485447,3147
-validated scores of exactly 1 excluded,Three-banded Plover,146,firth,accepted,4.247900594600717,0.20155387526022522,0.8484778140343687,0.848478,100,0.26107237481682305,536
-validated scores of exactly 1 excluded,Red-billed Firefinch,101,firth,not reached within validated range,-1.45099245164448,0.8700886861079513,0.9990411781816735,,0,0.9983797726298821,0
-ambiguous Plover pair also reduced,African Black-headed Oriole,150,firth,no supported threshold: fitted slope not positive,5.054132322873796,-0.05712439580274189,,,0,,0
-ambiguous Plover pair also reduced,Abyssinian Nightjar,150,ml,accepted,3.1589982987070475,2.072270314935195,0.66663805816692,0.666639,3147,0.66663805816692,3147
-ambiguous Plover pair also reduced,Three-banded Plover,145,firth,accepted,4.243496208510817,0.1978320246891095,0.8553736462043509,0.855374,99,0.26142836404639713,536
-ambiguous Plover pair also reduced,Red-billed Firefinch,101,firth,not reached within validated range,-1.45099245164448,0.8700886861079513,0.9990411781816735,,0,0.9983797726298821,0
-no de-duplication (all 551 clips),African Black-headed Oriole,150,firth,no supported threshold: fitted slope not positive,5.054132322873796,-0.05712439580274189,,,0,,0
-no de-duplication (all 551 clips),Abyssinian Nightjar,150,ml,accepted,3.1589982987070475,2.072270314935195,0.66663805816692,0.666639,3147,0.66663805816692,3147
-no de-duplication (all 551 clips),Three-banded Plover,150,firth,accepted,4.268385915084534,0.21795956601274774,0.8174338724332177,0.817434,114,0.25880210857582603,538
-no de-duplication (all 551 clips),Red-billed Firefinch,101,firth,not reached within validated range,-1.45099245164448,0.8700886861079513,0.9990411781816735,,0,0.9983797726298821,0
+group,variant,species,validated_clips,incorrect,status,gate_reason,method,threshold,model_labelled,b0,b1
+primary,as documented,African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+primary,as documented,Abyssinian Nightjar,150,33,accepted,,ml,0.666639,3147,3.1589982987070475,2.072270314935195
+primary,as documented,Three-banded Plover,146,1,insufficient_validation,too_few_errors,,,0,,
+primary,as documented,Red-billed Firefinch,101,95,not_reached,,ml,,0,-1.4577788986162163,0.9422955371462722
+endpoint,eps = 5e-4 (half a 3-decimal step),African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+endpoint,eps = 5e-4 (half a 3-decimal step),Abyssinian Nightjar,150,33,accepted,,ml,0.666639,3147,3.1589983406848434,2.0722703413612953
+endpoint,eps = 5e-4 (half a 3-decimal step),Three-banded Plover,146,1,insufficient_validation,too_few_errors,,,0,,
+endpoint,eps = 5e-4 (half a 3-decimal step),Red-billed Firefinch,101,95,not_reached,,ml,,0,-1.4577788986162163,0.9422955371462722
+endpoint,eps = 1e-5,African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+endpoint,eps = 1e-5,Abyssinian Nightjar,150,33,accepted,,ml,0.666639,3147,3.158998296899281,2.072270313793227
+endpoint,eps = 1e-5,Three-banded Plover,146,1,insufficient_validation,too_few_errors,,,0,,
+endpoint,eps = 1e-5,Red-billed Firefinch,101,95,not_reached,,ml,,0,-1.4577788986162163,0.9422955371462722
+endpoint,eps = 1e-6,African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+endpoint,eps = 1e-6,Abyssinian Nightjar,150,33,accepted,,ml,0.666639,3147,3.15899829688076,2.072270313781488
+endpoint,eps = 1e-6,Three-banded Plover,146,1,insufficient_validation,too_few_errors,,,0,,
+endpoint,eps = 1e-6,Red-billed Firefinch,101,95,not_reached,,ml,,0,-1.4577788986162163,0.9422955371462722
+endpoint,validated scores of exactly 1 excluded,African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+endpoint,validated scores of exactly 1 excluded,Abyssinian Nightjar,148,33,accepted,,ml,0.666639,3147,3.158998296880572,2.0722703137813685
+endpoint,validated scores of exactly 1 excluded,Three-banded Plover,146,1,insufficient_validation,too_few_errors,,,0,,
+endpoint,validated scores of exactly 1 excluded,Red-billed Firefinch,101,95,not_reached,,ml,,0,-1.4577788986162163,0.9422955371462722
+duplicates,ambiguous Plover pair also reduced,African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+duplicates,ambiguous Plover pair also reduced,Abyssinian Nightjar,150,33,accepted,,ml,0.666639,3147,3.1589982987070475,2.072270314935195
+duplicates,ambiguous Plover pair also reduced,Three-banded Plover,145,1,insufficient_validation,too_few_errors,,,0,,
+duplicates,ambiguous Plover pair also reduced,Red-billed Firefinch,101,95,not_reached,,ml,,0,-1.4577788986162163,0.9422955371462722
+duplicates,no de-duplication (all clips),African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+duplicates,no de-duplication (all clips),Abyssinian Nightjar,150,33,accepted,,ml,0.666639,3147,3.1589982987070475,2.072270314935195
+duplicates,no de-duplication (all clips),Three-banded Plover,150,1,insufficient_validation,too_few_errors,,,0,,
+duplicates,no de-duplication (all clips),Red-billed Firefinch,101,95,not_reached,,ml,,0,-1.4577788986162163,0.9422955371462722
+gate,gate k = 1 (one error and one correct suffice),African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+gate,gate k = 1 (one error and one correct suffice),Abyssinian Nightjar,150,33,accepted,,ml,0.666639,3147,3.1589982987070475,2.072270314935195
+gate,gate k = 1 (one error and one correct suffice),Three-banded Plover,146,1,accepted,,ml,0.261073,536,5.150569107616978,0.5338792989586928
+gate,gate k = 1 (one error and one correct suffice),Red-billed Firefinch,101,95,not_reached,,ml,,0,-1.4577788986162163,0.9422955371462722
+gate,gate k = 3,African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+gate,gate k = 3,Abyssinian Nightjar,150,33,accepted,,ml,0.666639,3147,3.1589982987070475,2.072270314935195
+gate,gate k = 3,Three-banded Plover,146,1,insufficient_validation,too_few_errors,,,0,,
+gate,gate k = 3,Red-billed Firefinch,101,95,not_reached,,ml,,0,-1.4577788986162163,0.9422955371462722
+gate,gate k = 10,African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+gate,gate k = 10,Abyssinian Nightjar,150,33,accepted,,ml,0.666639,3147,3.1589982987070475,2.072270314935195
+gate,gate k = 10,Three-banded Plover,146,1,insufficient_validation,too_few_errors,,,0,,
+gate,gate k = 10,Red-billed Firefinch,101,95,insufficient_validation,too_few_correct,,,0,,
+estimator,gate k = 1 and Firth for every species,African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+estimator,gate k = 1 and Firth for every species,Abyssinian Nightjar,150,33,accepted,,firth,0.708564,2931,2.8963771886944367,1.9120974449688741
+estimator,gate k = 1 and Firth for every species,Three-banded Plover,146,1,accepted,,firth,0.848478,100,4.247900593839225,0.20155387136253444
+estimator,gate k = 1 and Firth for every species,Red-billed Firefinch,101,95,not_reached,,firth,,0,-1.4509924302474428,0.87008870047352
+estimator,gate k = 1 and FLIC for every species,African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+estimator,gate k = 1 and FLIC for every species,Abyssinian Nightjar,150,33,accepted,,flic,0.70685,2943,2.9122238559610283,1.9120974449688741
+estimator,gate k = 1 and FLIC for every species,Three-banded Plover,146,1,accepted,,flic,0.156245,785,4.935028545993939,0.20155387136253444
+estimator,gate k = 1 and FLIC for every species,Red-billed Firefinch,101,95,not_reached,,flic,,0,-1.5450653571958246,0.87008870047352
+recorders,review-flagged recorders removed,African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+recorders,review-flagged recorders removed,Abyssinian Nightjar,121,4,insufficient_validation,too_few_errors,,,0,,
+recorders,review-flagged recorders removed,Three-banded Plover,146,1,insufficient_validation,too_few_errors,,,0,,
+recorders,review-flagged recorders removed,Red-billed Firefinch,101,95,not_reached,,ml,,0,-1.4577788986162163,0.9422955371462722
+recorders,"review-flagged recorders removed, gate k = 1",African Black-headed Oriole,150,0,insufficient_validation,no_observed_errors,,,0,,
+recorders,"review-flagged recorders removed, gate k = 1",Abyssinian Nightjar,121,4,accepted,,ml,0.68597,3047,3.727160140256637,1.1108529872759951
+recorders,"review-flagged recorders removed, gate k = 1",Three-banded Plover,146,1,accepted,,ml,0.261073,536,5.150569107616978,0.5338792989586928
+recorders,"review-flagged recorders removed, gate k = 1",Red-billed Firefinch,101,95,not_reached,,ml,,0,-1.4577788986162163,0.9422955371462722

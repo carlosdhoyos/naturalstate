@@ -110,4 +110,63 @@ def test_firth_converged_means_modified_score_is_zero(name):
     inv = np.linalg.inv(_info(X, w))
     h = w * (inv[0, 0] + 2 * inv[0, 1] * x + inv[1, 1] * x * x)
     assert f.converged
-    assert np.abs(_score(X, y - p + h * (0.5 - p))).max() < 1e-8
+    assert np.abs(_score(X, y - p + h * (0.5 - p))).max() < 1e-5  # logistf's default gconv
+
+
+def test_flic_restores_the_observed_mean_probability():
+    """FLIC keeps Firth's slope and corrects the intercept so mean fitted p = observed share."""
+    from thresholds import fit_flic
+
+    x, y = species("Three-banded Plover")
+    f, fi = fit_flic(x, y), fit_firth(x, y)
+    assert f.valid and f.b1 == fi.b1
+    assert np.mean(f.p(x)) == pytest.approx(np.mean(y), abs=1e-10)
+    assert np.mean(fi.p(x)) < np.mean(y)  # Firth pulls probabilities toward 0.5 when errors are rare
+    assert not fit_flic(x, np.ones_like(y)).valid  # one outcome only: no intercept solves sum(y - p) = 0
+
+
+def test_wilson_and_poisson_binomial():
+    from itertools import product
+
+    from thresholds import poisson_binomial_cdf, wilson
+
+    lo, hi = wilson(150, 150)
+    assert lo == pytest.approx(0.975029, abs=1e-6) and hi == pytest.approx(1.0)
+    assert np.isnan(wilson(0, 0)[0])
+    p = np.array([0.1, 0.5, 0.8, 0.3])
+    for k in range(5):  # brute force over all 16 outcomes
+        brute = sum(np.prod([pi if o else 1 - pi for pi, o in zip(p, outs)]) for outs in product([0, 1], repeat=4) if sum(outs) <= k)
+        assert poisson_binomial_cdf(k, p) == pytest.approx(brute, abs=1e-12)
+
+
+def test_delta_ci_matches_numerical_gradient():
+    from thresholds import threshold_delta_ci
+
+    x, y = species("Abyssinian Nightjar")
+    f = fit_ml(x, y)
+    lo, hi = threshold_delta_ci(f)
+    g = np.zeros(2)
+    for i in range(2):  # central differences of t(b0, b1)
+        e = np.zeros(2)
+        e[i] = 1e-6
+        t = lambda b: (LOGIT_99 - b[0]) / b[1]  # noqa: E731
+        g[i] = (t(np.array([f.b0, f.b1]) + e) - t(np.array([f.b0, f.b1]) - e)) / 2e-6
+    se = np.sqrt(g @ f.cov @ g)
+    assert (hi - lo) / 2 == pytest.approx(1.96 * se, rel=1e-6)
+
+
+def test_firth_converges_on_tiny_problems():
+    """Fisher-scoring steps can bounce on saturated data; the iteration must still reach the optimum."""
+    from thresholds import _firth_penalised_loglik
+
+    f = fit_firth(np.array([0.0, 1.0]), np.array([0, 1]))
+    assert f.converged and f.b1 == pytest.approx(2 * np.log(3), abs=1e-8)  # Haldane: log((1.5*1.5)/(0.5*0.5))
+    rng = np.random.default_rng(3)
+    for _ in range(300):
+        n = rng.integers(2, 8)
+        x, y = rng.normal(size=n), rng.integers(0, 2, n)
+        f = fit_firth(x, y)
+        assert f.converged
+        X = _design(x)
+        res = minimize(lambda b: -_firth_penalised_loglik(X, y, b), x0=[f.b0, f.b1], method="Nelder-Mead", options={"xatol": 1e-10, "fatol": 1e-14})
+        assert -res.fun - _firth_penalised_loglik(X, y, np.array([f.b0, f.b1])) < 1e-9
