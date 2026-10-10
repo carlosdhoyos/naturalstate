@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { applyFilters, defaultFilterKind, describeFilter, newId, valueCounts, type Filter, type TextOp } from '../data/filter'
-import { fmtDate, fmtInt, fmtNum, isoUTC } from '../data/stats'
+import { fmtDate, fmtInt, fmtNum, isoUTC, maxOf, minOf } from '../data/stats'
 import type { Column, Dataset } from '../data/types'
 import { HELP, tip, tipText } from '../lib/help'
 import { Icon, Segmented, Toggle, TypeBadge } from './ui'
@@ -137,12 +137,23 @@ function ColumnFilter({ col, rows, initial, onApply, onBack }: { col: Column; ro
 
   // range state
   const nums = useMemo(() => rows.map((r) => r[col.name]).filter((v): v is number => typeof v === 'number'), [rows, col.name])
-  const dmin = nums.length ? Math.min(...nums) : NaN
-  const dmax = nums.length ? Math.max(...nums) : NaN
-  const toInput = (v: number | null) => (v === null || !Number.isFinite(v) ? '' : isDate ? isoUTC(v).slice(0, 16) : String(v))
-  const fromInput = (s: string) => (s.trim() === '' ? null : isDate ? Date.parse(`${s}:00Z`) : Number(s))
-  const [lo, setLo] = useState(toInput(initial?.kind === 'range' ? initial.min : null))
-  const [hi, setHi] = useState(toInput(initial?.kind === 'range' ? initial.max : null))
+  const dmin = nums.length ? minOf(nums) : NaN
+  const dmax = nums.length ? maxOf(nums) : NaN
+  const toInput = (v: number | null) => (v === null || !Number.isFinite(v) ? '' : isDate ? isoUTC(v).slice(0, 19) : String(v))
+  const parseDate = (s: string) => {
+    // datetime-local gives YYYY-MM-DDTHH:MM, optionally :SS(.sss); read as UTC
+    const t = s.trim()
+    const withSec = /T\d{2}:\d{2}$/.test(t) ? `${t}:00` : t
+    const ms = Date.parse(`${withSec}Z`)
+    return Number.isFinite(ms) ? ms : null
+  }
+  const fromInput = (s: string) => (s.trim() === '' ? null : isDate ? parseDate(s) : Number.isFinite(Number(s)) ? Number(s) : null)
+  const initMin = initial?.kind === 'range' ? initial.min : null
+  const initMax = initial?.kind === 'range' ? initial.max : null
+  const [lo, setLo] = useState(toInput(initMin))
+  const [hi, setHi] = useState(toInput(initMax))
+  // An untouched bound keeps its exact original value (inputs only show whole seconds)
+  const boundOf = (s: string, init: number | null) => (s === toInput(init) ? init : fromInput(s))
   const [keepNull, setKeepNull] = useState(initial?.kind === 'range' ? !!initial.keepNull : false)
 
   // in state
@@ -156,7 +167,7 @@ function ColumnFilter({ col, rows, initial, onApply, onBack }: { col: Column; ro
   const [query, setQuery] = useState(initial?.kind === 'text' ? initial.query : '')
 
   const apply = () => {
-    if (kind === 'range') onApply({ id, column: col.name, kind, min: fromInput(lo), max: fromInput(hi), keepNull })
+    if (kind === 'range') onApply({ id, column: col.name, kind, min: boundOf(lo, initMin), max: boundOf(hi, initMax), keepNull })
     else if (kind === 'in') onApply({ id, column: col.name, kind, values: [...sel], exclude })
     else onApply({ id, column: col.name, kind, op, query })
   }
@@ -188,9 +199,9 @@ function ColumnFilter({ col, rows, initial, onApply, onBack }: { col: Column; ro
             Data range: {isDate ? fmtDate(dmin) : fmtNum(dmin)} → {isDate ? fmtDate(dmax) : fmtNum(dmax)} {isDate && '(UTC)'}
           </div>
           <div className="range-inputs">
-            <input className="input" type={isDate ? 'datetime-local' : 'number'} step="any" placeholder="min" value={lo} onChange={(e) => setLo(e.target.value)} />
+            <input className="input" type={isDate ? 'datetime-local' : 'number'} step={isDate ? 1 : 'any'} placeholder="min" value={lo} onChange={(e) => setLo(e.target.value)} />
             <span>to</span>
-            <input className="input" type={isDate ? 'datetime-local' : 'number'} step="any" placeholder="max" value={hi} onChange={(e) => setHi(e.target.value)} />
+            <input className="input" type={isDate ? 'datetime-local' : 'number'} step={isDate ? 1 : 'any'} placeholder="max" value={hi} onChange={(e) => setHi(e.target.value)} />
           </div>
           <Toggle tipKey="filter.keepNull" checked={keepNull} onChange={setKeepNull} label="Keep empty values" />
         </div>

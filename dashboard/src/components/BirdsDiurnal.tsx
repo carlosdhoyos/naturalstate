@@ -5,7 +5,7 @@
  */
 import { useMemo, useState } from 'react'
 import { axisStyle, baseLayout } from '../charts/build'
-import { fmtInt, fmtNum, fmtPct, summarize, wilson } from '../data/stats'
+import { fmtInt, fmtNum, fmtPct, maxOf, minOf, summarize, wilson } from '../data/stats'
 import { EAT_OFFSET_H, CANDIDATE_SITES, fmtClock, meanSun } from '../data/sun'
 import type { Dataset, Row } from '../data/types'
 import { OTHER, SERIES, type ThemeTokens } from '../lib/palette'
@@ -45,7 +45,7 @@ export function BirdsDiurnal({ reg, tokens: t, onOpen }: { reg: Map<string, Data
     pred.rows.forEach((r) => counts.set(String(r.common_name), (counts.get(String(r.common_name)) ?? 0) + 1))
     const species = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k)
     const days = pred.rows.map((r) => r.recording_date).filter((x): x is number => typeof x === 'number')
-    const sun = meanSun(CANDIDATE_SITES[0].lat, CANDIDATE_SITES[0].lon, Math.min(...days), Math.max(...days))
+    const sun = meanSun(CANDIDATE_SITES[0].lat, CANDIDATE_SITES[0].lon, minOf(days), maxOf(days))
     const per = species.map((sp) => {
       const P = pred.rows.filter((r) => r.common_name === sp && typeof hp(r) === 'number')
       const V = val.rows.filter((r) => r.commonName === sp && typeof hv(r) === 'number')

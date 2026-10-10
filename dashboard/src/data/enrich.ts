@@ -183,7 +183,7 @@ function enrichBirds(reg: Registry) {
     addColumn(
       val,
       { name: 'hour_local', type: 'number', description: 'Hour of day of the clip in local time (EAT): file_start_hour + the recorder’s inferred clock correction (+3 h for recorders whose clocks look like UTC).' },
-      (_, i) => (parts[i].rec ? (parts[i].rec!.hour + (corrections.get(parts[i].rec!.recorder) ?? 0)) % 24 : null),
+      (_, i) => (parts[i].rec ? (((parts[i].rec!.hour + (corrections.get(parts[i].rec!.recorder) ?? 0)) % 24) + 24) % 24 : null),
     )
 
     addColumn(

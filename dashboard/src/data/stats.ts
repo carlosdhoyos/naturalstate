@@ -106,6 +106,18 @@ export function wilson(k: number, n: number, z = 1.96): [number, number] {
   return [Math.max(0, c - h), Math.min(1, c + h)]
 }
 
+/** Min / max with a plain loop — spreading large arrays into Math.min/max overflows the call stack (~150k+ items). */
+export function minOf(v: Iterable<number>): number {
+  let m = Infinity
+  for (const x of v) if (x < m) m = x
+  return m
+}
+export function maxOf(v: Iterable<number>): number {
+  let m = -Infinity
+  for (const x of v) if (x > m) m = x
+  return m
+}
+
 export type Agg = 'count' | 'share' | 'mean' | 'median' | 'sum' | 'min' | 'max'
 
 export function aggregate(values: number[], agg: Agg): number {
@@ -120,9 +132,9 @@ export function aggregate(values: number[], agg: Agg): number {
     case 'median':
       return quantileSorted([...v].sort((a, b) => a - b), 0.5)
     case 'min':
-      return Math.min(...v)
+      return minOf(v)
     case 'max':
-      return Math.max(...v)
+      return maxOf(v)
     default:
       return v.length
   }

@@ -81,7 +81,7 @@ export function ChartBuilder({ ds, rows, spec, onSpec, onAddFilters, tokens }: P
       const parse = (v: number | string, isDate: boolean, tr: Transform) =>
         isDate ? Date.parse(`${String(v).replace(' ', 'T')}Z`) : invertTransform(Number(v), tr)
       const seeds: FilterSeed[] = []
-      if (r.x) {
+      if (r.x && !spec.jitterX) {
         const a = parse(r.x[0], xc.type === 'datetime', spec.xTransform)
         const b = parse(r.x[1], xc.type === 'datetime', spec.xTransform)
         seeds.push({ column: xc.name, kind: 'range', min: Math.min(a, b), max: Math.max(a, b) })

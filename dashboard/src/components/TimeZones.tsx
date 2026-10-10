@@ -5,7 +5,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { axisStyle, baseLayout } from '../charts/build'
 import { dawnOnset, duskOnset, hourOfMs, inferClocks, NIGHTJAR, ORIOLE } from '../data/clocks'
-import { fmtNum, fmtPct } from '../data/stats'
+import { fmtNum, fmtPct, maxOf, minOf } from '../data/stats'
 import { CANDIDATE_SITES, EAT_OFFSET_H, fmtClock, meanSun } from '../data/sun'
 import type { Dataset } from '../data/types'
 import { OTHER, SERIES, type ThemeTokens } from '../lib/palette'
@@ -30,8 +30,8 @@ export function TimeZones({ reg, tokens: t, onOpen }: { reg: Map<string, Dataset
     const { clock, refO, refN, corrections } = inferClocks(pred.rows, hourRec)
     const flagged = [...corrections.keys()]
     const days = pred.rows.map((r) => r.recording_date).filter((x): x is number => typeof x === 'number')
-    const from = Math.min(...days)
-    const to = Math.max(...days)
+    const from = minOf(days)
+    const to = maxOf(days)
     const pick = (sp: string, keep: (rec: string) => boolean, local: boolean) =>
       pred.rows
         .filter((r) => r.common_name === sp && keep(String(r.folder)))
@@ -176,7 +176,7 @@ export function TimeZones({ reg, tokens: t, onOpen }: { reg: Map<string, Dataset
             onChange={setView}
             options={[
               { value: 'recorded', label: 'As recorded', title: 'Hours exactly as in the file names' },
-              { value: 'local', label: 'Corrected to local', title: `Flagged recorders shifted by their inferred correction (${[...birds.corrections.entries()].map(([k, h]) => `${k} +${h} h`).join(', ')})` },
+              { value: 'local', label: 'Corrected to local', title: `Flagged recorders shifted by their inferred correction (${[...birds.corrections.entries()].map(([k, h]) => `${k} ${h > 0 ? '+' : ''}${h} h`).join(', ')})` },
             ]}
           />
         </div>
@@ -311,7 +311,7 @@ export function TimeZones({ reg, tokens: t, onOpen }: { reg: Map<string, Dataset
                   </td>
                   <td className="num">{c.on === null ? `— (n=${c.nO})` : `${fmtClock(c.on)} (${c.dO! >= 0 ? '+' : ''}${fmtNum(c.dO!, 2)} h)`}</td>
                   <td className="num">{c.nm === null ? `— (n=${c.nN})` : `${fmtClock(c.nm)} (${c.dN! >= 0 ? '+' : ''}${fmtNum(c.dN!, 2)} h)`}</td>
-                  <td className="num">{c.correction ? `+${c.correction} h` : '0'}</td>
+                  <td className="num">{c.correction ? `${c.correction > 0 ? '+' : ''}${c.correction} h` : '0'}</td>
                   <td>{c.strong ? <Verdict tone="warn">clock on UTC → corrected</Verdict> : c.weak ? <Verdict tone="neutral">inconclusive (one noisy indicator) — not corrected</Verdict> : <Verdict tone="ok">local time</Verdict>}</td>
                 </tr>
               ))}

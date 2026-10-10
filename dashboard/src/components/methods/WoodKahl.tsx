@@ -426,7 +426,7 @@ function Simulator({ t, sc, setSc }: { t: ThemeTokens; sc: Scenario; setSc: (s: 
     const thrC = fitC.b1 > 0 ? thresholdFor(fitC, p) : null
     const trueX = b1 > 0 ? (logit(p) - b0) / b1 : NaN
     // Consequences on the whole simulated population, using the logit-scale threshold
-    const cut = thrL ? thrL.x : Infinity
+    const cut = thrL && !fitL.separated ? thrL.x : Infinity
     const kept = pop.filter((x) => x >= cut)
     const tpAll = pop.reduce((a, x) => a + sigmoid(b0 + b1 * x), 0)
     const tpKept = kept.reduce((a, x) => a + sigmoid(b0 + b1 * x), 0)

@@ -121,10 +121,12 @@ export function BirdsBalance({ pred, val, tokens: t }: { pred: Dataset; val: Dat
     s.per.forEach((p, i) => {
       const sfx = i === 0 ? '' : String(i + 1)
       layout[`xaxis${sfx}`] = { ...axisStyle(t), type: 'category', tickfont: { size: 10, color: t.muted } }
-      layout[`yaxis${sfx}`] = { ...axisStyle(t), tickformat: '.0%', range: [0, 0.8], ...(i % 2 === 0 ? { title: { text: 'share of clips' } } : {}), ...(i ? { matches: 'y' } : {}) }
+      const top = Math.min(1, Math.max(0.2, ...s.per.flatMap((x) => [...x.pShares, ...x.vShares])) * 1.08)
+      layout[`yaxis${sfx}`] = { ...axisStyle(t), tickformat: '.0%', range: [0, top], ...(i % 2 === 0 ? { title: { text: 'share of clips' } } : {}), ...(i ? { matches: 'y' } : {}) }
       const mirrors = p.ks.d < p.ks.crit
+      const dir = p.vMed > p.pMed ? 'high' : 'low'
       ;(layout.annotations as object[]).push({
-        text: `<b>${p.sp}</b> · KS ${fmtNum(p.ks.d, 2)} — ${mirrors ? 'validation mirrors predictions' : 'validation over-samples high scores'}`,
+        text: `<b>${p.sp}</b> · KS ${fmtNum(p.ks.d, 2)} — ${mirrors ? 'validation mirrors predictions' : `validation over-samples ${dir} scores`}`,
         xref: `x${sfx} domain`,
         yref: `y${sfx} domain`,
         x: 0,
@@ -305,8 +307,10 @@ export function BirdsBalance({ pred, val, tokens: t }: { pred: Dataset; val: Dat
                     <td>
                       {mirrors ? (
                         <Verdict tone="warn">random draw — mirrors the (mostly low) scores; few high-score clips</Verdict>
-                      ) : (
+                      ) : p.vMed > p.pMed ? (
                         <Verdict tone="ok">random + extra high-score clips (as Wood &amp; Kahl advise)</Verdict>
+                      ) : (
+                        <Verdict tone="warn">over-samples low scores — little evidence where the threshold sits</Verdict>
                       )}
                     </td>
                   </tr>

@@ -55,7 +55,12 @@ export function convert(v: string | undefined, type: ColType): Value {
   const s = v?.trim() ?? ''
   if (s === '') return null
   if (type === 'number') return Number(s)
-  if (type === 'datetime') return Date.parse(s.length === 10 ? `${s}T00:00:00Z` : s)
+  if (type === 'datetime') {
+    // Values without an explicit offset are read as UTC, never as the viewer's local time.
+    if (s.length === 10) return Date.parse(`${s}T00:00:00Z`)
+    const iso = s.replace(' ', 'T')
+    return Date.parse(/(Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}Z`)
+  }
   if (type === 'boolean') return s.toLowerCase() === 'true' ? 'yes' : s.toLowerCase() === 'false' ? 'no' : s.toLowerCase()
   return v ?? null
 }

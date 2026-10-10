@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { categoryOrder, isDiscrete, keyOf } from '../data/filter'
-import { fmtNum } from '../data/stats'
+import { fmtNum, maxOf, minOf } from '../data/stats'
 import { NULL_KEY, type Dataset, type Row } from '../data/types'
 import { MAX_SERIES, OTHER, SERIES, type ThemeTokens } from '../lib/palette'
 import { Plot } from './Plot'
@@ -33,8 +33,8 @@ function mapStyle(b: Basemap): Record<string, unknown> {
  */
 function fit(lats: number[], lons: number[], w = 820, h = 620) {
   if (!lats.length) return { center: { lat: 0, lon: 0 }, zoom: 1 }
-  const [a, b] = [Math.min(...lats), Math.max(...lats)]
-  const [c, d] = [Math.min(...lons), Math.max(...lons)]
+  const [a, b] = [minOf(lats), maxOf(lats)]
+  const [c, d] = [minOf(lons), maxOf(lons)]
   const latSpan = Math.max((b - a) * 1.15, 0.002)
   const lonSpan = Math.max((d - c) * 1.15, 0.002)
   const z = Math.log2(Math.min(w / lonSpan, h / latSpan) * (360 / 512))

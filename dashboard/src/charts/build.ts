@@ -17,6 +17,8 @@ import {
   fmtNum,
   invertTransform,
   isoUTC,
+  maxOf,
+  minOf,
   summarize,
   TRANSFORM_LABEL,
   wilson,
@@ -227,8 +229,8 @@ function bucketize(
   if (col.type === 'datetime') {
     let unit = spec.timeUnit
     const vals = rows.map((r) => r[name]).filter((v): v is number => typeof v === 'number')
-    const min = Math.min(...vals)
-    const max = Math.max(...vals)
+    const min = minOf(vals)
+    const max = maxOf(vals)
     const units: TimeUnit[] = ['hour', 'day', 'week', 'month']
     while ((max - min) / UNIT_MS[unit] > 1500 && unit !== 'month') unit = units[units.indexOf(unit) + 1]
     const list: Bucket[] = []
@@ -275,7 +277,9 @@ function bucketize(
         label: transform === 'none' ? `${fmtNum(lo)} – ${fmtNum(hi)}` : `${fmtNum(rawLo, 3)} – ${fmtNum(rawHi, 3)} (${TRANSFORM_LABEL[transform]} ${fmtNum(lo, 3)} – ${fmtNum(hi, 3)})`,
         pos: (lo + hi) / 2,
         width: hi - lo,
-        seed: { column: name, kind: 'range', min: rawLo, max: rawHi },
+        // Bins are [lo, hi) except the last; the range filter is inclusive, so stop just below hi.
+        // The last bin has no upper bound (so e.g. confidence 1.0, clamped under logit, is kept).
+        seed: { column: name, kind: 'range', min: i === 0 ? null : rawLo, max: i === edges.length - 2 ? null : rawHi - Math.max(Math.abs(rawHi), 1) * 1e-12 },
       })
     }
     return {
@@ -747,13 +751,14 @@ export function buildFigure(ds: Dataset, rows: Row[], spec: ChartSpec, t: ThemeT
       const ty = (r: Row) => applyTransform(r[yc.name] as number, yT)
       const range = (f: (r: Row) => number) => {
         const v = pts.map(f).filter(Number.isFinite)
-        return v.length ? Math.max(...v) - Math.min(...v) || 1 : 1
+        return v.length ? maxOf(v) - minOf(v) || 1 : 1
       }
       const rx = range(tx)
       const ry = range(ty)
       const gl = pts.length > 4000
       const useSymbols = groups.keys.length > 3
-      const edges = spec.trend ? binEdges(Math.min(...pts.map(tx).filter(Number.isFinite)), Math.max(...pts.map(tx).filter(Number.isFinite)), spec.bins) : []
+      const finiteX = pts.map(tx).filter(Number.isFinite)
+      const edges = spec.trend ? binEdges(minOf(finiteX), maxOf(finiteX), spec.bins) : []
       const binaryY = isBinary(pts, yc.name) && yT === 'none'
       table.columns = spec.trend
         ? [...facetHeader, ...(spec.trendByGroup && !continuousColor && groups.keys.length > 1 ? [colLabel(ds, spec.color)] : []), `${colLabel(ds, spec.x, xT)} bin`, 'n', `mean ${colLabel(ds, spec.y, yT)}`, '95% CI low', '95% CI high']

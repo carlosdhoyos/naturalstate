@@ -41,12 +41,13 @@ export function TableView({ ds, rows }: { ds: Dataset; rows: Row[] }) {
   const [hideBoring, setHideBoring] = useState(true)
   const [showDerived, setShowDerived] = useState(true)
 
-  const cols = ds.columns.filter((c) => (!hideBoring || (c.nonNull > 0 && c.distinct > 1)) && (showDerived || !c.derived))
+  const cols = useMemo(() => ds.columns.filter((c) => (!hideBoring || (c.nonNull > 0 && c.distinct > 1)) && (showDerived || !c.derived)), [ds.columns, hideBoring, showDerived])
 
   const searched = useMemo(() => {
     if (!q.trim()) return rows
     const s = q.toLowerCase()
-    return rows.filter((r) => cols.some((c) => r[c.name] !== null && String(r[c.name]).toLowerCase().includes(s)))
+    // Match what the user sees (formatted dates and numbers), and the raw value as a fallback
+    return rows.filter((r) => cols.some((c) => r[c.name] !== null && (cellText(c, r[c.name]).toLowerCase().includes(s) || String(r[c.name]).toLowerCase().includes(s))))
   }, [rows, q, cols])
 
   const sorted = useMemo(() => {
