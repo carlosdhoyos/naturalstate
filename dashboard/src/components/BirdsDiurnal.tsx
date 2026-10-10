@@ -92,9 +92,28 @@ export function BirdsDiurnal({ reg, tokens: t, onOpen }: { reg: Map<string, Data
         const ok = vh.filter((r) => r.outcome === 1).length
         return { ...pd, n: ph.length, rel: ph.length ? summarize(ph.map((r) => r.confidence as number)).mean / mu : NaN, vn: vh.length, ok, wrong: vh.length - ok, ci: wilson(ok, vh.length) }
       })
+      // Recorders where every validated clip of this species was wrong (≥ 5 clips): a site-specific
+      // false-positive source, which can masquerade as a time-of-day effect.
+      const byRec = new Map<string, { n: number; wrong: number }>()
+      V.forEach((r) => {
+        const k = String(r.recorder)
+        const x = byRec.get(k) ?? { n: 0, wrong: 0 }
+        x.n++
+        if (r.outcome === 0) x.wrong++
+        byRec.set(k, x)
+      })
+      const problem = [...byRec.entries()].filter(([, x]) => x.n >= 5 && x.wrong === x.n).map(([k]) => k)
+      const problemWrong = problem.reduce((a, k) => a + byRec.get(k)!.wrong, 0)
+      const Pok = P.filter((r) => !problem.includes(String(r.folder)))
+      const muOk = summarize(Pok.map((r) => r.confidence as number)).mean
+      const evRel = (rows: Row[], m: number) => {
+        const e = rows.filter((r) => { const h = hp(r) as number; return h >= 19 && h < 22 })
+        return e.length ? summarize(e.map((r) => r.confidence as number)).mean / m : NaN
+      }
+      const problemPreds = P.length - Pok.length
       const valHours = new Set(V.map((r) => hv(r)))
       const gaps = hourly.filter((x) => x.n >= nMin && !valHours.has(x.h)).map((x) => x.h)
-      return { sp, mu, muL, hourly, periods, gaps, nP: P.length, nV: V.length, wrong: V.filter((r) => r.outcome === 0).length }
+      return { sp, mu, muL, hourly, periods, gaps, nP: P.length, nV: V.length, wrong: V.filter((r) => r.outcome === 0).length, problem, problemWrong, problemPreds, evRelAll: evRel(P, mu), evRelOk: evRel(Pok, muOk) }
     })
     return { per, sun }
   }, [pred, val, clock, nMin])
@@ -318,12 +337,18 @@ export function BirdsDiurnal({ reg, tokens: t, onOpen }: { reg: Map<string, Data
         <ul>
           {nj && (
             <li>
-              <b>Abyssinian Nightjar:</b> confidence is lowest in the early evening and highest after midnight, and{' '}
+              <b>Abyssinian Nightjar — an apparent evening effect that is really a site effect.</b>{' '}
               {(() => {
                 const ev = nj.periods.find((x) => x.key === 'evening')!
-                return `${ev.wrong} of its ${nj.wrong} validation errors fall in the evening (17–22 h)`
-              })()}
-              . Time of day may matter beyond the score (e.g. other evening callers), but evening predictions also score lower, so the two are confounded — test it conditional on score (a time covariate in the logistic model, as Wood &amp; Kahl suggest) before using it.
+                return `${ev.wrong} of its ${nj.wrong} validation errors fall in the evening (17–22 h), and its confidence dips at 19–22 h (relative ${fmtNum(nj.evRelAll, 2)}).`
+              })()}{' '}
+              {nj.problem.length ? (
+                <>
+                  But {nj.problem.join(' and ')} account for {nj.problemWrong} of the {nj.wrong} errors — every validated Nightjar clip from them was wrong — and they contribute {fmtInt(nj.problemPreds)} mostly low-score predictions concentrated in the evening. Excluding them, the evening dip largely disappears: evening confidence is {fmtNum(nj.evRelOk, 2)}× the remaining recorders’ own mean (vs {fmtNum(nj.evRelAll, 2)}× with them), and the hourly lows of ~0.7 vanish. Something else at those sites (another nightjar, frogs or insects) seems to trigger the Nightjar class. The candidate covariate for the logistic model is therefore the <b>site / recorder</b>, not time of day; and those recorders’ Nightjar predictions deserve review.
+                </>
+              ) : (
+                'Time of day and score are confounded; test a time covariate conditional on score before using it.'
+              )}
             </li>
           )}
           <li>Average confidence changes through the day for every species (different mixes of calls, overlapping species and background sound). That alone does not show that a given score is more or less reliable at some hours — only the share-correct panel, conditional on score, can show that.</li>
