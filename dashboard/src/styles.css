@@ -2552,3 +2552,13 @@ code {
   background: var(--surface-3);
   color: var(--ink-2);
 }
+
+/* ── EDA ──────────────────────────────────────────────────────────────────── */
+.threshold-slider {
+  max-width: 420px;
+}
+.small-h {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}

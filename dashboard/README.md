@@ -52,6 +52,19 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   - The share correct by hour, with Wilson CIs.
   - A period table (dawn / day / evening / night) and the hours that were predicted but never validated.
   - Validated clips are placed exactly in their file's clock hour, because segment times count from the top of the hour.
+- **Birds exploratory analysis:** 10 descriptive views in 7 tabs, each with a "what it shows" note computed from the data:
+  1. **Recorder × species evidence matrix:** bubbles colored by share correct, median confidence or volume.
+  2. **Score ridgelines by recorder**, with validated clips overlaid.
+  3. **Data-flow Sankey:** validation sample, or the whole pipeline.
+  4. **Calendar:** date × local hour.
+  5. **Effort:** recorder × date (a lower bound, since files with no predictions aren't exported).
+  6. **Detection bouts:** run lengths and intervals between detections.
+  7. **Threshold preview:** retention curves, and precision above T both raw and re-weighted to the prediction distribution (Tseng-style).
+  8. **Daily trends:** detections per active recorder, and mean confidence.
+  9. **Polar daily clock.**
+  10. **Co-detection matrix**, plus whether validated clips coincide with other species.
+
+  The site check only flags a recorder when the species is mostly right elsewhere.
 - **Derived time columns:**
   - Birds: `clock_correction_h`, `detection_time_local`, `hour_local`, `date_local`; validations: `hour_local`. The correction is inferred from bird activity in `src/data/clocks.ts`, not hard-coded.
   - Vegetation: `start_hour_eat`.

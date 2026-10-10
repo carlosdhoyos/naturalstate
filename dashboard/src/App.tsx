@@ -9,6 +9,7 @@ import { TableView } from './components/TableView'
 import { GuidePanel, TooltipLayer } from './components/Help'
 import { Methodology } from './components/Methodology'
 import { BirdsDiurnal } from './components/BirdsDiurnal'
+import { BirdsEDA } from './components/BirdsEDA'
 import { BirdsQuality } from './components/BirdsQuality'
 import { BirdsSummary, VegetationSummary, type OpenView } from './components/Summary'
 import { Icon } from './components/ui'
@@ -52,9 +53,10 @@ const SUMMARY = (c: Challenge) => `summary:${c}`
 const METHOD = 'method:birds'
 const QUALITY = 'quality:birds'
 const DIURNAL = 'diurnal:birds'
+const EDA = 'eda:birds'
 /** Pages that are not datasets: summary:<challenge>, method:birds. */
 const challengeOf = (id: string): Challenge | null => {
-  const m = /^(summary|method|quality|diurnal):(birds|vegetation)$/.exec(id)
+  const m = /^(summary|method|quality|diurnal|eda):(birds|vegetation)$/.exec(id)
   return m ? (m[2] as Challenge) : null
 }
 
@@ -304,6 +306,14 @@ export default function App() {
               <span className="nav-item-sub">by hour</span>
             </button>
           )}
+          {challenge === 'birds' && (
+            <button type="button" className={`nav-item summary ${current === EDA ? 'on' : ''}`} {...tip('nav.eda')} onClick={() => { setCurrent(EDA); setNavOpen(false) }}>
+              <span className="nav-item-title">
+                <Icon name="chart" size={14} /> Exploratory analysis
+              </span>
+              <span className="nav-item-sub">10 views</span>
+            </button>
+          )}
           <div className="search" {...tip('nav.find')}>
             <Icon name="search" size={14} />
             <input className="input bare" placeholder="Find a table…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -353,6 +363,7 @@ export default function App() {
           {reg && current === METHOD && <Methodology tokens={tokens} onOpen={openView} />}
           {reg && current === QUALITY && <BirdsQuality reg={reg} tokens={tokens} onOpen={openView} />}
           {reg && current === DIURNAL && <BirdsDiurnal reg={reg} tokens={tokens} onOpen={openView} />}
+          {reg && current === EDA && <BirdsEDA reg={reg} tokens={tokens} />}
           {reg && current === SUMMARY('vegetation') && <VegetationSummary reg={reg} tokens={tokens} onOpen={openView} />}
           {ds && view && (
             <>
