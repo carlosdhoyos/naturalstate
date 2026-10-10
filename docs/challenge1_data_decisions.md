@@ -155,7 +155,7 @@ Give every prediction a stable id, carry it into the validation export, and samp
    - the 99% point **within the validated score range**. If the curve reaches 0.99 only above the highest validated score, the result is "not reached within validated range", with no threshold. If it is already at or above 0.99 at the lowest validated score, the effective threshold is that lowest score, so there is no extrapolation downward.
 
    Otherwise the result is **no supported threshold**, and the species gets no automatic observations. A finite Firth estimate is not enough.
-5. **Labels.** A prediction becomes a **model-supported observation** if its confidence is at least the species' effective threshold.
+5. **Labels.** A prediction becomes a **model-supported observation** if its confidence is at least the species' effective threshold. The threshold is rounded **up** to 6 decimals, and the labels are computed from that exported value. Anyone applying `confidence >= species_threshold` therefore reproduces them exactly, and the fitted probability at the threshold stays at least 0.99.
 6. **Two policies are reported.**
    - **(a) Primary:** the rules above.
    - **(b) Conservative sensitivity:** any species whose primary fit is Firth gets no automatic observations until **additional representative validation** is available. That means more clips sampled the same way across scores and sites, not a search for errors to make fitting possible.
@@ -188,10 +188,22 @@ D-05 applies unchanged: separation → Firth; acceptance needs a valid fit, a po
 
 - **The Firth fit is valid but flat, and slightly decreasing:** slope −0.057, SE 0.53. Its fitted probability is 0.992–0.994 across the whole validated range (0.104–0.989).
 - That level comes from the penalty, not from observed errors. Firth's penalty is equivalent to adding pseudo-observations, half correct and half incorrect, at each clip in proportion to its leverage. With two coefficients, that totals about one pseudo-error, concentrated at the scores that most influence the fit. The fitted level reflects that pseudo-data.
-- **The slope is not identified.** In the cluster bootstrap, only 17% of resamples give a positive slope.
+- **The slope is not identified.** In the cluster bootstrap, 17% of resamples (343 of 2,000) give a positive slope. Every resample has zero errors, like the data, so the sign of the slope is an artefact of the penalty.
 - Because the slope isn't positive, the acceptance rule gives **no supported threshold**. That holds under both policies: 0 automatic Oriole observations.
 - **For scale:** 150 of 150 correct gives a 95% Wilson lower bound of about **97.5%**. Even without a model, the validation can't confirm 99% correctness at any score.
 - **Alternative not adopted:** taking the flat penalised level at face value (p ≥ 0.99 everywhere in the range) would label every Oriole prediction scoring at least 0.104. That's **17,646 of 18,054**. That outcome would rest entirely on the penalty, with zero observed errors to calibrate it.
+
+### Open question: the rule is sign-dependent with zero errors
+
+The bug check on 2026-10-10 found that the "positive slope" condition is a **sign check, not an identification check**:
+
+- The 343 bootstrap resamples with a positive slope pass the acceptance rule. They get thresholds within the validated range, labelling up to 17,646 predictions. That is where the upper end of the Oriole's bootstrap count interval comes from.
+- So the Oriole is rejected because its slope happened to come out negative, not because the rule recognises missing evidence. A slightly different validation sample could have flipped the label decision for 18,054 predictions without any new errors being observed.
+- The same mechanism affects 17 Plover resamples that leave out the single error.
+
+A candidate fix, pending a decision: **no supported threshold when one outcome is never observed.** The reason would then be "no observed errors" rather than the slope's sign. It would not change the current labels for any species. It would remove the penalty-only thresholds from the bootstrap.
+
+A stricter option would require the slope to be clearly positive, not just positive. That would also affect the Plover: its Firth slope is 0.20 with SE 0.38. That is a larger policy change.
 
 ### Recommendation
 
@@ -219,7 +231,10 @@ The Plover's threshold was **recomputed** under Firth, not carried over from the
   - Firth shrinks the slope toward zero, so the curve rises more slowly and crosses 0.99 much higher.
   - With one event, neither estimate is precise.
 - **Uncertainty.** These come from the cluster bootstrap by audio file, with 2,000 resamples.
-  - **34%** of resamples lose the single error and give no usable threshold.
+  - **35%** of resamples (701 of 2,000) leave out the audio file with the single error.
+    - In 684 of them the Firth slope is not positive, so there is no threshold.
+    - In the other 17 the slope is positive by chance, and the rule accepts a threshold set only by the penalty (see the open question in D-06).
+    - 2 resamples that contain the error also give no usable threshold. In total, 34.3% of resamples are unusable.
   - Among the usable resamples, the 95% interval for the threshold is **0.666–0.991**.
   - Counting every resample, with "no threshold" counted as 0 labels, the 95% interval for the labelled count is **0–187** (median 51).
   - The Wald (delta-method) interval, 0.0003–1.0, is uninformative here and is not used.

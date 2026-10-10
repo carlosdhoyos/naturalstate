@@ -50,9 +50,9 @@ challenge1/.venv/bin/python -m pytest challenge1/tests -q        # 12 tests
 | Column | Meaning |
 |---|---|
 | `observation` | Species name if the prediction is a model-supported observation under policy (a), otherwise empty |
-| `observation_status` | One of three values: `model-supported observation`, `below species threshold`, or `no supported threshold for species (…)` |
+| `observation_status` | `model-supported observation`, `below species threshold`, or `no supported threshold for species: <reason>`. The reason is `fitted slope not positive` (Oriole) or `not reached within validated range` (Firefinch) |
 | `p_correct` | Fitted probability that the prediction is correct, from the species' primary fit. It is empty when that fit is invalid or not increasing, which is the case for the Oriole (D-06) |
-| `species_threshold` | Effective confidence threshold. Empty when the species has no supported threshold |
+| `species_threshold` | The operative confidence threshold, rounded **up** to 6 decimals. A prediction is labelled exactly when `confidence >= species_threshold`. Empty when the species has no supported threshold |
 | `threshold_method` | `firth` or `ml`: the species' primary fit |
 | `observation_policy_b` | Same as `observation`, under conservative policy (b) |
 | `review_flag` | Nightjar predictions at RBS75 and RBS79, the two recorders whose validated Nightjar clips were all wrong (D-04). The flag does not change the label |

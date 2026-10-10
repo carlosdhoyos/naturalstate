@@ -65,3 +65,21 @@ def test_export_keeps_source_and_labels_consistently():
     # policy (b) is a subset of policy (a)
     b = out.observation_policy_b != ""
     assert not (b & ~labelled).any()
+
+
+def test_operative_threshold_rounds_up_without_bumping_exact_values():
+    assert rc.operative(0.66663806) == 0.666639  # rounded up, never down
+    assert rc.operative(0.104) == 0.104  # a 3-decimal validated score stays put despite float error
+    assert rc.operative(0.1) == 0.1
+    assert rc.operative(0.8484781) == 0.848479
+    for c in np.random.default_rng(0).uniform(0.1, 1, 1000):
+        assert c <= rc.operative(c) + 1e-12 and rc.operative(c) - c < 1e-6
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="run the pipeline first")
+def test_status_values():
+    out = pd.read_csv(EXPORT, dtype=str, keep_default_na=False)
+    allowed = {"model-supported observation", "below species threshold"}
+    other = set(out.observation_status) - allowed
+    assert all(s.startswith("no supported threshold for species: ") for s in other)
+    assert not any("no supported threshold" in s.split(": ", 1)[1] for s in other)

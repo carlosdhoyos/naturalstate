@@ -175,12 +175,12 @@ def fit_firth(x: np.ndarray, y: np.ndarray, max_iter: int = 200, tol: float = 1e
             if pl_new >= pl - 1e-12:
                 break
             t /= 2
+        if np.max(np.abs(step)) < tol:  # full Newton step, not the halved one, so halving can't fake convergence
+            converged = True
+            break
         b = b + t * step
         pl = _firth_penalised_loglik(X, y, b)
         if not np.all(np.isfinite(b)):
-            break
-        if np.max(np.abs(t * step)) < tol:
-            converged = True
             break
     p = sigmoid(_eta(X, b))
     w = np.clip(p * (1 - p), 1e-12, None)

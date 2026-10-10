@@ -21,7 +21,6 @@ from __future__ import annotations
 import hashlib
 import json
 import platform
-import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,6 +54,7 @@ MIN_EVENTS = 10  # rarer outcome below this -> Firth is primary
 N_BOOT = 2000
 SEED = 20261010
 TOL = 0.00051  # validation scores have 3 decimals, predictions 4
+THRESHOLD_DECIMALS = 6  # exported threshold, rounded up; labels use exactly this value
 BANDS = [0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.0000001]
 BAND_LABELS = ["0.1–0.2", "0.2–0.3", "0.3–0.5", "0.5–0.7", "0.7–0.9", "0.9–1.0"]
 
@@ -62,6 +62,14 @@ BAND_LABELS = ["0.1–0.2", "0.2–0.3", "0.3–0.5", "0.5–0.7", "0.7–0.9", 
 NIGHTJAR_REVIEW_RECORDERS = ["RBS75", "RBS79"]
 
 TEAL, ORANGE, BLUE, GREY, NAVY = "#1f9e8c", "#eb6834", "#2a78d6", "#9aa8ae", "#00354d"
+
+
+def operative(c: float) -> float:
+    """Round a confidence threshold UP to THRESHOLD_DECIMALS, so the exported number is the one that
+    decides labels and the fitted probability at it stays >= the target. The tiny offset keeps a
+    value that is already exact (e.g. a 3-decimal validated score) from being bumped by float error."""
+    k = 10**THRESHOLD_DECIMALS
+    return float(np.ceil(c * k - 1e-6) / k)
 
 
 # ── data ──────────────────────────────────────────────────────────────────────
@@ -74,10 +82,11 @@ def load() -> tuple[pd.DataFrame, pd.DataFrame]:
 
     val = pd.read_csv(VAL_CSV)
     parts = val.filename.str.extract(r"^(\d\.\d{3})_(\d+)_(RBS\d+)_(\d{8})_(\d{2})(\d{4})\.wav$")
+    assert parts.notna().all().all(), "unexpected validation file name"
     val["score_text"], val["clip_index"] = parts[0], parts[1].astype(int)
     val["recorder"], val["date"], val["hour"], val["mmss"] = parts[2], parts[3], parts[4], parts[5]
     val["audio_file"] = val.recorder + "_" + val.date + "_" + val.hour  # one 1-h file per recorder-hour
-    assert parts.notna().all().all(), "unexpected validation file name"
+    assert pred.recorder.notna().all(), "unexpected prediction file path"
     return pred, val
 
 
@@ -144,7 +153,8 @@ def analyse(sp: str, val: pd.DataFrame, pred: pd.DataFrame, eps: float = EPS, bo
 
     P = pred[pred.common_name == sp]
     conf = P.confidence.to_numpy()
-    eff_conf = float(sigmoid(eff)) if eff is not None else None
+    vmin_conf = float(d.confidence.min())
+    eff_conf = None if eff is None else operative(vmin_conf if eff == xmin else float(sigmoid(eff)))
     labelled = conf >= eff_conf if eff_conf is not None else np.zeros(len(P), bool)
     # a probability per prediction only from an identified, increasing curve (not the Oriole's flat penalised level)
     p_hat = prim.p(logit_conf(conf, eps)) if prim.valid and prim.b1 > 0 else np.full(len(P), np.nan)
@@ -164,13 +174,13 @@ def analyse(sp: str, val: pd.DataFrame, pred: pd.DataFrame, eps: float = EPS, bo
         "ml_b1": ml.b1 if ml.valid else np.nan,
         "ml_threshold_conf": float(sigmoid(t_ml)) if t_ml is not None else np.nan,
         "ml_status": status_ml,
-        "ml_labelled": int(np.sum(conf >= sigmoid(eff_ml))) if eff_ml is not None else 0,
+        "ml_labelled": int(np.sum(conf >= operative(vmin_conf if eff_ml == xmin else float(sigmoid(eff_ml))))) if eff_ml is not None else 0,
         "firth_valid": fi.valid,
         "firth_b0": fi.b0,
         "firth_b1": fi.b1,
         "firth_threshold_conf": float(sigmoid(t_fi)) if t_fi is not None else np.nan,
         "firth_status": status_fi,
-        "firth_labelled": int(np.sum(conf >= sigmoid(eff_fi))) if eff_fi is not None else 0,
+        "firth_labelled": int(np.sum(conf >= operative(vmin_conf if eff_fi == xmin else float(sigmoid(eff_fi))))) if eff_fi is not None else 0,
         "primary_b0": prim.b0,
         "primary_b1": prim.b1,
         "primary_b1_se": prim.se[1] if prim.valid else np.nan,
@@ -208,15 +218,14 @@ def analyse(sp: str, val: pd.DataFrame, pred: pd.DataFrame, eps: float = EPS, bo
         # unconditional uncertainty of the labelled count: every resample goes through the same
         # acceptance rules, and a resample without a usable threshold labels nothing
         vmin_l, vmax_l = xmin, xmax
-        counts = []
+        counts, supported = [], []
         sorted_conf = np.sort(logit_conf(conf, eps))
         for t in b.all_thresholds:
-            if not np.isfinite(t) or t > vmax_l:
-                counts.append(0)
-            else:
-                counts.append(len(sorted_conf) - int(np.searchsorted(sorted_conf, max(t, vmin_l), side="left")))
+            ok = bool(np.isfinite(t) and t <= vmax_l)
+            supported.append(ok)
+            counts.append(len(sorted_conf) - int(np.searchsorted(sorted_conf, max(t, vmin_l), side="left")) if ok else 0)
         counts = np.asarray(counts)
-        row["boot_share_with_supported_threshold"] = float(np.mean(counts > 0)) if len(P) else np.nan
+        row["boot_share_with_supported_threshold"] = float(np.mean(supported))
         row["boot_labelled_q025"], row["boot_labelled_median"], row["boot_labelled_q975"] = (int(v) for v in np.quantile(counts, [0.025, 0.5, 0.975], method="nearest"))
         row["_boot"] = b
     row["_fits"] = (ml, fi, prim, x, y, d)
@@ -230,12 +239,12 @@ def calibration(rows: list[dict]) -> pd.DataFrame:
         ml, fi, prim, x, y, d = r["_fits"]
         if not prim.valid:
             continue
-        p = prim.p(x)
+        p = prim.p(x) if prim.b1 > 0 else np.full(len(x), np.nan)  # same rule as p_correct
         band = pd.cut(d.confidence, BANDS, right=False, labels=BAND_LABELS)
         for lab in BAND_LABELS:
             m = (band == lab).to_numpy()
             if m.any():
-                out.append({"species": r["species"], "band": lab, "clips": int(m.sum()), "observed_share_correct": float(y[m].mean()), "mean_fitted_p": float(p[m].mean())})
+                out.append({"species": r["species"], "band": lab, "clips": int(m.sum()), "observed_share_correct": float(y[m].mean()), "mean_fitted_p": float(p[m].mean()) if np.isfinite(p[m]).all() else np.nan})
     return pd.DataFrame(out)
 
 
@@ -310,7 +319,7 @@ def main() -> None:
         ("eps=1e-6", val, {"eps": 1e-6}),
         ("validated scores of exactly 1 excluded", val, {"eps": 1e-4, "exclude_exact_one": True}),
         ("ambiguous Plover pair also reduced", val_amb, {"eps": 1e-4}),
-        ("no de-duplication (all 551 clips)", val_raw.assign(audio_file=val_raw.audio_file), {"eps": 1e-4}),
+        ("no de-duplication (all 551 clips)", val_raw, {"eps": 1e-4}),
     ]
     sens = []
     for label, v, kw in variants:
@@ -332,7 +341,7 @@ def main() -> None:
     out["observation"] = ""
     out["observation_status"] = ""
     out["p_correct"] = np.nan
-    out["species_threshold"] = np.nan
+    out["species_threshold"] = ""
     out["threshold_method"] = ""
     out["observation_policy_b"] = ""
     out["review_flag"] = ""
@@ -342,9 +351,10 @@ def main() -> None:
         out.loc[idx, "p_correct"] = np.round(p_hat, 6)
         out.loc[idx, "threshold_method"] = r["method"]
         if eff_conf is None:
-            out.loc[idx, "observation_status"] = f"no supported threshold for species ({r['status']})"
+            reason = r["status"].removeprefix("no supported threshold: ")
+            out.loc[idx, "observation_status"] = f"no supported threshold for species: {reason}"
         else:
-            out.loc[idx, "species_threshold"] = round(eff_conf, 6)
+            out.loc[idx, "species_threshold"] = f"{eff_conf:.{THRESHOLD_DECIMALS}f}"  # the operative value, as text
             out.loc[idx, "observation_status"] = np.where(labelled, "model-supported observation", "below species threshold")
             out.loc[idx[labelled], "observation"] = sp
             if r["method"] != "firth":
@@ -373,7 +383,7 @@ def main() -> None:
         "labelled_policy_b": int((out.observation_policy_b != "").sum()),
         "review_flagged": int(site.sum()),
         "review_flagged_and_labelled": int((site & (out.observation != "")).sum()),
-        "species": {r["species"]: {"method": r["method"], "status": r["status"], "threshold": None if not np.isfinite(r["effective_threshold_conf"]) else round(r["effective_threshold_conf"], 4), "labelled_a": r["labelled_a"], "labelled_b": r["labelled_b"], "boot_labelled_95": [r["boot_labelled_q025"], r["boot_labelled_q975"]]} for r in rows},
+        "species": {r["species"]: {"method": r["method"], "status": r["status"], "threshold": None if not np.isfinite(r["effective_threshold_conf"]) else r["effective_threshold_conf"], "labelled_a": r["labelled_a"], "labelled_b": r["labelled_b"], "boot_labelled_95": [r["boot_labelled_q025"], r["boot_labelled_q975"]]} for r in rows},
         # not adopted: taking the Oriole's flat penalised level (p >= 0.99 across the validated range) at face value
         "oriole_alternative_flat_level_labelled": int((pred[pred.common_name == "African Black-headed Oriole"].confidence >= val[val.commonName == "African Black-headed Oriole"].confidence.min()).sum()),
     }

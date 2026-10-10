@@ -94,3 +94,20 @@ def test_firth_close_to_ml_with_plenty_of_data():
     y = (rng.uniform(size=5000) < 1 / (1 + np.exp(-(-1 + 1.2 * x)))).astype(int)
     a, b = fit_ml(x, y), fit_firth(x, y)
     np.testing.assert_allclose([a.b0, a.b1], [b.b0, b.b1], atol=0.02)
+
+
+@pytest.mark.parametrize("name", ["Three-banded Plover", "African Black-headed Oriole", "Red-billed Firefinch", "Abyssinian Nightjar"])
+def test_firth_converged_means_modified_score_is_zero(name):
+    """Convergence is judged on the full Newton step, so a fit flagged converged must satisfy
+    Firth's modified score equation U*(b) = X'(y - p + h(1/2 - p)) = 0."""
+    from thresholds import _eta, _info, _score
+
+    x, y = species(name)
+    f = fit_firth(x, y)
+    X = _design(x)
+    p = 1 / (1 + np.exp(-_eta(X, np.array([f.b0, f.b1]))))
+    w = p * (1 - p)
+    inv = np.linalg.inv(_info(X, w))
+    h = w * (inv[0, 0] + 2 * inv[0, 1] * x + inv[1, 1] * x * x)
+    assert f.converged
+    assert np.abs(_score(X, y - p + h * (0.5 - p))).max() < 1e-8
