@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naturalstate.org/schemas/ns-observations/label/1.0",
+  "title": "Prediction label",
+  "description": "One row of the output of job B (label). In CSV form, booleans are written True/False and empty strings stand for absent values.",
+  "type": "object",
+  "required": ["prediction_id", "species", "observation", "observation_source", "observation_status", "model_observation", "p_correct", "species_threshold", "species_status", "threshold_method", "validation_outcome", "validation_link", "review_flag", "threshold_set_id"],
+  "additionalProperties": false,
+  "properties": {
+    "prediction_id": {"type": ["string", "integer"]},
+    "species": {"type": "string"},
+    "observation": {"type": "boolean", "description": "the label: true if this prediction is an observation"},
+    "observation_source": {"enum": ["validated", "model", ""], "description": "where the decision came from"},
+    "observation_status": {"enum": ["validated_correct", "validated_incorrect", "model_observation", "below_threshold", "no_species_threshold"]},
+    "model_observation": {"type": "boolean", "description": "threshold-only decision, ignoring human verdicts"},
+    "p_correct": {"type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "null when the species curve is not identified"},
+    "species_threshold": {"type": "string", "pattern": "^(|[01]\\.[0-9]+)$", "description": "operative threshold as text, or empty"},
+    "species_status": {"enum": ["accepted", "accepted_whole_range", "not_reached", "slope_not_positive", "no_valid_fit", "insufficient_validation"]},
+    "threshold_method": {"enum": ["ml", "firth", "flic", ""]},
+    "validation_outcome": {"enum": ["correct", "incorrect", ""]},
+    "validation_link": {"enum": ["unique", "tied", ""]},
+    "review_flag": {"enum": ["recorder_inconsistent_with_pooled_curve", ""]},
+    "threshold_set_id": {"type": "string", "pattern": "^ts-[0-9a-f]{16}$"}
+  }
+}

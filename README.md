@@ -20,6 +20,7 @@ Challenge 1 is complete. Challenge 2 is in progress. Each challenge has its own 
 
 - **Q1 answer:** [`challenge1/Q1_report.md`](challenge1/Q1_report.md).
 - **Q2 answer, for the Tech team:** [`challenge1/Q2_tech_handover.md`](challenge1/Q2_tech_handover.md).
+- **Deployable package:** [`challenge1/ns_observations/`](challenge1/ns_observations/README.md), with the `ns-observations calibrate` / `label` CLI, JSON schemas and a Dockerfile.
 - **How the analysis follows Wood & Kahl:** [`docs/challenge1_paper_alignment.md`](docs/challenge1_paper_alignment.md).
 
 ## Data Explorer

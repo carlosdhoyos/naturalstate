@@ -11,6 +11,15 @@ This folder contains a reproducible workflow. It does three things:
 - **[Q1_report.md](Q1_report.md):** the labels, how they were derived, the decisions, the limitations, and the confirmation items for Natural State (C-1 to C-7).
 - **[Q2_tech_handover.md](Q2_tech_handover.md):** what the Tech team needs to run this automatically on NS Analytics.
 
+**Two code bases, one core:**
+
+- **[`ns_observations/`](ns_observations/README.md)** is the **deployable package**.
+  - Commands: `ns-observations calibrate` (validations → versioned threshold set) and `ns-observations label` (predictions → labels).
+  - It comes with JSON schemas, a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 24 tests.
+- **[`src/`](src/)** is the **research analysis.** Every decision was made and checked here: sensitivity, the bootstrap, the covariate tests, figures, the dashboard data.
+  - It imports the package's decision rules, linking and label rule, so the two cannot drift apart.
+  - Its labelled file and threshold set are byte-identical to the package CLI's (tested).
+
 Related documents:
 
 - [docs/challenge1_data_decisions.md](../docs/challenge1_data_decisions.md): every decision (D-01 to D-13), with what was measured.
@@ -22,8 +31,10 @@ Related documents:
 ```bash
 python3.13 -m venv challenge1/.venv
 challenge1/.venv/bin/pip install -r challenge1/requirements-lock.txt      # or requirements.txt for direct dependencies only
+challenge1/.venv/bin/pip install -e "challenge1/ns_observations[test]"   # the deployable package (the research script also finds it without installing)
 challenge1/.venv/bin/python challenge1/src/run_challenge1.py               # about 5 s; writes challenge1/outputs/
-challenge1/.venv/bin/python -m pytest challenge1/tests -q                  # 37 tests
+challenge1/.venv/bin/python -m pytest challenge1/tests -q                  # 37 research tests
+challenge1/.venv/bin/python -m pytest challenge1/ns_observations -q        # 24 package tests (incl. end-to-end acceptance)
 ```
 
 Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evidence gate) and `--no-figures`. The same inputs and seed always produce byte-identical outputs. The summary contains no timestamp; it records input checksums and package versions instead.
@@ -60,7 +71,7 @@ Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evid
 
 | Path | Content |
 |---|---|
-| `src/thresholds.py` | Estimators: ordinary logistic regression (IRLS), Firth and FLIC, the separation check, the threshold, the delta-method interval, the cluster resampler, Wilson intervals and the exact Poisson-binomial tail |
+| `src/thresholds.py` | A compatibility shim that re-exports the estimators from `ns_observations.estimators`: ordinary logistic regression (IRLS), Firth and FLIC, the separation check, the threshold, the delta-method interval, the cluster resampler, Wilson intervals and the exact Poisson-binomial tail |
 | `src/run_challenge1.py` | The workflow, organised into the numbered steps in its docstring. All policy values are in `Config` |
 | `src/covariates.py` | Covariate models: ordinary logistic regression with several predictors, and a random-intercept logistic regression fitted by adaptive Gauss–Hermite quadrature; gives the 99% crossing for a typical recorder and for a new one |
 | `tests/` | Estimators checked against statsmodels, an analytic Firth result and direct numerical optimisation. The pipeline is run fresh into a temporary folder. Results are pinned, the edge cases covered are a species without validations, constant scores and the whole-range branch, and outputs are checked to be reproducible |
@@ -76,7 +87,8 @@ Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evid
 | `outputs/validation_links.csv` | Each validated clip and the prediction row(s) it links to |
 | `outputs/dropped_duplicate_validations.csv` | The 4 clips removed by D-01 |
 | `outputs/figures/curve_*.png` | One figure per species: clips, curves (solid inside the validated range, dotted outside), threshold and interval |
-| `outputs/run_summary.json` | Settings, package versions, input checksums and totals |
+| `outputs/threshold_set.json` | The versioned threshold-set artifact (with diagnostics) that the platform would publish; identical to `ns-observations calibrate --diagnostics` |
+| `outputs/run_summary.json` | Settings, package versions, input checksums, totals and the threshold-set id |
 | `outputs/dashboard_results.json` | Everything the dashboard page shows, embedded at build time |
 
 ### Added columns

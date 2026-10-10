@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://naturalstate.org/schemas/ns-observations/threshold_set/1.0",
+  "title": "Threshold set",
+  "description": "Output of job A (calibrate): per-species 99% thresholds with the policy, code version and validation snapshot that produced them. Deterministic: identical inputs give an identical document and threshold_set_id.",
+  "type": "object",
+  "required": ["threshold_set_id", "schema_version", "created_by", "code_version", "policy", "validation_snapshot", "species", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "threshold_set_id": {"type": "string", "pattern": "^ts-[0-9a-f]{16}$", "description": "ts- plus the first 16 hex characters of the SHA-256 of the rest of the document"},
+    "schema_version": {"const": "1.0"},
+    "created_by": {"type": "string"},
+    "code_version": {"type": "string", "description": "package version or git sha of the procedure"},
+    "status": {"enum": ["draft", "published", "retired"]},
+    "policy": {
+      "type": "object",
+      "required": ["target", "min_each_outcome", "estimator", "eps", "threshold_decimals", "review_min_clips", "review_alpha", "n_boot", "seed"],
+      "additionalProperties": false,
+      "properties": {
+        "target": {"type": "number", "exclusiveMinimum": 0.5, "exclusiveMaximum": 1},
+        "min_each_outcome": {"type": "integer", "minimum": 1},
+        "estimator": {"enum": ["auto", "ml", "firth", "flic"]},
+        "eps": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.01},
+        "threshold_decimals": {"type": "integer", "minimum": 1, "maximum": 10},
+        "review_min_clips": {"type": "integer", "minimum": 1},
+        "review_alpha": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+        "n_boot": {"type": "integer", "minimum": 1},
+        "seed": {"type": "integer"}
+      }
+    },
+    "validation_snapshot": {
+      "type": "object",
+      "required": ["sha256", "n_clips"],
+      "properties": {
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "n_clips": {"type": "integer", "minimum": 0}
+      }
+    },
+    "species": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/species"}
+    }
+  },
+  "$defs": {
+    "species": {
+      "type": "object",
+      "required": ["species", "status", "gate_reason", "method", "n_correct", "n_incorrect", "validated_min", "validated_max", "threshold", "curve_identified", "beta0", "beta1", "review_flags"],
+      "additionalProperties": false,
+      "properties": {
+        "species": {"type": "string"},
+        "species_code": {"type": ["string", "null"]},
+        "status": {"enum": ["accepted", "accepted_whole_range", "not_reached", "slope_not_positive", "no_valid_fit", "insufficient_validation"]},
+        "gate_reason": {"enum": [null, "no_validations", "no_observed_errors", "no_observed_correct", "too_few_errors", "too_few_correct"]},
+        "method": {"enum": [null, "ml", "firth", "flic"]},
+        "n_correct": {"type": "integer", "minimum": 0},
+        "n_incorrect": {"type": "integer", "minimum": 0},
+        "validated_min": {"type": ["number", "null"]},
+        "validated_max": {"type": ["number", "null"]},
+        "threshold": {"type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "operative confidence threshold, rounded up; labels use exactly this value"},
+        "curve_identified": {"type": "boolean", "description": "valid fit with a positive slope: p_correct may be computed"},
+        "beta0": {"type": ["number", "null"]},
+        "beta1": {"type": ["number", "null"]},
+        "review_flags": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["recorder", "validated_clips", "correct", "expected_correct", "p_value", "bonferroni_alpha", "flag"],
+            "additionalProperties": false,
+            "properties": {
+              "recorder": {"type": "string"},
+              "validated_clips": {"type": "integer"},
+              "correct": {"type": "integer"},
+              "expected_correct": {"type": "number"},
+              "p_value": {"type": "number", "minimum": 0, "maximum": 1},
+              "bonferroni_alpha": {"type": "number"},
+              "flag": {"const": "recorder_inconsistent_with_pooled_curve"}
+            }
+          }
+        },
+        "diagnostics": {"type": ["object", "null"]}
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"enum": ["accepted", "accepted_whole_range"]}}}, "then": {"properties": {"threshold": {"type": "number"}}}, "else": {"properties": {"threshold": {"type": "null"}}}},
+        {"if": {"properties": {"status": {"const": "insufficient_validation"}}}, "then": {"properties": {"gate_reason": {"type": "string"}}}, "else": {"properties": {"gate_reason": {"type": "null"}}}}
+      ]
+    }
+  }
+}

@@ -9,6 +9,9 @@ Ideas/
 __pycache__/
 *.pyc
 .venv/
+*.egg-info/
+build/
+.pytest_cache/
 .ipynb_checkpoints/
 
 # R

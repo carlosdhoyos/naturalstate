@@ -35,7 +35,7 @@ import hashlib
 import json
 import platform
 import sys
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import matplotlib
@@ -46,18 +46,49 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ns_observations" / "src"))
+# the production package: decision rules, CSV linkage, label rule and the threshold-set artifact.
+# This script imports them, so the research analysis and the platform code cannot drift apart.
+from ns_observations import io_csv  # noqa: E402
+from ns_observations.artifact import SpeciesThreshold, build_threshold_set  # noqa: E402
+from ns_observations.calibrate import (  # noqa: E402,F401
+    Procedure,
+    accept,
+    bootstrap,
+    evidence_gate,
+    fit_primary,
+    model_free_check,
+    n_labelled,
+    recorder_checks,
+    run_procedure,
+)
+from ns_observations.label import label  # noqa: E402
+from ns_observations.policy import (  # noqa: E402,F401
+    ACCEPTED,
+    ACCEPTED_WHOLE_RANGE,
+    INSUFFICIENT,
+    NO_VALID_FIT,
+    NOT_REACHED,
+    REASON_TEXT,
+    ROW_BELOW,
+    ROW_MODEL,
+    ROW_NO_THRESHOLD,
+    ROW_VALIDATED_CORRECT,
+    ROW_VALIDATED_INCORRECT,
+    SLOPE_NOT_POSITIVE,
+    STATUS_TEXT,
+    Policy,
+    operative,
+)
 from covariates import conditional_threshold, fit_fixed, fit_random_intercept, marginal_threshold  # noqa: E402
 from thresholds import (  # noqa: E402
     Fit,
-    cluster_resamples,
     fit_firth,
     fit_flic,
     fit_ml,
     logit_conf,
-    poisson_binomial_cdf,
     sigmoid,
     threshold_delta_ci,
-    threshold_logit,
     wilson,
 )
 
@@ -109,270 +140,54 @@ class Config:
     write_dashboard_json: bool = True
 
 
-# Species-level status codes (enum). Text for people lives in STATUS_TEXT.
-ACCEPTED = "accepted"  # 99% point inside the validated range
-ACCEPTED_WHOLE_RANGE = "accepted_whole_range"  # >= 99% already at the lowest validated score
-NOT_REACHED = "not_reached"  # 99% only above the highest validated score
-SLOPE_NOT_POSITIVE = "slope_not_positive"  # fitted curve does not increase with score
-NO_VALID_FIT = "no_valid_fit"
-INSUFFICIENT = "insufficient_validation"  # evidence gate not passed
-
-STATUS_TEXT = {
-    ACCEPTED: "accepted: the fitted probability reaches 99% inside the validated score range",
-    ACCEPTED_WHOLE_RANGE: "accepted: the fitted probability is at least 99% across the whole validated range; threshold = lowest validated score",
-    NOT_REACHED: "no supported threshold: 99% is reached only above the highest validated score",
-    SLOPE_NOT_POSITIVE: "no supported threshold: the fitted curve does not increase with the score",
-    NO_VALID_FIT: "no supported threshold: the logistic fit did not converge to a valid estimate",
-    INSUFFICIENT: "insufficient validation: too few correct or incorrect validated clips to locate a 99% point",
-}
-# Reasons for INSUFFICIENT (the gate), as codes.
-REASON_TEXT = {
-    "no_validations": "no validated clips for this species",
-    "no_observed_errors": "no validated clip was incorrect",
-    "no_observed_correct": "no validated clip was correct",
-    "too_few_errors": "fewer incorrect validated clips than the gate requires",
-    "too_few_correct": "fewer correct validated clips than the gate requires",
-}
-
-# Row-level observation status codes.
-ROW_VALIDATED_CORRECT = "validated_correct"
-ROW_VALIDATED_INCORRECT = "validated_incorrect"
-ROW_MODEL = "model_observation"
-ROW_BELOW = "below_threshold"
-ROW_NO_THRESHOLD = "no_species_threshold"
-
 BANDS = [0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.0000001]
 BAND_LABELS = ["0.1–0.2", "0.2–0.3", "0.3–0.5", "0.5–0.7", "0.7–0.9", "0.9–1.0"]
 TEAL, ORANGE, BLUE, GREY, NAVY, SAND = "#1f9e8c", "#eb6834", "#2a78d6", "#9aa8ae", "#00354d", "#c99a2e"
 
 
-def operative(c: float, decimals: int = 6) -> float:
-    """Round a confidence threshold UP to `decimals`, so the exported number is the one that decides
-    labels and the fitted probability at it stays >= the target. The tiny offset keeps a value that
-    is already exact (e.g. a 3-decimal validated score) from being bumped by float error."""
-    k = 10**decimals
-    return float(np.ceil(c * k - 1e-6) / k)
+def policy_of(cfg: "Config") -> Policy:
+    """The package's Policy from this script's Config (the policy values are the same fields)."""
+    return Policy(target=cfg.target, min_each_outcome=cfg.min_each_outcome, estimator=cfg.estimator, eps=cfg.eps,
+                  threshold_decimals=cfg.threshold_decimals, review_min_clips=cfg.review_min_clips,
+                  review_alpha=cfg.review_alpha, n_boot=cfg.n_boot, seed=cfg.seed)
 
 
 # ══ 1–3. data: load, link, de-duplicate ══════════════════════════════════════
 
 
 def load(cfg: Config = Config()) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Read both CSVs and parse the file names. Fails loudly on a name it cannot parse."""
+    """Both CSVs through the package's CSV adapter (io_csv), plus the columns this script uses."""
+    preds = io_csv.read_predictions(cfg.pred_csv)
     pred = pd.read_csv(cfg.pred_csv)
-    stem = pred.begin_path.str.extract(cfg.pred_path_pattern, flags=2)  # 2 = re.IGNORECASE
-    assert stem.notna().all().all(), f"unparseable prediction path, e.g. {pred.begin_path[stem.isna().any(axis=1)].iloc[0]}"
-    pred["recorder"], pred["date"], pred["hour"] = stem["recorder"], stem["date"], stem["hour"]
-
-    val = pd.read_csv(cfg.val_csv)
-    parts = val.filename.str.extract(cfg.val_name_pattern, flags=2)
-    assert parts.notna().all().all(), f"unparseable validation file name, e.g. {val.filename[parts.isna().any(axis=1)].iloc[0]}"
-    # bracket access: parts.clip would be DataFrame.clip(), not the column
-    val["score_text"], val["clip_index"] = parts["score"], parts["clip"].astype(int)
-    val["recorder"], val["date"], val["hour"], val["mmss"] = parts["recorder"], parts["date"], parts["hour"], parts["mmss"]
-    # One audio file per recorder and hour (checked: no recorder-hour has two file start times).
-    val["audio_file"] = val.recorder + "_" + val.date + "_" + val.hour
-    assert set(val.outcome.unique()) <= {0, 1}, "outcome must be 0/1"
+    pred["recorder"], pred["date"], pred["hour"] = preds.table.recorder, preds.table.date, preds.table.hour
+    pred["prediction_id"], pred["species"] = preds.table.prediction_id, preds.table.species
+    val = io_csv.read_validations(cfg.val_csv)
     return pred, val
 
 
 def link_validations(pred: pd.DataFrame, val: pd.DataFrame, cfg: Config = Config()) -> pd.DataFrame:
-    """D-02: find, for each validated clip, the predictions it can have come from: same species,
-    recorder, date and hour, and a score equal up to the 3-decimal rounding of the validation file.
-
-    Adds: n_candidates, candidates (list of prediction row indices), link ("unique" / "tied" / "none").
-    A unique link means the human verdict can be attached to exactly one prediction (D-10)."""
-    groups = {k: (g.index.to_numpy(), g.confidence.to_numpy()) for k, g in pred.groupby(["common_name", "recorder", "date", "hour"])}
-    cands = []
-    for r in val.itertuples():
-        idx, conf = groups.get((r.commonName, r.recorder, r.date, r.hour), (np.array([], int), np.array([])))
-        cands.append(idx[np.abs(conf - r.confidence) <= cfg.link_tol].tolist())
-    val = val.copy()
-    val["candidates"] = cands
-    val["n_candidates"] = [len(c) for c in cands]
-    val["link"] = np.select([val.n_candidates == 1, val.n_candidates > 1], ["unique", "tied"], "none")
-    return val
+    """D-02, via the package (io_csv.link_validations)."""
+    return io_csv.link_validations(pred, val, cfg.link_tol)
 
 
 def deduplicate(pred: pd.DataFrame, val: pd.DataFrame, reduce_ambiguous: bool = False, cfg: Config = Config()) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """D-01: validated clips whose names differ only by the clip number.
-
-    Such a group is a *probable duplicate* when fewer predictions match it than it has clips: two
-    clips, one possible segment, so the segment was validated twice. Keep the lowest clip number.
-    With at least as many matching predictions, the group is *ambiguous* (could be distinct segments
-    whose scores round alike) and is kept, unless reduce_ambiguous (a sensitivity run)."""
+    """D-01, via the package (io_csv.deduplicate); links first if needed."""
     if "n_candidates" not in val:
         val = link_validations(pred, val, cfg)
-    val = val.copy()
-    gkey = ["commonName", "score_text", "recorder", "date", "hour", "mmss"]
-    val["group_size"] = val.groupby(gkey).filename.transform("size")
-    multi = val.group_size > 1
-    probable = multi & (val.groupby(gkey).n_candidates.transform("max") < val.group_size)
-    val["duplicate_check"] = np.select([probable, multi], ["probable duplicate", "ambiguous (kept)"], "no")
-    reduce = probable | (multi & reduce_ambiguous)
-    val = val.sort_values(gkey + ["clip_index"])
-    drop = reduce.loc[val.index] & val.duplicated(gkey, keep="first")
-    return val[~drop].sort_index(), val[drop].copy()
+    return io_csv.deduplicate(val, reduce_ambiguous)
 
 
 # ══ 4. the per-species procedure ═════════════════════════════════════════════
 
 
-def evidence_gate(n_correct: int, n_incorrect: int, k: int) -> tuple[bool, str | None]:
-    """D-09. Both outcomes must be observed at least k times. Returns (passed, reason code).
-
-    Why: the 99% point sits where errors become rare, so its location is learned from the errors
-    (and the correct clips) near it. With 0 errors the slope is not identified at all; with 1 error
-    the threshold moves from 0.16 to 0.85 depending on the estimator (Plover, D-07). Wood & Kahl
-    do not discuss this case; the gate is our extension of their method."""
-    if n_correct + n_incorrect == 0:
-        return False, "no_validations"
-    if n_incorrect == 0:
-        return False, "no_observed_errors"
-    if n_correct == 0:
-        return False, "no_observed_correct"
-    if n_incorrect < k:
-        return False, "too_few_errors"
-    if n_correct < k:
-        return False, "too_few_correct"
-    return True, None
-
-
-def fit_primary(x: np.ndarray, y: np.ndarray, estimator: str = "auto") -> tuple[Fit, str]:
-    """D-09. Ordinary maximum likelihood, exactly the paper's glm(outcome ~ score, binomial).
-    Firth only when the data are separated (no finite ML estimate). Other estimators are forced only
-    in sensitivity runs. Returns (fit, reason for the choice)."""
-    if estimator == "firth":
-        return fit_firth(x, y), "forced: Firth (sensitivity run)"
-    if estimator == "flic":
-        return fit_flic(x, y), "forced: FLIC (sensitivity run)"
-    ml = fit_ml(x, y)
-    if estimator == "ml" or not ml.separated:
-        return ml, "ordinary maximum likelihood (Wood & Kahl)"
-    return fit_firth(x, y), "separated data: no finite ML estimate, Firth fallback"
-
-
-def accept(fit: Fit, xmin: float, xmax: float, target: float) -> tuple[str, float | None, float | None]:
-    """D-05. Where the fitted curve crosses the target, and whether the data support it.
-    Returns (status code, effective threshold on the logit scale or None, raw crossing or None)."""
-    if not fit.valid:
-        return NO_VALID_FIT, None, None
-    t = threshold_logit(fit, target)
-    if t is None:  # valid but b1 <= 0: a threshold "score >= t" does not exist
-        return SLOPE_NOT_POSITIVE, None, None
-    if t > xmax:  # would need extrapolation above the evidence
-        return NOT_REACHED, None, t
-    if t < xmin:  # already >= target at the lowest validated score: do not extrapolate downward
-        return ACCEPTED_WHOLE_RANGE, xmin, t
-    return ACCEPTED, t, t
-
-
-@dataclass
-class Procedure:
-    """The outcome of the procedure for one species on one set of validated clips."""
-
-    n: int
-    n_correct: int
-    n_incorrect: int
-    gate_passed: bool
-    gate_reason: str | None
-    status: str
-    fit: Fit | None
-    method: str | None
-    method_reason: str | None
-    t_raw: float | None  # logit scale; where the curve crosses the target, if it does
-    threshold: float | None  # operative confidence threshold (rounded up), None without one
-    x: np.ndarray = field(repr=False, default_factory=lambda: np.array([]))
-    y: np.ndarray = field(repr=False, default_factory=lambda: np.array([]))
-    vmin: float = np.nan  # validated confidence range
-    vmax: float = np.nan
-
-
-def run_procedure(conf: np.ndarray, outcome: np.ndarray, cfg: Config) -> Procedure:
-    """Steps 4a–4c for one species. Also used inside every bootstrap resample and sensitivity run, so
-    uncertainty and sensitivity reflect the whole decision procedure, not just the curve."""
-    conf = np.asarray(conf, float)
-    y = np.asarray(outcome, int)
-    n1, n0 = int(y.sum()), int(len(y) - y.sum())
-    passed, reason = evidence_gate(n1, n0, cfg.min_each_outcome)
-    x = logit_conf(conf, cfg.eps)
-    base = dict(n=len(y), n_correct=n1, n_incorrect=n0, gate_passed=passed, gate_reason=reason, x=x, y=y,
-                vmin=float(conf.min()) if len(conf) else np.nan, vmax=float(conf.max()) if len(conf) else np.nan)
-    if not passed:
-        return Procedure(**base, status=INSUFFICIENT, fit=None, method=None, method_reason=None, t_raw=None, threshold=None)
-    fit, why = fit_primary(x, y, cfg.estimator)
-    status, eff, t_raw = accept(fit, float(x.min()), float(x.max()), cfg.target)
-    thr = None
-    if eff is not None:
-        # at the lower bound use the exact validated score, not a logit round trip
-        thr = operative(base["vmin"] if status == ACCEPTED_WHOLE_RANGE else float(sigmoid(eff)), cfg.threshold_decimals)
-    return Procedure(**base, status=status, fit=fit, method=fit.method, method_reason=why, t_raw=t_raw, threshold=thr)
-
-
-def n_labelled(conf: np.ndarray, threshold: float | None) -> int:
-    return 0 if threshold is None else int(np.sum(np.asarray(conf) >= threshold))
-
-
-# ══ 5. uncertainty ═══════════════════════════════════════════════════════════
-
-
-def bootstrap(d: pd.DataFrame, pred_conf: np.ndarray, cluster_col: str, cfg: Config) -> dict:
-    """Cluster bootstrap that replays the whole procedure (gate, fit, acceptance) in each resample.
-
-    Two summaries, because both questions matter:
-      * threshold interval, CONDITIONAL on resamples that produce a threshold (state the share);
-      * labelled-count interval, UNCONDITIONAL: a resample without a threshold labels nothing.
-    Clusters: "recorder" (the dependence that matters, D-04; headline) or "audio_file"."""
-    conf, y = d.confidence.to_numpy(), d.outcome.to_numpy()
-    thresholds, counts, statuses = [], [], []
-    for idx in cluster_resamples(d[cluster_col].to_numpy(), cfg.n_boot, cfg.seed):
-        pr = run_procedure(conf[idx], y[idx], cfg)
-        statuses.append(pr.status)
-        thresholds.append(np.nan if pr.threshold is None else pr.threshold)
-        counts.append(n_labelled(pred_conf, pr.threshold))
-    thr, counts, statuses = np.asarray(thresholds), np.asarray(counts), np.asarray(statuses)
-    ok = np.isfinite(thr)
-    return {
-        "cluster": cluster_col,
-        "n_clusters": int(d[cluster_col].nunique()),
-        "share_with_threshold": float(ok.mean()),
-        "status_shares": {s: float(np.mean(statuses == s)) for s in sorted(set(statuses.tolist()))},
-        "threshold_ci": [float(v) for v in np.quantile(thr[ok], [0.025, 0.975])] if ok.mean() >= 0.5 else None,
-        "labelled_q": [int(v) for v in np.quantile(counts, [0.025, 0.5, 0.975], method="nearest")],
-        "thresholds": thr,
-        "counts": counts,
-    }
+# evidence_gate, fit_primary, accept, Procedure, run_procedure, n_labelled and bootstrap come from
+# ns_observations.calibrate (imported above): one implementation for the analysis and the platform.
 
 
 # ══ 6. checks ════════════════════════════════════════════════════════════════
 
 
-def recorder_checks(d: pd.DataFrame, pr: Procedure, cfg: Config) -> pd.DataFrame:
-    """D-11. Is each recorder consistent with the curve fitted on the OTHER recorders?
-
-    For recorders with >= review_min_clips validated clips: fit the primary estimator without the
-    recorder, predict its clips, and compute the exact probability (Poisson-binomial) of seeing so
-    few correct ones. Flag at Bonferroni-adjusted review_alpha. Leave-one-out avoids the recorder
-    pulling the curve toward itself. Only species that pass the gate are checked."""
-    if not pr.gate_passed:
-        return pd.DataFrame()
-    tested = [r for r, g in d.groupby("recorder") if len(g) >= cfg.review_min_clips]
-    rows = []
-    for r, g in d.groupby("recorder"):
-        row = {"recorder": r, "validated_clips": len(g), "correct": int(g.outcome.sum()), "tested": r in tested,
-               "expected_correct_loro": np.nan, "p_value": np.nan, "flagged": False}
-        if r in tested:
-            rest = d[d.recorder != r]
-            f, _ = fit_primary(logit_conf(rest.confidence.to_numpy(), cfg.eps), rest.outcome.to_numpy(), cfg.estimator)
-            if f.valid:
-                p = f.p(logit_conf(g.confidence.to_numpy(), cfg.eps))
-                row["expected_correct_loro"] = float(p.sum())
-                row["p_value"] = poisson_binomial_cdf(row["correct"], p)
-                row["flagged"] = bool(row["p_value"] < cfg.review_alpha / len(tested))
-        rows.append(row)
-    out = pd.DataFrame(rows)
-    out["bonferroni_alpha"] = cfg.review_alpha / max(len(tested), 1)
-    return out
+# recorder_checks (D-11) comes from ns_observations.calibrate.
 
 
 def set_level_threshold(fit: Fit | None, pred_conf: np.ndarray, vmin: float, cfg: Config) -> float | None:
@@ -487,14 +302,14 @@ def sensitivity(pred: pd.DataFrame, val_raw: pd.DataFrame, val: pd.DataFrame, fl
         ("recorders", "review-flagged recorders removed, gate k = 1", val, replace(cfg, min_each_outcome=1), "drop_flagged"),
     ]
     rows = []
-    for group, label, v, c, special in variants:
+    for group, variant, v, c, special in variants:
         for sp in species:
             d, P = species_frames(v, pred, sp)
             if special == "drop_flagged":
                 d = d[~d.recorder.isin(flagged.get(sp, []))]
             pr = run_procedure(d.confidence.to_numpy(), d.outcome.to_numpy(), c)
             rows.append({
-                "group": group, "variant": label, "species": sp, "validated_clips": pr.n, "incorrect": pr.n_incorrect,
+                "group": group, "variant": variant, "species": sp, "validated_clips": pr.n, "incorrect": pr.n_incorrect,
                 "status": pr.status, "gate_reason": pr.gate_reason, "method": pr.method,
                 "threshold": pr.threshold, "model_labelled": n_labelled(P.confidence.to_numpy(), pr.threshold),
                 "b0": pr.fit.b0 if pr.fit is not None and pr.fit.valid else np.nan,
@@ -503,26 +318,7 @@ def sensitivity(pred: pd.DataFrame, val_raw: pd.DataFrame, val: pd.DataFrame, fl
     return pd.DataFrame(rows)
 
 
-def attach_validations(pred: pd.DataFrame, val: pd.DataFrame) -> tuple[pd.Series, pd.Series, int]:
-    """D-10. Map uniquely linked validated clips onto prediction rows.
-
-    Returns (validation_outcome per row: "correct" / "incorrect" / "", validation_link per row:
-    "unique" / "tied" / "", number of rows left without override because two unique links disagree).
-    A tied clip matches several predictions with the same 3-decimal score in that hour; its verdict
-    cannot be attached to one of them, so tied rows are marked but keep the model label."""
-    outcome = pd.Series("", index=pred.index, dtype=object)
-    link = pd.Series("", index=pred.index, dtype=object)
-    for r in val[val.link == "tied"].itertuples():
-        link.loc[r.candidates] = "tied"
-    uniq = val[val.link == "unique"].assign(row=lambda t: t.candidates.str[0])
-    conflicts = 0
-    for row, g in uniq.groupby("row"):
-        if g.outcome.nunique() > 1:
-            conflicts += 1  # contradictory human verdicts for one prediction: do not override
-            continue
-        outcome.loc[row] = "correct" if g.outcome.iloc[0] == 1 else "incorrect"
-        link.loc[row] = "unique"
-    return outcome, link, conflicts
+# Labels (D-10) come from ns_observations.label.label(), the same function the platform runs.
 
 
 # ══ 9. report ════════════════════════════════════════════════════════════════
@@ -612,7 +408,7 @@ def main(cfg: Config = Config()) -> dict:
     # has nothing to label and is ignored, a species with predictions only gets "no_validations"
     species = list(pred.common_name.value_counts().index)
 
-    rows, procs, rec_tables, cov_tables, curves_all, calib, sampling, flagged = [], {}, [], [], {}, [], [], {}
+    rows, procs, rec_tables, cov_tables, curves_all, calib, sampling, flagged, rc_by_sp = [], {}, [], [], {}, [], [], {}, {}
     for sp in species:
         d, P = species_frames(val, pred, sp)
         conf_p = P.confidence.to_numpy()
@@ -679,6 +475,7 @@ def main(cfg: Config = Config()) -> dict:
                 r[f"{tag}_labelled_q025"], r[f"{tag}_labelled_median"], r[f"{tag}_labelled_q975"] = b["labelled_q"]
 
         rc = recorder_checks(d, pr, cfg)
+        rc_by_sp[sp] = rc.copy()
         if len(rc):
             rc.insert(0, "species", sp)
             rec_tables.append(rc)
@@ -708,37 +505,24 @@ def main(cfg: Config = Config()) -> dict:
 
     sens = sensitivity(pred, val_raw, val, flagged, species, cfg)
 
-    # ── labels (D-10): human verdict first, then the species threshold ──
-    src = pd.read_csv(cfg.pred_csv, dtype=str, keep_default_na=False)  # as text: source values stay byte-identical
-    out = src.copy()
-    v_out, v_link, conflicts = attach_validations(pred, val)
-    thr_row = pred.common_name.map({sp: procs[sp].threshold for sp in species})
-    has_thr = thr_row.notna()
-    model_obs = has_thr & (pred.confidence >= thr_row.fillna(np.inf))
-    out["observation"] = np.where((v_out == "correct") | ((v_out == "") & model_obs), pred.common_name, "")
-    out["observation_source"] = np.select([v_out != "", model_obs], ["validated", "model"], "")
-    out["observation_status"] = np.select(
-        [v_out == "correct", v_out == "incorrect", model_obs, has_thr],
-        [ROW_VALIDATED_CORRECT, ROW_VALIDATED_INCORRECT, ROW_MODEL, ROW_BELOW], ROW_NO_THRESHOLD)
-    out["model_observation"] = np.where(model_obs, pred.common_name, "")
-    p_correct = pd.Series(np.nan, index=pred.index)
-    for sp in species:
-        pr = procs[sp]
-        if pr.fit is not None and pr.fit.valid and pr.fit.b1 > 0:
-            m = pred.common_name == sp
-            p_correct[m] = pr.fit.p(logit_conf(pred.confidence[m].to_numpy(), cfg.eps))
-    out["p_correct"] = p_correct.round(6)
-    out["species_threshold"] = [f"{t:.{cfg.threshold_decimals}f}" if pd.notna(t) else "" for t in thr_row]
-    out["species_status"] = pred.common_name.map({sp: procs[sp].status for sp in species})
-    out["threshold_method"] = pred.common_name.map({sp: procs[sp].method or "" for sp in species})
-    out["validation_outcome"] = v_out
-    out["validation_link"] = v_link
-    flag_row = np.array([rec in flagged.get(sp, []) for sp, rec in zip(pred.common_name, pred.recorder)])
-    out["review_flag"] = np.where(flag_row, "recorder_inconsistent_with_pooled_curve", "")
-    assert len(out) == len(src)
-    out.to_csv(out_dir / "birdnet_predictions_with_observations.csv", index=False)
-    back = pd.read_csv(out_dir / "birdnet_predictions_with_observations.csv", dtype=str, keep_default_na=False)
-    assert back[src.columns].equals(src), "source columns changed in the export"
+    # ── threshold set (the platform artifact) and labels (D-10), through the production package ──
+    policy = policy_of(cfg)
+    codes = dict(zip(pred.common_name, pred.species_code))
+    entries = {}
+    for r in rows:
+        sp = r["species"]
+        d = val[val.commonName == sp]
+        diag = {"model_free": model_free_check(d, procs[sp].threshold)}
+        if "_boot_recorder" in r:
+            diag["bootstrap_recorder"] = {k: v for k, v in r["_boot_recorder"].items() if k not in ("thresholds", "counts")}
+        entries[sp] = SpeciesThreshold.from_procedure(sp, procs[sp], rc_by_sp.get(sp, pd.DataFrame()), policy, species_code=codes.get(sp), diagnostics=diag)
+    ts = build_threshold_set(entries, policy, val)
+    ts.write(out_dir / "threshold_set.json")
+    preds = io_csv.read_predictions(cfg.pred_csv)
+    labels = label(preds.table, ts, io_csv.verdicts_from_validations(val))
+    conflicts = labels.attrs.get("conflicting_verdicts", 0)
+    out = io_csv.takehome_output(preds, labels)
+    io_csv.write_takehome_output(preds, labels, out_dir / "birdnet_predictions_with_observations.csv")
 
     # ── tables ──
     pd.DataFrame([{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]).to_csv(out_dir / "species_thresholds.csv", index=False)
@@ -773,6 +557,7 @@ def main(cfg: Config = Config()) -> dict:
         "dropped_duplicates": len(dropped),
         "validation_links": val.link.value_counts().to_dict(),
         "conflicting_unique_links": conflicts,
+        "threshold_set_id": ts.threshold_set_id,
         "observations": int(obs.sum()),
         "observations_by_source": out.observation_source[obs].value_counts().to_dict(),
         "observation_status_counts": out.observation_status.value_counts().to_dict(),

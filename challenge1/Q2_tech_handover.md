@@ -2,11 +2,15 @@
 
 **For:** the Tech team (Python / SQL) and Biometrics (R), who own the policy values.
 **Scope:** everything after BirdNET predictions are stored. The SD-card-to-BirdNET pipeline is assumed to work.
-**Reference implementation:**
-- [`src/run_challenge1.py`](src/run_challenge1.py): procedure, labels, reports
-- [`src/thresholds.py`](src/thresholds.py) and [`src/covariates.py`](src/covariates.py): estimators
-- [`tests/`](tests/): 37 tests
-- The method and its decisions: [Q1 report](Q1_report.md) and [decision log](../docs/challenge1_data_decisions.md).
+**What to deploy: [`ns_observations/`](ns_observations/README.md),** an installable Python 3.13 package with a Dockerfile.
+- `ns-observations calibrate` (job A) and `ns-observations label` (job B), as a CLI and a Python API.
+- A versioned threshold-set artifact, with JSON schemas.
+- A CSV adapter, plus a PostgreSQL adapter stub matching section 3.
+- 24 tests, including an end-to-end acceptance test.
+
+**Where the decisions were made:**
+- [`src/run_challenge1.py`](src/run_challenge1.py): the research analysis. It covers sensitivity, the bootstrap, the covariate tests and the figures, and imports the package's decision rules, so the two cannot drift apart.
+- [Q1 report](Q1_report.md) and [decision log](../docs/challenge1_data_decisions.md).
 
 ---
 
@@ -31,6 +35,8 @@
 Job B must never fit anything. It only reads the published threshold set, so labels are cheap, deterministic and traceable to a version.
 
 ## 3. Data model (PostgreSQL sketch)
+
+The full DDL, with constraints and a "one published threshold set per project" index, is in [`ns_observations/sql/schema.sql`](ns_observations/sql/schema.sql). `io_postgres.py` reads and writes these tables. It is a stub: tested with a fake connection, not against a live database.
 
 ```sql
 -- existing: one row per BirdNET detection. Needs a stable id that survives re-exports (section 8).
@@ -175,7 +181,13 @@ Changing any of these creates a new threshold set. Nothing is edited in place.
 
 ## 6. Implementation notes
 
-- **Reuse, don't rewrite.** The estimator module has no web or database dependencies: it uses numpy only, and scipy for the covariate models. It can be wrapped as a worker task (e.g. a Redis queue consumer) that reads validations from PostgreSQL and writes a draft threshold set.
+- **Deploy the package; don't rewrite it.** `ns_observations` depends only on numpy and pandas (jsonschema is optional), with no web or database code in the core. The suggested wiring:
+  - **A worker task, e.g. a Redis queue consumer, for job A:** `io_postgres.read_validations` → `calibrate(..., diagnostics=True)` → `io_postgres.write_threshold_set`. This writes a **draft**.
+  - **Publishing** is a separate, approved step: Biometrics signs off, and the status changes to `published`.
+  - **A second task for job B:** `read_predictions` + `read_verdicts` → `label(..., published_set)` → `write_labels`.
+  - **The image:** `docker build -t ns-observations challenge1/ns_observations`. It runs as a non-root user, with the CLI as entrypoint.
+- **The threshold set is the contract between the jobs.** It is deterministic JSON validated against `threshold_set.schema.json`, and its id is derived from its content. Re-running calibration on unchanged validations and policy reproduces the same id, so nothing is duplicated.
+- **The covariate models** (`challenge1/src/covariates.py`) stay in the research code. They are a Biometrics diagnostic, not part of either job.
 - **Numerics.**
   - ML is standard IRLS.
   - Firth accepts only steps that strictly increase the penalised likelihood, damps overshooting steps, and declares convergence on the modified score (|U*| < 10⁻⁸). That avoids false convergence on small or separated data.
@@ -220,7 +232,7 @@ These are listed in full, with the working assumptions, in [Q1 report, section 9
 
 ## 9. Acceptance tests for the platform implementation
 
-Run the platform job on this take-home dataset. It must reproduce:
+Run the platform job on this take-home dataset. It must reproduce the values below. `pytest challenge1/ns_observations` checks them automatically (`tests/test_acceptance.py`), and also checks that the output is byte-identical to the research pipeline's.
 
 | Check | Expected |
 |---|---|
@@ -233,7 +245,7 @@ Run the platform job on this take-home dataset. It must reproduce:
 | Row statuses | validated_correct 363, validated_incorrect 113, model_observation 3,097, below_threshold 6,985, no_species_threshold 18,933 |
 | Review flags | Nightjar at RBS75 and RBS79 (2,277 rows) |
 
-Unit-level checks to port, from `tests/`:
+Unit-level checks already in `ns_observations/tests/` (the estimator checks are in `challenge1/tests/`):
 - ML against statsmodels
 - Firth against the Haldane-corrected odds ratio and against direct maximisation
 - separation detection, including the quasi-separated case

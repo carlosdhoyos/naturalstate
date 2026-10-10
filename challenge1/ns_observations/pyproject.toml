@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ns-observations"
+version = "1.0.0"
+description = "BirdNET predictions -> species-specific 99% thresholds (Wood & Kahl 2024, with an evidence gate) -> observation labels"
+readme = "README.md"
+requires-python = ">=3.13"
+authors = [{ name = "Carlos Hoyos" }]
+dependencies = ["numpy>=2.1", "pandas>=2.2"]
+
+[project.optional-dependencies]
+schema = ["jsonschema>=4.23"]
+postgres = ["psycopg[binary]>=3.2"]
+test = ["pytest>=8.3", "jsonschema>=4.23", "scipy>=1.14", "statsmodels>=0.14"]
+
+[project.scripts]
+ns-observations = "ns_observations.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ns_observations = ["schemas/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
