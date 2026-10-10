@@ -2644,3 +2644,28 @@ code {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
+
+/* Narrow phones: drop the brand block so nothing collides with the challenge switch. */
+@media (max-width: 560px) {
+  .brand {
+    display: none;
+  }
+  .topbar {
+    gap: 8px;
+    padding: 10px 10px;
+  }
+  .challenge-switch {
+    margin-left: 0;
+  }
+  .challenge-switch button {
+    padding: 4px 10px 4px 4px;
+    gap: 6px;
+  }
+  .topbar-right {
+    gap: 6px;
+  }
+  .guide-btn {
+    font-size: 0; /* icon only */
+    padding: 6px;
+  }
+}

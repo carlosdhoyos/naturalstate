@@ -20,6 +20,21 @@
     "seed": 20261010,
     "review_min_clips": 5,
     "review_alpha": 0.05,
+    "clock_correction_h": [
+      [
+        "RBS40",
+        3
+      ],
+      [
+        "RBS71",
+        3
+      ]
+    ],
+    "evening_hours": [
+      16,
+      21
+    ],
+    "season_start": "20230620",
     "pred_path_pattern": "/(?P<recorder>[^/_]+)_(?P<date>\\d{8})_(?P<hour>\\d{2})\\d{4}\\.wav$",
     "val_name_pattern": "^(?P<score>\\d\\.\\d{3})_(?P<clip>\\d+)_(?P<recorder>[^/_]+)_(?P<date>\\d{8})_(?P<hour>\\d{2})(?P<mmss>\\d{4})\\.wav$",
     "write_figures": true,

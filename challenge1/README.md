@@ -6,9 +6,14 @@ This folder contains a reproducible workflow. It does three things:
 - applies a 99% cutoff to all 29,491 BirdNET predictions
 - writes an `observation` label for each prediction
 
+**The two answers to the brief:**
+
+- **[Q1_report.md](Q1_report.md):** the labels, how they were derived, the decisions, and the limitations.
+- **[Q2_tech_handover.md](Q2_tech_handover.md):** what the Tech team needs to run this automatically on NS Analytics.
+
 Related documents:
 
-- [docs/challenge1_data_decisions.md](../docs/challenge1_data_decisions.md): every decision (D-01 to D-12), with what was measured.
+- [docs/challenge1_data_decisions.md](../docs/challenge1_data_decisions.md): every decision (D-01 to D-13), with what was measured.
 - [docs/challenge1_paper_alignment.md](../docs/challenge1_paper_alignment.md): how the analysis follows the paper and where it extends it.
 - The dashboard page **Birds → Thresholds & observations** shows all results interactively.
 
@@ -17,8 +22,8 @@ Related documents:
 ```bash
 python3.13 -m venv challenge1/.venv
 challenge1/.venv/bin/pip install -r challenge1/requirements-lock.txt      # or requirements.txt for direct dependencies only
-challenge1/.venv/bin/python challenge1/src/run_challenge1.py               # about 3 s; writes challenge1/outputs/
-challenge1/.venv/bin/python -m pytest challenge1/tests -q                  # 30 tests
+challenge1/.venv/bin/python challenge1/src/run_challenge1.py               # about 5 s; writes challenge1/outputs/
+challenge1/.venv/bin/python -m pytest challenge1/tests -q                  # 37 tests
 ```
 
 Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evidence gate) and `--no-figures`. The same inputs and seed always produce byte-identical outputs. The summary contains no timestamp; it records input checksums and package versions instead.
@@ -31,6 +36,7 @@ Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evid
 4. **Accept** the 99% point only if the fit is valid, the curve increases with the score, and the point lies inside the validated score range (D-05).
 5. **Label.** If a validated clip links to exactly one prediction, the human verdict is the label. Otherwise the prediction is an observation when `confidence >= species_threshold` (D-10).
 6. **Flag for review.** Each species' predictions at recorders whose validated clips disagree with the curve fitted without them (D-11). A flag never changes a label.
+7. **Test transferability.** Covariate models (evening, week, recorder random intercept) compared by AIC, as Wood & Kahl recommend (D-13). This is diagnostic; the labels keep the pooled curve.
 
 ## Results
 
@@ -56,6 +62,7 @@ Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evid
 |---|---|
 | `src/thresholds.py` | Estimators: ordinary logistic regression (IRLS), Firth and FLIC, the separation check, the threshold, the delta-method interval, the cluster resampler, Wilson intervals and the exact Poisson-binomial tail |
 | `src/run_challenge1.py` | The workflow, organised into the numbered steps in its docstring. All policy values are in `Config` |
+| `src/covariates.py` | Covariate models: ordinary logistic regression with several predictors, and a random-intercept logistic regression fitted by adaptive Gauss–Hermite quadrature; gives the 99% crossing for a typical recorder and for a new one |
 | `tests/` | Estimators checked against statsmodels, an analytic Firth result and direct numerical optimisation. The pipeline is run fresh into a temporary folder. Results are pinned, the edge cases covered are a species without validations, constant scores and the whole-range branch, and outputs are checked to be reproducible |
 | `requirements.txt` / `requirements-lock.txt` | Direct dependencies / the full frozen environment |
 | `outputs/birdnet_predictions_with_observations.csv` | The 13 source columns (byte-identical) plus the added columns below |
@@ -63,6 +70,7 @@ Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evid
 | `outputs/estimator_comparison.csv` | Ordinary ML, Firth and FLIC for every species |
 | `outputs/sensitivity.csv` | The whole procedure re-run under 14 variants: logit endpoint, duplicates, gate size, estimator, flagged recorders |
 | `outputs/recorder_checks.csv` | The per-recorder leave-one-out test behind the review flags |
+| `outputs/covariate_models.csv` | AIC comparison of the covariate models, per species that passes the gate |
 | `outputs/calibration_by_band.csv` | Observed share correct (Wilson) and mean fitted probability, by score band |
 | `outputs/sampling_by_band.csv` | Validation design: share of validated clips vs share of predictions, by score band |
 | `outputs/validation_links.csv` | Each validated clip and the prediction row(s) it links to |

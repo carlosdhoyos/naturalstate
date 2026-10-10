@@ -51,6 +51,20 @@ interface RecorderCheck {
   flagged: boolean
   bonferroni_alpha: number
 }
+interface CovModel {
+  model: string
+  k: number
+  loglik: number
+  aic: number | null
+  delta_aic: number | null
+  coefficients: string
+  recorder_sd: number
+  valid: boolean
+  identified: boolean
+  crossing_typical_recorder: number | null
+  crossing_new_recorder: number | null
+  notes: string | null
+}
 interface Band {
   band: string
   clips?: number
@@ -105,6 +119,8 @@ interface SpeciesResult {
   recorders: RecorderCheck[]
   calibration: Band[]
   sampling: Band[]
+  covariates: CovModel[]
+  covariate_crosstab: Record<string, { correct: number; incorrect: number }>
 }
 interface SensRow {
   group: string
@@ -1147,6 +1163,78 @@ function RecordersTab({ t, sp, setSp }: Ctx) {
           </div>
         </Section>
       )}
+      {r.covariates.length > 0 && (
+        <Section
+          title="Does the curve change with recorder or time? (Wood & Kahl’s AIC test)"
+          sub="The paper suggests adding spatial or temporal covariates and comparing models with AIC. All recorders are in one grid, so the spatial unit is the recorder; it enters as a random intercept, because a plain recorder term runs to infinity for all-wrong recorders. Lower AIC is better; ΔAIC < 2 means no real difference."
+        >
+          <div className="table-wrap auto">
+            <table className="data-table sum-table">
+              <thead>
+                <tr>
+                  <th>Model (all with logit score)</th>
+                  <th className="num">Parameters</th>
+                  <th className="num">log-likelihood</th>
+                  <th className="num">AIC</th>
+                  <th className="num">ΔAIC</th>
+                  <th className="num">
+                    <Tip tip="Standard deviation of the recorder random intercept on the logit scale. Above ~10 the estimate is diverging: a few recorders behave as if always wrong, which a normal spread cannot represent.">Recorder SD</Tip>
+                  </th>
+                  <th className="num">
+                    <Tip tip="Where the curve crosses 99% for a typical recorder (and, for random-intercept models, for a new recorder averaged over recorders). Not an accepted threshold: shown only when the model is identified.">99% crossing</Tip>
+                  </th>
+                  <th>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.covariates.map((m) => (
+                  <tr key={m.model} className={m.delta_aic === 0 ? 'row-strong' : ''}>
+                    <td>{m.model}</td>
+                    <td className="num">{m.k}</td>
+                    <td className="num">{dec(m.loglik, 2)}</td>
+                    <td className="num">{dec(m.aic, 1)}</td>
+                    <td className="num">{dec(m.delta_aic, 1)}</td>
+                    <td className="num">{m.recorder_sd > 0 ? dec(m.recorder_sd, 1) : '—'}</td>
+                    <td className="num">
+                      {m.crossing_typical_recorder != null ? fmtNum(m.crossing_typical_recorder, 4) : '—'}
+                      {m.crossing_new_recorder != null ? ` · new: ${fmtNum(m.crossing_new_recorder, 4)}` : ''}
+                    </td>
+                    <td className="small muted">{m.notes ? m.notes.split(' | ').filter((n) => !n.startsWith('optimiser')).join('; ') : m.identified ? '' : 'not identified'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {Object.keys(r.covariate_crosstab).length > 0 && (
+            <div className="table-wrap auto">
+              <table className="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Validated clips</th>
+                    <th className="num">Correct</th>
+                    <th className="num">Incorrect</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(r.covariate_crosstab).map(([k, v]) => (
+                    <tr key={k}>
+                      <td>{k}</td>
+                      <td className="num">{v.correct}</td>
+                      <td className="num">{v.incorrect}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {r.species.includes('Nightjar') && (
+            <p className="small">
+              <b>Reading it:</b> recorder differences dominate — adding a recorder intercept lowers AIC by about 55 — but the recorder SD diverges, because RBS75 and RBS79 behave as if always wrong rather than slightly worse. The evening and week terms help only in the pooled model, and only because 26 of the 29 flagged-recorder clips are from the evening; with recorders in the model the evening term adds almost nothing (ΔAIC 0.6). Among the other recorders all 4 errors are evening clips and none of 68 night clips is wrong — a hint that dusk is when other species are mistaken for Nightjars, but 4 errors cannot settle it. No covariate model is both better and usable for unvalidated recorders, so labels keep the pooled curve, and recorder problems are handled by review flags and, on the platform, by a small validation sample for every new recorder (D-13).
+            </p>
+          )}
+          {r.species.includes('Firefinch') && <p className="small">For the Firefinch no covariate improves the model by 2 AIC units or more, and every crossing stays above the highest validated score.</p>}
+        </Section>
+      )}
       <Note>
         <ul>
           <li>
@@ -1157,7 +1245,7 @@ function RecordersTab({ t, sp, setSp }: Ctx) {
               Without the two flagged recorders only 4 Nightjar errors remain, below the gate — yet the threshold would barely move (0.686 vs 0.667 with k = 1). The location is robust; the evidence count is not. More validation away from RBS75/RBS79 would make the Nightjar threshold stand on its own.
             </li>
           )}
-          <li>Wood &amp; Kahl suggest testing site covariates with AIC. A recorder term separates here (all-wrong recorders), so this leave-one-recorder-out test is used instead; a covariate model is a planned sensitivity analysis.</li>
+          <li>The leave-one-recorder-out test and the AIC comparison above answer the same question two ways: one recorder at a time with exact p-values, and all recorders at once with a random intercept.</li>
         </ul>
       </Note>
     </>
@@ -1275,7 +1363,7 @@ const ALIGNMENT: { topic: string; paper: string; ours: string; status: Align }[]
   { topic: 'Logit-transformed score', paper: '“We suggest transforming confidence scores back into the original logit scale, because the highest scores tend to be compressed.”', ours: 'Predictor is ln(c / (1 − c)). The paper also divides by BirdNET’s sensitivity setting; that rescales β₁ but leaves the threshold in confidence units unchanged, so the unknown setting does not matter.', status: 'aligned' },
   { topic: 'Threshold formula', paper: 'threshold = (ln(p / (1 − p)) − β₀) / β₁ for the desired p.', ours: 'Same formula with p = 0.99 (the brief); the paper’s examples use 0.90 and 0.95. At 0.99 errors near the threshold are rare, which is why the evidence gate matters.', status: 'aligned' },
   { topic: 'Range of applicability', paper: '“Probabilistic score thresholds will be applicable to the range of conditions encompassed by data from which they were drawn.”', ours: 'Thresholds are accepted only inside the validated score range (no extrapolation); recorders inconsistent with the pooled curve are flagged.', status: 'extended' },
-  { topic: 'Covariates and AIC', paper: 'Test generalisability by adding spatial or temporal covariates (season, latitude, ecosystem) and compare models with AIC.', ours: 'Leave-one-recorder-out test with exact p-values (a recorder term separates here). A covariate model with AIC is the next planned sensitivity analysis.', status: 'pending' },
+  { topic: 'Covariates and AIC', paper: 'Test generalisability by adding spatial or temporal covariates (season, latitude, ecosystem) and compare models with AIC.', ours: 'Done (D-13): evening, week and a recorder random intercept, compared by AIC, plus a leave-one-recorder-out test. Recorder differences dominate but are not a normal spread; time effects are explained by the flagged recorders. Labels keep the pooled curve.', status: 'aligned' },
   { topic: 'Disclose error rates', paper: '“If all putative observations cannot be validated, it is very important to understand (and disclose) the estimated error rates.”', ours: 'Expected precision of the labelled set, model-free Wilson bounds above the threshold, bootstrap uncertainty, all reported per species.', status: 'aligned' },
   { topic: 'Accuracy increases with score', paper: '“We have yet to encounter a class in BirdNET for which prediction accuracy does not increase with confidence score.”', ours: 'A fitted curve that does not increase is treated as a failure to identify the relationship (status slope_not_positive), not as a real negative effect.', status: 'aligned' },
   { topic: 'Species with no or very few errors', paper: 'Not discussed.', ours: 'Evidence gate: ≥ 5 correct and ≥ 5 incorrect validated clips before a curve is used for labels; Firth only as a fallback for separated data. Human-confirmed clips kept as observations.', status: 'extended' },

@@ -18,7 +18,6 @@ Status key:
 - **Aligned:** we do what the paper says.
 - **Extended:** the paper is silent, and we added a safeguard.
 - **Adjusted:** a deliberate, documented difference.
-- **Pending:** planned, not yet done.
 - **For the platform:** belongs to the Tech handover rather than to clip labels.
 
 ## Point by point
@@ -71,13 +70,19 @@ We apply this to the **score** dimension as well:
 - If 99% is reached only above the highest validated score, there is no supported threshold (Firefinch).
 - If the curve is above 99% even at the lowest validated score, the threshold is that score, never an extrapolation below it (D-05).
 
-### 7. Covariates and AIC — pending (partly addressed)
+### 7. Covariates and AIC — aligned (D-13)
 
 > "The generalizability of the logistic regression-based outcome–score relationship can be tested explicitly by simply including spatial and/or temporal prediction covariates … The support for competing logistic regression models can be evaluated with Akaike's Information Criterion."
 
-- **Done:** a leave-one-recorder-out test with exact Poisson-binomial p-values and a Bonferroni correction. It flags RBS75 and RBS79 for the Nightjar (D-11), and a refit without them shows the threshold location is robust (0.686 vs 0.667).
-- **Why not a plain covariate:** a recorder term separates, because the two flagged recorders are all wrong, so it needs a penalised or grouped form.
-- **Pending:** a covariate model compared with AIC.
+**What we compared, by AIC.** All recorders are in one grid, so the recorder is the spatial unit. The models add evening, week of the season, and a recorder random intercept (fitted by adaptive Gauss–Hermite quadrature). The random intercept is used because a plain recorder term diverges for all-wrong recorders. A leave-one-recorder-out test with exact p-values complements it (D-11).
+
+**Nightjar findings:**
+
+- Recorder differences dominate: ΔAIC ≈ 55.
+- But they are not a normal spread. The recorder SD diverges, because RBS75 and RBS79 behave as if always wrong.
+- The time effects are explained by those two recorders.
+
+**Decision.** No covariate model is both better and usable for unvalidated recorders, so labels keep the pooled curve. Recorder problems are handled by review flags, and on the platform by a recorder acceptance check.
 
 ### 8. Disclose error rates — aligned
 

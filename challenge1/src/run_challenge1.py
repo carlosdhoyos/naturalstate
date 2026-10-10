@@ -20,7 +20,7 @@ docs/challenge1_data_decisions.md, D-01..D-12):
                      with the pooled curve (review flags, D-11), calibration by score band,
                      validation sampling design (D-12)
   7. sensitivity     logit endpoint, de-duplication, gate size, estimator (ML / Firth / FLIC),
-                     dropping flagged recorders
+                     dropping flagged recorders; covariate models compared by AIC (D-13)
   8. label           human verdict where a validated clip links to exactly one prediction (D-10),
                      otherwise the species threshold; every source column kept byte-identical
   9. report          CSVs, figures, run_summary.json, and dashboard_results.json for the dashboard
@@ -46,6 +46,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from covariates import conditional_threshold, fit_fixed, fit_random_intercept, marginal_threshold  # noqa: E402
 from thresholds import (  # noqa: E402
     Fit,
     cluster_resamples,
@@ -95,6 +96,11 @@ class Config:
     # species are tested against a curve fitted WITHOUT them; Bonferroni over recorders tested.
     review_min_clips: int = 5
     review_alpha: float = 0.05
+    # Covariate models (D-13). Recorder clocks inferred in D-03 (hours behind local time) and the
+    # local hours counted as "evening" (dusk), used only for the time-of-day covariate.
+    clock_correction_h: tuple = (("RBS40", 3), ("RBS71", 3))
+    evening_hours: tuple = (16, 21)
+    season_start: str = "20230620"
     # File-name patterns (case-insensitive). Recorder ids may be any token without "_" or "/".
     pred_path_pattern: str = r"/(?P<recorder>[^/_]+)_(?P<date>\d{8})_(?P<hour>\d{2})\d{4}\.wav$"
     val_name_pattern: str = r"^(?P<score>\d\.\d{3})_(?P<clip>\d+)_(?P<recorder>[^/_]+)_(?P<date>\d{8})_(?P<hour>\d{2})(?P<mmss>\d{4})\.wav$"
@@ -387,6 +393,68 @@ def set_level_threshold(fit: Fit | None, pred_conf: np.ndarray, vmin: float, cfg
     return operative(float(c[ok[-1]]), cfg.threshold_decimals)
 
 
+def covariate_models(d: pd.DataFrame, cfg: Config) -> tuple[pd.DataFrame, dict]:
+    """D-13. Wood & Kahl's transferability test: does the curve change with space or time?
+
+    Models, all with logit(score): score only; + evening (dusk, local time); + week of the season;
+    + a recorder random intercept; + evening and the random intercept. The only spatial unit is the
+    recorder (one grid). Compared by AIC. Diagnostic only: labels use the pooled curve unless a
+    covariate model is better (ΔAIC >= 2), identified, and applicable to recorders not yet validated.
+    Returns (model table, cross-tab of outcomes by review-flag group and time of day)."""
+    clock = dict(cfg.clock_correction_h)
+    local_hour = (d.hour.astype(int) + d.recorder.map(clock).fillna(0).astype(int)) % 24
+    evening = local_hour.between(*cfg.evening_hours).to_numpy(float)
+    week = ((pd.to_datetime(d.date) - pd.Timestamp(cfg.season_start)).dt.days / 7).to_numpy(float)
+    x = logit_conf(d.confidence.to_numpy(), cfg.eps)
+    y = d.outcome.to_numpy(float)
+    one = np.ones_like(x)
+    designs = {
+        "score": (["intercept", "score"], [one, x]),
+        "score + evening": (["intercept", "score", "evening"], [one, x, evening]),
+        "score + week": (["intercept", "score", "week"], [one, x, week]),
+    }
+    fits = [fit_fixed(np.column_stack(a), y, c, n) for n, (c, a) in designs.items()]
+    for n, base in (("score + (1 | recorder)", "score"), ("score + evening + (1 | recorder)", "score + evening")):
+        c, a = designs[base]
+        fits.append(fit_random_intercept(np.column_stack(a), y, d.recorder.to_numpy(), c, n))
+    best = min((f.aic for f in fits if f.valid), default=np.nan)
+    rows = []
+    for f in fits:
+        # a recorder SD this large means recorder effects behave like separation (a few recorders
+        # systematically wrong), not like a normal spread: thresholds from it would be artefacts
+        # a coefficient this large on the logit scale is a fixed effect running off to infinity
+        # (e.g. no correct clip in the evening): separation inside the model
+        # (the intercept is excluded: when the recorder SD diverges it grows with it)
+        big = [c for c, b in zip(f.columns, f.beta) if abs(b) > 15 and c != "intercept"]
+        identified = f.valid and f.sigma < 10 and not big
+        notes = list(f.notes)
+        if f.sigma >= 10:
+            notes.append(f"recorder SD diverges (sigma = {f.sigma:.0f}): recorder effects are not a normal spread; crossings not reported")
+        if big and f.valid:
+            notes.append(f"separation in {', '.join(big)}: coefficient not identified; crossings not reported")
+        extra = [c for c in f.columns if c not in ("intercept", "score")]
+        if identified and extra:
+            at = {"evening": "evening = 0 (night & dawn)", "week": "week = 0 (first week)"}
+            notes.append("crossing shown for " + " and ".join(at[c] for c in extra))
+        ct = conditional_threshold(f) if identified else None
+        mt = marginal_threshold(f) if identified and f.sigma > 0 else None
+        rows.append({
+            "model": f.name, "k": f.k, "loglik": f.loglik, "aic": f.aic, "delta_aic": f.aic - best,
+            "coefficients": "; ".join(f"{c} {b:.3f}" for c, b in zip(f.columns, f.beta)), "recorder_sd": f.sigma,
+            "valid": f.valid, "identified": identified,
+            # where the curve crosses the target (not an accepted threshold: no range check here)
+            "crossing_typical_recorder": None if ct is None else float(sigmoid(ct)),
+            "crossing_new_recorder": None if mt is None else float(sigmoid(mt)),
+            "notes": " | ".join(notes),
+        })
+    flagged = d.recorder.isin(d.attrs.get("flagged", []))
+    if not flagged.any():  # the cross-tab exists to show what the flagged recorders contribute
+        return pd.DataFrame(rows), {}
+    tab = {f"{'flagged' if fl else 'other'} recorders, {'evening' if ev else 'night & dawn'}": {"correct": int(y[(flagged.to_numpy() == fl) & ((evening == 1) == ev)].sum()), "incorrect": int(((1 - y)[(flagged.to_numpy() == fl) & ((evening == 1) == ev)]).sum())}
+           for fl in (True, False) for ev in (True, False)}
+    return pd.DataFrame(rows), tab
+
+
 def by_band(conf: pd.Series) -> pd.Categorical:
     return pd.cut(conf, BANDS, right=False, labels=BAND_LABELS)
 
@@ -464,7 +532,7 @@ def figure(sp: str, r: dict, pr: Procedure, curves: dict, path: Path, cfg: Confi
     """Left: validated clips and fitted curves (full scale). Right: zoom on 0.95–1.00 where the
     threshold is decided. Curves are solid inside the validated range and dotted outside it."""
     x, y = pr.x, pr.y
-    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.6), dpi=150, gridspec_kw={"width_ratios": [1.15, 1]})
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 5.0), dpi=150, gridspec_kw={"width_ratios": [1.15, 1]})
     lo_g = logit_conf(np.array([0.1]), cfg.eps)[0] - 0.3
     grid = np.linspace(lo_g, max(logit_conf(np.array([0.9995]), cfg.eps)[0], x.max() if len(x) else 0), 400)
     inside = (grid >= x.min()) & (grid <= x.max()) if len(x) else np.zeros_like(grid, bool)
@@ -504,7 +572,6 @@ def figure(sp: str, r: dict, pr: Procedure, curves: dict, path: Path, cfg: Confi
         ax.scatter(x[y == 0], 0 + jit[y == 0], s=26, color=ORANGE, marker="x", alpha=0.9, label="validated: incorrect", zorder=3)
     ax.set_ylim(-0.02, 1.02)
     ax.set_ylabel("pr(prediction is correct)")
-    ax.legend(fontsize=6.5, loc="lower right", frameon=True, framealpha=0.92, edgecolor="none")
     ax = axes[1]
     ax.set_ylim(0.95, 1.0005)
     ax.set_title("zoom 0.95–1.00 · dotted = outside the validated range", fontsize=8.5, color="#555")
@@ -512,7 +579,10 @@ def figure(sp: str, r: dict, pr: Procedure, curves: dict, path: Path, cfg: Confi
         ax.text(0.5, 0.06, f"{REASON_TEXT[pr.gate_reason]}:\ncurves shown for information only", transform=ax.transAxes, ha="center", fontsize=8, color=ORANGE)
     head = pr.status.replace("_", " ") + (f" ({REASON_TEXT[pr.gate_reason]})" if pr.gate_reason else "")
     fig.suptitle(f"{sp}: {head} — {pr.n_correct}/{pr.n} validated clips correct", fontsize=10)
-    fig.tight_layout()
+    # one shared legend under both panels, so it never covers data
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=4, fontsize=7, frameon=False, bbox_to_anchor=(0.5, 0.0))
+    fig.tight_layout(rect=(0, 0.1, 1, 1))
     fig.savefig(path)
     plt.close(fig)
 
@@ -542,7 +612,7 @@ def main(cfg: Config = Config()) -> dict:
     # has nothing to label and is ignored, a species with predictions only gets "no_validations"
     species = list(pred.common_name.value_counts().index)
 
-    rows, procs, rec_tables, curves_all, calib, sampling, flagged = [], {}, [], {}, [], [], {}
+    rows, procs, rec_tables, cov_tables, curves_all, calib, sampling, flagged = [], {}, [], [], {}, [], [], {}
     for sp in species:
         d, P = species_frames(val, pred, sp)
         conf_p = P.confidence.to_numpy()
@@ -614,6 +684,13 @@ def main(cfg: Config = Config()) -> dict:
             rec_tables.append(rc)
             flagged[sp] = rc.loc[rc.flagged, "recorder"].tolist()
         r["review_flagged_recorders"] = ";".join(flagged.get(sp, []))
+        if pr.gate_passed:
+            d_cov = d.copy()
+            d_cov.attrs["flagged"] = flagged.get(sp, [])
+            cm, tab = covariate_models(d_cov, cfg)
+            cm.insert(0, "species", sp)
+            cov_tables.append(cm)
+            r["_covariates"], r["_cov_crosstab"] = cm, tab
 
         # calibration (observed vs fitted by band) and sampling design (validation vs predictions)
         pv = pr.fit.p(pr.x) if increasing else np.full(pr.n, np.nan)
@@ -671,6 +748,7 @@ def main(cfg: Config = Config()) -> dict:
     pd.DataFrame(sampling).to_csv(out_dir / "sampling_by_band.csv", index=False)
     rec_all = pd.concat(rec_tables, ignore_index=True) if rec_tables else pd.DataFrame(columns=["species", "recorder", "flagged"])
     rec_all.to_csv(out_dir / "recorder_checks.csv", index=False)
+    pd.DataFrame([rec for t in cov_tables for rec in t.to_dict("records")]).to_csv(out_dir / "covariate_models.csv", index=False)
     val.assign(prediction_row=val.candidates.map(lambda c: c[0] if len(c) == 1 else ""), candidate_rows=val.candidates.map(lambda c: ";".join(map(str, c))))[
         ["filename", "commonName", "confidence", "outcome", "recorder", "audio_file", "link", "n_candidates", "prediction_row", "candidate_rows", "duplicate_check"]
     ].to_csv(out_dir / "validation_links.csv", index=False)
@@ -744,6 +822,8 @@ def dashboard_payload(pred, val, out, rows, procs, curves_all, sens, rec_all, ca
             "prediction_hist": np.histogram(P.confidence, bins=edges)[0].tolist(),
             "recorders": rec_all[rec_all.species == sp].drop(columns="species").to_dict("records") if len(rec_all) else [],
             "calibration": [c for c in calib if c["species"] == sp],
+            "covariates": r["_covariates"].drop(columns="species").to_dict("records") if "_covariates" in r else [],
+            "covariate_crosstab": r.get("_cov_crosstab", {}),
             "sampling": [s for s in sampling if s["species"] == sp],
         })
     v = out.validation_outcome
