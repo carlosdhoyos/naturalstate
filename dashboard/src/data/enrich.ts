@@ -153,48 +153,54 @@ function enrichBirds(reg: Registry) {
       parts[i].rec ? parts[i].rec!.hour : null,
     )
 
-    // Link validations ↔ predictions: same species, same audio file, confidence equal at 3 dp.
+    addColumn(
+      val,
+      { name: 'file_start_offset_s', type: 'number', description: 'Seconds after the hour at which the source audio file started, from the validation file name (e.g. 040002 → 2). The predictions export rounds file names down to the hour instead.' },
+      (_, i) => (parts[i].rec ? parts[i].rec!.secOfDay - parts[i].rec!.hour * 3600 : null),
+    )
+
+    // Link validations ↔ predictions. The two exports name the same audio file differently:
+    // validation names keep the true start second (…_040002), the predictions export rounds the
+    // name down to the hour (…_040000) and adds the offset to begin_time_s. So match on
+    // species + recorder + day + hour + score (validation scores have 3 dp, predictions 4 dp).
     if (pred) {
+      const hourKey = (sp: Value, rec: ReturnType<typeof parseRecordingStem>) => (rec ? `${sp}|${rec.recorder}|${rec.day}|${rec.hour}` : '')
       const byKey = new Map<string, number[]>()
       pred.rows.forEach((r, i) => {
-        const k = `${r.common_name}|${r.recording_file}`
+        const k = hourKey(r.common_name, parseRecordingStem(stemOf(String(r.begin_path ?? ''))))
         if (!byKey.has(k)) byKey.set(k, [])
         byKey.get(k)!.push(i)
       })
-      const matchOf: (number | null)[] = val.rows.map((r) => {
-        const cands = byKey.get(`${r.commonName}|${r.recording_file}`) ?? []
-        let best: number | null = null
-        let bestD = 0.0006
-        for (const i of cands) {
-          const d = Math.abs((pred.rows[i].confidence as number) - (r.confidence as number))
-          if (d < bestD) {
-            bestD = d
-            best = i
-          }
-        }
-        return best
-      })
+      const cands: number[][] = val.rows.map((r, vi) =>
+        (byKey.get(hourKey(r.commonName, parts[vi].rec)) ?? []).filter((i) => Math.abs((pred.rows[i].confidence as number) - (r.confidence as number)) <= 0.00051),
+      )
+      const status = cands.map((c) => (c.length === 1 ? 'linked (unique)' : c.length > 1 ? 'linked (tied score)' : 'not found'))
       const predOutcome = new Map<number, Value>()
-      matchOf.forEach((pi, vi) => pi !== null && predOutcome.set(pi, val.rows[vi].outcome_label))
-      const fileSet = new Set(pred.rows.map((r) => r.recording_file))
+      const tied = new Set<number>()
+      cands.forEach((c, vi) => {
+        if (c.length === 1) predOutcome.set(c[0], val.rows[vi].outcome_label)
+        else c.forEach((i) => tied.add(i))
+      })
 
       addColumn(
         val,
-        { name: 'link_to_predictions', type: 'category', description: 'Whether this clip was found in birdnet_predictions (species + file + confidence).' },
-        (r, i) => (matchOf[i] !== null ? 'matched' : fileSet.has(r.recording_file) ? 'file present, no match' : 'file not in predictions'),
+        { name: 'link_to_predictions', type: 'category', description: 'Link to birdnet_predictions on species + recorder + day + hour + score. “tied score”: several predictions in that hour share the same 3-decimal score, so the exact segment cannot be identified.' },
+        (_, i) => status[i],
       )
-      addColumn(pred, { name: 'validated', type: 'boolean', description: 'yes = an ornithologist validated this exact prediction.' }, (_, i) =>
-        predOutcome.has(i) ? 'yes' : 'no',
+      addColumn(pred, { name: 'validated', type: 'category', description: 'yes = an ornithologist validated this prediction (unique link); tied = one of several same-score candidates for a validated clip; no = not validated.' }, (_, i) =>
+        predOutcome.has(i) ? 'yes' : tied.has(i) ? 'tied' : 'no',
       )
-      addColumn(pred, { name: 'validation_outcome', type: 'category', description: 'correct / incorrect for validated predictions, empty otherwise.' }, (_, i) =>
+      addColumn(pred, { name: 'validation_outcome', type: 'category', description: 'correct / incorrect for uniquely linked validated predictions, empty otherwise.' }, (_, i) =>
         predOutcome.get(i) ?? null,
       )
+      addColumn(pred, { name: 'segment_grid', type: 'number', description: 'begin_time_s mod 3. Each file sits on one 3-s grid (0, 1 or 2) — it equals the file’s true start second mod 3, because begin_time_s counts from the top of the hour, not from the file start.' }, (r) =>
+        typeof r.begin_time_s === 'number' ? r.begin_time_s % 3 : null,
+      )
 
-      const matched = matchOf.filter((m) => m !== null).length
-      const missingFile = val.rows.filter((r) => !fileSet.has(r.recording_file)).length
-      const note = `${fmtInt(matched)} of ${fmtInt(val.rows.length)} validated clips match a row in birdnet_predictions (same species, file and confidence). ${fmtInt(
-        missingFile,
-      )} come from audio files that are not in the predictions file, so the predictions are a subset of the full BirdNET run.`
+      const n = (k: string) => status.filter((x) => x === k).length
+      const note = `${fmtInt(n('linked (unique)') + n('linked (tied score)'))} of ${fmtInt(val.rows.length)} validated clips link to a prediction (same species, recorder, day, hour and score): ${fmtInt(
+        n('linked (unique)'),
+      )} uniquely, ${fmtInt(n('linked (tied score)'))} tied with other same-score predictions in that hour, ${fmtInt(n('not found'))} not found. The two files name the same audio differently: validation names keep the true start second (e.g. 04:00:02), the predictions export rounds names down to the hour and adds the offset to begin_time_s.`
       val.notes.push(note)
       pred.notes.push(note)
     }

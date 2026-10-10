@@ -35,6 +35,13 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   - Approach A, *review down to a threshold*.
   - An Approach B simulator. You set the true score–accuracy curve, the sampling design (random / random + high / per band), the sample size and the target p. It draws validation clips, fits `logit(p) = β₀ + β·score` live, and solves the threshold with a delta-method 95% CI. It also shows the consequences: share of predictions labelled, their true precision, and recall. It reproduces perfect separation and unreachable targets. **The simulator uses synthetic data only.**
   - The fitter (`src/lib/logistic.ts`, IRLS, same maximum-likelihood estimate as R's `glm(binomial)`) was checked on synthetic data: score equations ≈ 1e-15, it recovers the true coefficients, and the threshold CI covers the truth.
+- **Birds data quality:** 18 automated checks of the files themselves (pass / info / flag), with evidence and recommendations:
+  - **Structure:** empty cells, duplicates, constant columns.
+  - **Segment integrity:** 3-s length, overlaps, complete selection numbers.
+  - **File naming between the two exports:** the predictions export rounds file names down to the hour and counts `begin_time_s` from the hour. The validation names keep the true start second; this is confirmed on 550 of 550 clips.
+  - **Linkage:** 549 of 551 validated clips link to a prediction.
+  - **Recorder clocks:** inferred from the activity of a diurnal and a nocturnal species. RBS40 and RBS71 run about 3 h behind, likely on UTC.
+  - **Ecological plausibility:** e.g. the nocturnal Nightjar in daytime, the diurnal Oriole at night.
 - **Vegetation summary:**
   - Headline counts.
   - Every table, with what one row means.
@@ -72,7 +79,11 @@ Every chart has a **"Data behind this chart"** table, with CSV export, holding t
   - *Quadrats / additional species:* plot name, review state, device and recorder carried down from the parent survey via `PARENT_KEY`. Also the species uuids resolved to names.
   - *Surveys / registrations:* form duration and submission delay.
   - *Entity lists:* lat/lon/alt/accuracy parsed from the `geometry` geopoint.
-- **Validation ↔ prediction link.** The link uses the same species, the same audio file, and confidence equal to 3 decimals. Only 263 of 551 validated clips match. The other 288 come from audio files that aren't in `birdnet_predictions.csv`, so the predictions file is a subset of the full BirdNET run. The clip's second filename number is *not* the prediction's `selection` id.
+- **Validation ↔ prediction link.** Matching on species, recorder, day, hour and score links 549 of 551 validated clips to a prediction: most uniquely, some tied with other same-score predictions in that hour, and 2 not found. Matching on the exact file name does *not* work, because the two exports name the same audio differently:
+  - the validation file names keep the true start second (`…_040002`)
+  - the predictions export rounds the name down to the hour (`…_040000`) and adds the offset to `begin_time_s`
+
+  An earlier version of this page said "only 263 match; the predictions are a subset of the BirdNET run". That was wrong, and it was corrected after the data-quality checks.
 - **Type inference is conservative.** A column is numeric or date-time only if *every* non-empty value parses. ODK multi-selects (space-separated choice names or uuids) are detected and counted per token.
 - **Datetimes display in UTC.** ODK timestamps carry their device offset (+02:00 here). Bird recording times come from file names and are shown on the recorder's clock.
 - **logit** clamps scores to [1e-4, 1 − 1e-4] so a confidence of 1.0 stays finite.

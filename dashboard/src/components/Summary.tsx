@@ -158,7 +158,7 @@ export function BirdsSummary({ reg, tokens, onOpen }: Props) {
         wrong: v.length - k,
         prec: v.length ? k / v.length : NaN,
         ci: [lo, hi] as const,
-        matched: v.filter((r) => r.link_to_predictions === 'matched').length,
+        matched: v.filter((r) => String(r.link_to_predictions).startsWith('linked')).length,
         predBands: BANDS.slice(0, -1).map((_, i) => pc.filter((c) => bandOf(c) === i).length),
         valBands: BANDS.slice(0, -1).map((_, i) => {
           const inB = v.filter((r) => typeof r.confidence === 'number' && bandOf(r.confidence as number) === i)
@@ -182,8 +182,9 @@ export function BirdsSummary({ reg, tokens, onOpen }: Props) {
       files: distinct(pred.rows, 'begin_path'),
       vFiles: distinct(val.rows, 'recording_file'),
       versions: [...new Set(val.rows.map((r) => keyOf(r.vBirdNET)))].join(', '),
-      matched: val.rows.filter((r) => r.link_to_predictions === 'matched').length,
-      notInPred: val.rows.filter((r) => r.link_to_predictions === 'file not in predictions').length,
+      matched: val.rows.filter((r) => String(r.link_to_predictions).startsWith('linked')).length,
+      tiedLinks: val.rows.filter((r) => r.link_to_predictions === 'linked (tied score)').length,
+      notInPred: val.rows.filter((r) => r.link_to_predictions === 'not found').length,
       validatedPreds: pred.rows.filter((r) => r.validated === 'yes').length,
       hours: [...new Set(num(pred.rows, 'hour_of_day'))].sort((a, b) => a - b),
     }
@@ -226,7 +227,7 @@ export function BirdsSummary({ reg, tokens, onOpen }: Props) {
             { key: 'cw', label: 'Correct / wrong', num: true, tip: 'outcome = 1 (species really present) / outcome = 0 (BirdNET was wrong).' },
             { key: 'prec', label: 'Correct in sample', num: true, tip: 'Correct ÷ validated, with a Wilson 95% interval. This is NOT the threshold: it mixes all confidence levels in whatever proportion the clips were sampled.' },
             { key: 'vconf', label: 'Validated confidence', num: true, tip: 'Confidence range of the validated clips.' },
-            { key: 'matched', label: 'In predictions file', num: true, tip: 'Validated clips that match a row in birdnet_predictions (same species, audio file and confidence). The rest come from audio files that are not in that file.' },
+            { key: 'matched', label: 'Linked to a prediction', num: true, tip: 'Validated clips that link to a row in birdnet_predictions (same species, recorder, day, hour and score). Matching on the exact file name fails because the two exports name the same audio differently.' },
           ]}
           rows={s.per.map((p) => ({
             sp: (
@@ -343,7 +344,7 @@ export function BirdsSummary({ reg, tokens, onOpen }: Props) {
               {s.hours.length > 12 ? `${s.hours[0]}–${s.hours[s.hours.length - 1]}` : s.hours.join(', ')} (recorder clock).
             </li>
             <li>
-              <b>{s.matched}</b> of {val.rows.length} validated clips link to a prediction (same species, file, confidence); <b>{s.notInPred}</b> come from audio files that are not in the predictions file — so the predictions are a <b>subset</b> of the full BirdNET run.
+              <b>{s.matched}</b> of {val.rows.length} validated clips link to a prediction (same species, recorder, day, hour and score; {s.tiedLinks} tie with another same-score prediction in that hour, {s.notInPred} not found). The two files name the same audio differently — see Data quality.
             </li>
             <li>
               Validations span <b>{s.vRecorders}</b> recorders and {fmtInt(s.vFiles)} audio files, {fmtDate(s.vdates[0], false)} → {fmtDate(s.vdates[1], false)}.

@@ -24,7 +24,7 @@ export const PRESETS: Record<string, Preset[]> = {
     { label: 'Confidence by outcome', hint: 'Where correct and incorrect clips sit', spec: { kind: 'strip', y: 'confidence', x: 'commonName', color: 'outcome_label', opacity: 0.7 } },
     { label: 'Sampling of confidence', hint: 'How validation clips were drawn across scores', spec: { kind: 'histogram', x: 'confidence', color: 'commonName', barmode: 'stack', bins: 20 } },
     { label: 'Outcome per species', hint: 'Correct vs incorrect counts', spec: { kind: 'bar', x: 'commonName', color: 'outcome_label', agg: 'count', barmode: 'stack', horizontal: true } },
-    { label: 'Link to predictions', hint: 'Which validated clips exist in the predictions file', spec: { kind: 'bar', x: 'commonName', color: 'link_to_predictions', agg: 'count', barmode: 'stack', horizontal: true } },
+    { label: 'Link to predictions', hint: 'How each validated clip links to a prediction (unique / tied score / not found)', spec: { kind: 'bar', x: 'commonName', color: 'link_to_predictions', agg: 'count', barmode: 'stack', horizontal: true } },
   ],
   herbaceous_veg_survey: [
     { label: 'Survey duration', hint: 'Minutes from opening to finishing the form', spec: { kind: 'strip', y: 'duration_min', x: 'field_team_specifics-recorder_label', color: 'DeviceID' } },

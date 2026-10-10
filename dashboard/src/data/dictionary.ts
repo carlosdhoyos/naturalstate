@@ -55,7 +55,7 @@ const SPECIFIC: Record<string, Record<string, string>> = {
     selection: 'Selection number in the Raven selection table for this audio file (1, 2, 3 … unique within a file).',
     view: 'Raven view the selection belongs to. Always “Spectrogram 1” here.',
     channel: 'Audio channel analysed. Always 1 (mono recorders).',
-    begin_time_s: 'Start of the 3-second segment, in seconds from the start of the audio file (files are 1 hour long).',
+    begin_time_s: 'Start of the 3-second segment, in seconds from the top of the hour in the file name (files are ~1 hour long). Not always seconds from the start of the audio: the export rounds file names down to the hour and adds the file’s true start offset (usually 0–3 s, occasionally tens of minutes).',
     end_time_s: 'End of the segment (begin_time_s + 3 s).',
     low_freq_hz: 'Lower edge of the selection box in Hz. Always 0: BirdNET scores the full band.',
     high_freq_hz: 'Upper edge of the selection box in Hz. Always 15,000.',
@@ -64,7 +64,7 @@ const SPECIFIC: Record<string, Record<string, string>> = {
     confidence:
       'BirdNET’s score (0–1) that the species is vocalising in this segment. It is a model score, not a probability: the same value means different reliability for different species. Only scores ≥ 0.1 were kept.',
     begin_path: 'Path of the audio file: grid / recorder / RECORDER_YYYYMMDD_HHMMSS.WAV (recorder clock).',
-    file_offset_s: 'Offset of the segment within the file, in seconds. Identical to begin_time_s in this file.',
+    file_offset_s: 'Identical to begin_time_s in this file — so also counted from the top of the hour, not necessarily from the start of the audio file.',
     folder: 'Recorder (passive acoustic monitoring device) id, e.g. RBS02 — the folder in begin_path.',
   },
   validation_results: {

@@ -102,7 +102,7 @@ export function BirdsBalance({ pred, val, tokens: t }: { pred: Dataset; val: Dat
       maxPerFile: Math.max(...fileCounts.values()),
       predDays: days(pred, 'recording_date'),
       valDays: days(val, 'recording_date'),
-      matched: val.rows.filter((r) => r.link_to_predictions === 'matched').length,
+      matched: val.rows.filter((r) => String(r.link_to_predictions).startsWith('linked')).length,
     }
   }, [pred, val])
 
@@ -177,7 +177,7 @@ export function BirdsBalance({ pred, val, tokens: t }: { pred: Dataset; val: Dat
           <h2 className="has-tip" {...tip('sum.b.balance', true)}>
             How balanced are the data and the validation?
           </h2>
-          <p className="muted">Five checks that decide how much each species’ threshold can be trusted. Predictions vs validation comparisons are approximate: only {s.matched} of {totV} validated clips are in the predictions file.</p>
+          <p className="muted">Five checks that decide how much each species’ threshold can be trusted. {s.matched} of {totV} validated clips link to a prediction in this file, so the two can be compared directly.</p>
         </div>
       </div>
 
@@ -190,7 +190,7 @@ export function BirdsBalance({ pred, val, tokens: t }: { pred: Dataset; val: Dat
                   <th>Species</th>
                   <th className="num">Predictions</th>
                   <th className="num">Validated</th>
-                  <th className="num has-tip" data-tip="Validated clips ÷ predictions in this file. Approximate: some validated clips come from audio files that are not in the predictions file.">
+                  <th className="num has-tip" data-tip="Validated clips ÷ predictions of that species in this file.">
                     Validated per prediction
                   </th>
                 </tr>
