@@ -72,7 +72,13 @@ export function BirdsQuality({ reg, tokens: t, onOpen }: { reg: Map<string, Data
     const folderOk = P.filter((r) => String(r.begin_path).split('/')[1] === r.folder).length
     const gridByFile = new Map<string, number>()
     P.forEach((r) => gridByFile.set(String(r.recording_file), r.segment_grid as number))
-    const multiGridFiles = files.length - new Set(P.map((r) => `${r.recording_file}|${r.segment_grid}`)).size
+    const gridsPerFile = new Map<string, Set<number>>()
+    P.forEach((r) => {
+      const k = String(r.begin_path)
+      if (!gridsPerFile.has(k)) gridsPerFile.set(k, new Set())
+      gridsPerFile.get(k)!.add(r.segment_grid as number)
+    })
+    const multiGridFiles = [...gridsPerFile.values()].filter((g) => g.size > 1).length
     const gridCounts = [0, 1, 2].map((g) => [...gridByFile.values()].filter((x) => x === g).length)
     let gridChecked = 0
     let gridAgree = 0
@@ -124,16 +130,39 @@ export function BirdsQuality({ reg, tokens: t, onOpen }: { reg: Map<string, Data
       { area: 'Segments', check: 'Segments ending after 3,600 s', result: `${past3600} segments end at 3,601–3,602 s`, status: 'info', why: 'Explained by the naming issue below: times are counted from the top of the hour, so a file that started at :00:02 runs to 3,602 s.' },
       { area: 'File naming', check: 'Path format and recorder', result: `${fmtInt(folderOk)} of ${fmtInt(P.length)} rows: folder = recorder in path`, status: folderOk === P.length ? 'pass' : 'flag', why: 'The recorder id is the key to deployment metadata.' },
       { area: 'File naming', check: 'Prediction file names rounded to the hour', result: `${fmtInt(roundedNames)} of ${fmtInt(files.length)} file names end in HH0000`, status: 'flag', why: 'Validation file names for the same recordings keep the true start second (040002), and a few start minutes past the hour. Both exports name the same audio differently.' },
-      { area: 'File naming', check: '3-s grid per file = true start second mod 3', result: `grids 0 / 1 / 2: ${gridCounts.join(' / ')} files; ${gridAgree} of ${gridChecked} validated clips agree with their file’s grid; ${multiGridFiles} files mix grids`, status: 'flag', why: 'Confirms begin_time_s (and file_offset_s) count seconds from the top of the hour, not from the start of the audio. Cutting clips from the WAV with these offsets would be off by the start offset (seconds; up to ~45 min for a few files).' },
+      { area: 'File naming', check: '3-s grid per file = true start second mod 3', result: `grids 0 / 1 / 2: ${gridCounts.join(' / ')} files; ${gridAgree} of ${gridChecked} validated clips agree with their file’s grid; ${multiGridFiles} files mix grids`, status: 'flag', why: 'Strongly supports that begin_time_s (and file_offset_s) count seconds from the top of the hour, not from the start of the audio. It does not prove the full offset: start times that differ by multiples of 3 s share a grid, which matters most for files starting minutes after the hour. Do not change clip-cutting offsets on this evidence alone — confirm with the exporter or audio headers.' },
       { area: 'File naming', check: 'Validation file-name score = confidence column', result: `${scoreName} of ${V.length}`, status: scoreName === V.length ? 'pass' : 'flag', why: 'The score is written into the clip name (BirdNET segments tool); a mismatch would break the score–outcome pairing.' },
       { area: 'File naming', check: 'Files starting well after the hour (validation names)', result: `${bigOffsets} validated clips from files that started > 1 min after the hour`, status: bigOffsets ? 'info' : 'pass', why: 'Recorder restarts or schedule changes; their predictions are still filed under HH:00:00.' },
-      { area: 'Linkage', check: 'Validation ↔ prediction link', result: `${link('linked (unique)')} unique, ${link('linked (tied score)')} tied score, ${link('not found')} not found (of ${V.length})`, status: link('not found') ? 'info' : 'pass', why: 'Validated clips must point to real predictions. Ties: several predictions in the same hour share the 3-decimal score — a shared clip id would remove the ambiguity.' },
+      { area: 'Linkage', check: 'Validation ↔ prediction link', result: `${link('linked (unique)')} unique, ${link('linked (shared prediction)')} sharing a prediction, ${link('linked (tied score)')} tied score, ${link('not found')} not found (of ${V.length})`, status: link('not found') ? 'info' : 'pass', why: 'Validated clips must point to real predictions. Ties: several predictions in the same hour share the 3-decimal score — a shared clip id would remove the ambiguity.' },
+      (() => {
+        const prob = V.filter((r) => r.duplicate_check === 'probable duplicate')
+        const amb = V.filter((r) => String(r.duplicate_check).startsWith('ambiguous'))
+        const all = [...prob, ...amb]
+        const sp = [...new Set(all.map((r) => String(r.commonName)))]
+        const recs = [...new Set(all.map((r) => String(r.recorder)))]
+        return {
+          area: 'Linkage',
+          check: 'Validated clips whose file names differ only by clip number',
+          result: all.length
+            ? `${prob.length / 2} probable duplicate pair(s) (one matching prediction) and ${amb.length / 2} ambiguous pair(s) (two same-score predictions in that hour) — ${sp.join(', ')}, ${recs.join(', ')}; outcomes ${new Set(all.map((r) => r.outcome)).size === 1 ? 'all agree' : 'differ'}`
+            : 'none',
+          status: (all.length ? 'flag' : 'pass') as Status,
+          why: 'The same segment validated twice would count twice as evidence. Probable duplicates are dropped before fitting; ambiguous pairs are kept (more likely distinct segments) and the result is checked both ways. See docs/challenge1_data_decisions.md.',
+        }
+      })(),
       { area: 'Linkage', check: 'Species names consistent', result: `${namePairs} scientific–common name pairs for ${species} species`, status: namePairs === species ? 'pass' : 'flag', why: 'One taxon, one name.' },
       { area: 'Time', check: 'Recording coverage per recorder', result: `${daysPer.length} recorders; days with predictions range ${daysPer[0][1]}–${daysPer[daysPer.length - 1][1]} (fewest: ${daysPer.slice(0, 3).map(([k, d]) => `${k} ${d}`).join(', ')})`, status: 'info', why: 'Unequal deployment effort matters for any per-site comparison.' },
       {
         area: 'Time',
         check: 'Recorder clocks (from species activity)',
-        result: strongRecs.length ? `${strongRecs.join(', ')}: activity ≈ ${fmtNum(Math.abs(clock.find((c) => c.strong)!.dO ?? 0), 2)} h early — clocks on UTC instead of local time (UTC+3); all others match local sunrise/sunset (see the Time zones & clocks tab)` : 'no recorder deviates ≥ 2 h on clear evidence',
+        result: (() => {
+          const ev = clock.filter((c) => c.strong).map((c) => `${c.rec} (dawn onset ${c.dO! >= 0 ? '+' : ''}${fmtNum(c.dO!, 2)} h${c.dN !== null ? `, Nightjar ${c.dN >= 0 ? '+' : ''}${fmtNum(c.dN, 2)} h` : ', no Nightjar data'})`)
+          const assessable = clock.length
+          const consistent = clock.filter((c) => !c.strong && !c.weak).length
+          return ev.length
+            ? `Inferred, not confirmed: ${ev.join('; ')} — activity ~3 h early, consistent with a UTC clock (local is UTC+3). ${consistent} other recorders are consistent with local time; ${assessable} of ${new Set(P.map((r) => r.folder)).size} recorders have enough data to assess at all.`
+            : 'no recorder deviates ≥ 2 h on clear evidence'
+        })(),
         status: strongRecs.length ? 'flag' : 'pass',
         why: 'Wrong clocks shift every time-of-day result (hour_of_day, detection_time). They do not affect the score thresholds.',
       },
@@ -229,9 +258,9 @@ export function BirdsQuality({ reg, tokens: t, onOpen }: { reg: Map<string, Data
             <b>Give every prediction a stable id</b> and carry it into the validation export. Today validated clips are linked by species + recorder + hour + a 3-decimal score, which leaves ties.
           </li>
           <li>
-            <b>Record each recorder’s clock / time zone at deployment</b> (the ODK deployment form is the natural place) and check it against species activity automatically. {q.strongRecs.length ? `${q.strongRecs.join(' and ')} look about ${fmtNum(Math.abs(q.clock.find((c) => c.strong)?.dO ?? 0), 1)} h behind (likely UTC).` : ''}
+            <b>Record each recorder’s clock / time zone at deployment</b> (the ODK deployment form is the natural place) and check it against species activity automatically. {q.strongRecs.length ? `By inference from bird activity, ${q.strongRecs.join(' and ')} look about ${fmtNum(Math.abs(q.clock.find((c) => c.strong)?.dO ?? 0), 1)} h behind (possibly UTC) — deployment metadata should confirm this before it is used as fact.` : ''}
           </li>
-          <li>For the thresholds themselves these issues are benign: the score–outcome pairs are intact (scores in the clip names match exactly, no duplicates, complete segments). They matter for time-of-day analyses, clip retrieval and future validation linkage.</li>
+          <li>For fitting thresholds, the score–outcome pairs themselves are intact: every clip’s score matches its confidence column, there are no duplicate prediction rows and segments are complete. Two issues still affect the inference and are handled in the fitting step: probable duplicate reviews (4 Plover pairs, plus 1 ambiguous pair) and clustering of clips by file and recorder. The naming and clock issues matter for time-of-day analyses, clip retrieval and future validation linkage.</li>
         </ul>
       </div>
       </>

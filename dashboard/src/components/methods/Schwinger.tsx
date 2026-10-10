@@ -41,7 +41,8 @@ export function Schwinger({ tokens: t }: { tokens: ThemeTokens }) {
     const test = draw(6000)
     const cal = draw(n)
     const fit = fitLogistic(cal.map((d) => logit(Math.min(Math.max(d.s, 1e-6), 1 - 1e-6))), cal.map((d) => d.y))
-    const platt = (s: number) => sigmoid(fit.b0 + fit.b1 * logit(Math.min(Math.max(s, 1e-6), 1 - 1e-6)))
+    // without a valid fit there is no recalibration: keep the raw score
+    const platt = (s: number) => (fit.valid ? sigmoid(fit.b0 + fit.b1 * logit(Math.min(Math.max(s, 1e-6), 1 - 1e-6))) : s)
     const bins = (score: (s: number) => number) => {
       const B = 10
       const acc = Array.from({ length: B }, () => ({ n: 0, conf: 0, pos: 0 }))

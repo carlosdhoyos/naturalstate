@@ -118,6 +118,12 @@ export function maxOf(v: Iterable<number>): number {
   return m
 }
 
+/** Confidence bands used across the bird pages (one definition, so all pages agree). */
+export const CONF_BANDS = [0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.0000001]
+export const CONF_BAND_LABELS = ['0.1–0.2', '0.2–0.3', '0.3–0.5', '0.5–0.7', '0.7–0.9', '0.9–1.0']
+export const confBandOf = (c: number) => CONF_BANDS.findIndex((b, i) => i < CONF_BANDS.length - 1 && c >= b && c < CONF_BANDS[i + 1])
+export const medianOf = (v: number[]) => (v.length ? quantileSorted([...v].sort((a, b) => a - b), 0.5) : NaN)
+
 export type Agg = 'count' | 'share' | 'mean' | 'median' | 'sum' | 'min' | 'max'
 
 export function aggregate(values: number[], agg: Agg): number {

@@ -136,23 +136,23 @@ function enrichBirds(reg: Registry) {
     const corr = (r: Row) => corrections.get(String(r.folder)) ?? 0
     addColumn(
       pred,
-      { name: 'clock_correction_h', type: 'number', description: 'Hours added to this recorder’s clock to express it in local time (EAT, UTC+3). 0 for recorders consistent with local sunrise/sunset; +3 where bird activity shows the clock on UTC. An inference, not metadata.' },
+      { name: 'clock_correction_h', type: 'number', description: 'Assumed hours added to this recorder’s clock to express it in local time (EAT, UTC+3): +3 where bird activity is ~3 h early (consistent with a UTC clock); 0 otherwise — including recorders with too little data to assess. An inference, not deployment metadata.' },
       (r) => corr(r),
     )
     addColumn(
       pred,
-      { name: 'detection_time_local', type: 'datetime', description: 'detection_time + clock_correction_h: best estimate of local time (EAT). Shown without time-zone conversion.' },
+      { name: 'detection_time_local', type: 'datetime', timeBasis: 'eat', description: 'detection_time + clock_correction_h: best estimate of local time (EAT). Shown without time-zone conversion.' },
       (r) => (typeof r.detection_time === 'number' ? r.detection_time + corr(r) * 3_600_000 : null),
     )
     addColumn(pred, { name: 'hour_local', type: 'number', description: 'Hour of day (0–23) of detection_time_local.' }, (r) =>
       typeof r.detection_time_local === 'number' ? Math.floor(hourOfMs(r.detection_time_local)) : null,
     )
-    addColumn(pred, { name: 'date_local', type: 'datetime', description: 'Calendar day of detection_time_local (can differ from recording_date for late-evening detections on corrected recorders).' }, (r) =>
+    addColumn(pred, { name: 'date_local', type: 'datetime', timeBasis: 'eat', description: 'Calendar day of detection_time_local (can differ from recording_date for late-evening detections on corrected recorders).' }, (r) =>
       typeof r.detection_time_local === 'number' ? Math.floor(r.detection_time_local / 86_400_000) * 86_400_000 : null,
     )
     if (corrections.size)
       pred.notes.push(
-        `Clock check: ${[...corrections.entries()].map(([k, h]) => `${k} (${h > 0 ? '+' : ''}${h} h)`).join(', ')} look like they ran on UTC instead of local time (UTC+3); all other recorders match local sunrise/sunset. Use hour_local / detection_time_local for time-of-day work. Thresholds are unaffected.`,
+        `Clock check: ${[...corrections.entries()].map(([k, h]) => `${k} (${h > 0 ? '+' : ''}${h} h)`).join(', ')} show bird activity about 3 h early, consistent with a UTC clock (local is UTC+3) — an inference from activity, not deployment metadata. Recorders without enough data are left uncorrected (no claim about their clocks). Use hour_local / detection_time_local, labelled as an assumed scenario, for time-of-day work. Thresholds are unaffected.`,
       )
   }
 
@@ -207,7 +207,12 @@ function enrichBirds(reg: Registry) {
       const cands: number[][] = val.rows.map((r, vi) =>
         (byKey.get(hourKey(r.commonName, parts[vi].rec)) ?? []).filter((i) => Math.abs((pred.rows[i].confidence as number) - (r.confidence as number)) <= 0.00051),
       )
-      const status = cands.map((c) => (c.length === 1 ? 'linked (unique)' : c.length > 1 ? 'linked (tied score)' : 'not found'))
+      // A unique candidate claimed by more than one validated clip = the same segment validated twice
+      const claims = new Map<number, number>()
+      cands.forEach((c) => c.length === 1 && claims.set(c[0], (claims.get(c[0]) ?? 0) + 1))
+      const status = cands.map((c) =>
+        c.length === 1 ? ((claims.get(c[0]) ?? 0) > 1 ? 'linked (shared prediction)' : 'linked (unique)') : c.length > 1 ? 'linked (tied score)' : 'not found',
+      )
       const predOutcome = new Map<number, Value>()
       const tied = new Set<number>()
       cands.forEach((c, vi) => {
@@ -220,6 +225,33 @@ function enrichBirds(reg: Registry) {
         { name: 'link_to_predictions', type: 'category', description: 'Link to birdnet_predictions on species + recorder + day + hour + score. “tied score”: several predictions in that hour share the same 3-decimal score, so the exact segment cannot be identified.' },
         (_, i) => status[i],
       )
+      // Duplicate check straight from the validation file names: clips whose names are identical except
+      // for the clip number (same species, score, recorder, file). With one matching prediction it is
+      // probably the same segment validated twice; with ≥ 2 same-score predictions in that hour the
+      // clips may be distinct segments that round to the same 3-decimal score (ambiguous).
+      const nameKey = (r: Row, i: number) => `${r.commonName}|${r.confidence}|${parts[i].stem}`
+      const groups = new Map<string, number[]>()
+      val.rows.forEach((r, i) => {
+        const k = nameKey(r, i)
+        if (!groups.has(k)) groups.set(k, [])
+        groups.get(k)!.push(i)
+      })
+      const dupStatus = val.rows.map((r, i) => {
+        const g = groups.get(nameKey(r, i))!
+        if (g.length < 2) return 'no'
+        const candidates = new Set(g.flatMap((j) => cands[j]))
+        return candidates.size >= g.length ? 'ambiguous (distinct segments possible)' : 'probable duplicate'
+      })
+      addColumn(
+        val,
+        {
+          name: 'duplicate_check',
+          type: 'category',
+          description:
+            'Another validated clip has the same file name except the clip number (same species, score, recorder, file). “probable duplicate”: only one matching prediction exists — likely the same segment validated twice. “ambiguous”: two or more same-score predictions exist in that hour, so the clips may be distinct segments.',
+        },
+        (_, i) => dupStatus[i],
+      )
       addColumn(pred, { name: 'validated', type: 'category', description: 'yes = an ornithologist validated this prediction (unique link); tied = one of several same-score candidates for a validated clip; no = not validated.' }, (_, i) =>
         predOutcome.has(i) ? 'yes' : tied.has(i) ? 'tied' : 'no',
       )
@@ -231,9 +263,9 @@ function enrichBirds(reg: Registry) {
       )
 
       const n = (k: string) => status.filter((x) => x === k).length
-      const note = `${fmtInt(n('linked (unique)') + n('linked (tied score)'))} of ${fmtInt(val.rows.length)} validated clips link to a prediction (same species, recorder, day, hour and score): ${fmtInt(
+      const note = `${fmtInt(n('linked (unique)') + n('linked (shared prediction)') + n('linked (tied score)'))} of ${fmtInt(val.rows.length)} validated clips link to a prediction (same species, recorder, day, hour and score): ${fmtInt(
         n('linked (unique)'),
-      )} uniquely, ${fmtInt(n('linked (tied score)'))} tied with other same-score predictions in that hour, ${fmtInt(n('not found'))} not found. The two files name the same audio differently: validation names keep the true start second (e.g. 04:00:02), the predictions export rounds names down to the hour and adds the offset to begin_time_s.`
+      )} uniquely, ${fmtInt(n('linked (shared prediction)'))} in pairs that share one prediction, ${fmtInt(n('linked (tied score)'))} tied with other same-score predictions in that hour, ${fmtInt(n('not found'))} not found. By file name, ${dupStatus.filter((x) => x === 'probable duplicate').length / 2} clip pair(s) are probable duplicates (one segment validated twice) and ${dupStatus.filter((x) => x.startsWith('ambiguous')).length / 2} pair(s) are ambiguous — see duplicate_check. The two files name the same audio differently: validation names keep the true start second (e.g. 04:00:02), the predictions export rounds names down to the hour and adds the offset to begin_time_s.`
       val.notes.push(note)
       pred.notes.push(note)
     }

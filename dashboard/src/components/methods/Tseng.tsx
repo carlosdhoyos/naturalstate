@@ -51,7 +51,14 @@ function simulate(sp: Sp, seed: number) {
     }
   }
   const fit = fitLogistic(vx, vy) // on RAW confidence, as in the paper
-  const tpr = GRID.map((c) => (fit.separated ? (vy.every((y) => y === 1) ? 1 : 0) : sigmoid(fit.b0 + fit.b1 * c)))
+  // An invalid fit (separation / no convergence) gives no curve: fall back to the observed share
+  // correct in each 0.05 class (the stratified design gives 10 clips per class).
+  const classShare = (c: number) => {
+    const k = Math.min(17, Math.floor((c - 0.1) / 0.05))
+    const idx = vx.map((_, i) => i).filter((i) => Math.min(17, Math.floor((vx[i] - 0.1) / 0.05)) === k)
+    return idx.length ? idx.filter((i) => vy[i] === 1).length / idx.length : NaN
+  }
+  const tpr = GRID.map((c) => (fit.valid ? sigmoid(fit.b0 + fit.b1 * c) : classShare(c)))
   const total = N.reduce((a, b) => a + b, 0)
   const above = (T: number, rate: number[]) => {
     let n = 0
@@ -186,7 +193,7 @@ export function Tseng({ tokens: t }: { tokens: ThemeTokens }) {
               <Readout label="Tseng threshold" value={th.aggregate === null ? 'not reached' : fmtNum(th.aggregate, 2)} sub={`kept set ≥ ${tgt}`} tone={th.aggregate === null ? 'warn' : 'ok'} />
               <Readout label="Per-prediction threshold" value={th.perPrediction === null ? 'not reached' : fmtNum(th.perPrediction, 2)} sub={`each ≥ ${tgt} (W&K / NS)`} tone={th.perPrediction === null ? 'warn' : 'ok'} />
             </div>
-            <p className="muted small">Fitted on a simulated stratified sample of 180 clips (10 per 0.05 class) with a GLM on raw confidence, exactly the paper’s design. {sim.fit.separated ? 'This sample had no errors (or perfect separation) — the curve is flat at 1.' : ''}</p>
+            <p className="muted small">Fitted on a simulated stratified sample of 180 clips (10 per 0.05 class) with a GLM on raw confidence, exactly the paper’s design. {!sim.fit.valid ? 'This sample gives no valid logistic fit (separation or no convergence) — the observed share correct per class is used instead.' : ''}</p>
           </div>
           <div className="m-chart">
             <div className="chart-card">

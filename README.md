@@ -10,3 +10,7 @@ Work in progress. Each challenge will get its own folder with code and a Markdow
 ## Data Explorer
 
 [`dashboard/standalone/index.html`](dashboard/standalone/index.html) is a single self-contained file. Download it and double-click to explore every CSV in this repo (profiles, charts, filters, table, map) with no server. See [`dashboard/README.md`](dashboard/README.md) for what it does and the decisions behind it.
+
+## Decision logs
+
+- [`docs/challenge1_data_decisions.md`](docs/challenge1_data_decisions.md): data decisions for Challenge 1, made before fitting. Covers probable duplicate validations, how validated clips are linked to predictions, recorder clocks, and site-specific false positives.

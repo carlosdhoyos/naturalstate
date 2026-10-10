@@ -21,7 +21,15 @@ export function exportRows(ds: Dataset, rows: Row[]) {
   downloadCsv(
     `${ds.id}_filtered`,
     cols.map((c) => (c.derived ? `derived:${c.name}` : c.name)),
-    rows.map((r) => cols.map((c) => (c.type === 'datetime' && typeof r[c.name] === 'number' ? `${isoUTC(r[c.name] as number)}Z` : r[c.name]))),
+    // Only true instants get "Z"; assumed-EAT wall times get +03:00; unknown-zone wall times get no zone.
+    rows.map((r) =>
+      cols.map((c) => {
+        const v = r[c.name]
+        if (c.type !== 'datetime' || typeof v !== 'number') return v
+        const iso = isoUTC(v)
+        return c.timeBasis === 'instant' ? `${iso}Z` : c.timeBasis === 'eat' ? `${iso}+03:00` : iso
+      }),
+    ),
   )
 }
 

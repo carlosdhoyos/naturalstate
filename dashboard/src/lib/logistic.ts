@@ -10,13 +10,20 @@ export interface LogitFit {
   b1: number
   /** Covariance matrix of (b0, b1): inverse of the Fisher information. */
   cov: [[number, number], [number, number]]
+  /** Newton iterations reached the tolerance (raw convergence, regardless of separation). */
   converged: boolean
   /**
-   * True when the outcomes are perfectly separated by x (e.g. every clip correct, or all
-   * incorrect clips score below all correct ones). The maximum-likelihood estimate is then
-   * infinite: the reported coefficients are just where the iterations stopped.
+   * True when the outcomes are completely or quasi-completely separated by x: every clip correct
+   * (or every clip wrong), or some score c splits them with all incorrect clips at x ≤ c and all
+   * correct ones at x ≥ c (ties at c allowed). No finite maximum-likelihood estimate exists; the
+   * reported coefficients are just where the iterations stopped.
    */
   separated: boolean
+  /**
+   * The fit can be used: converged, not separated, finite coefficients and covariance. Probabilities,
+   * thresholds and intervals must only be derived from valid fits.
+   */
+  valid: boolean
   iterations: number
   n: number
 }
@@ -41,7 +48,8 @@ export function fitLogistic(x: number[], y: number[], maxIter = 60): LogitFit {
       min0 = Math.min(min0, x[i])
     }
   }
-  const separated = ones === 0 || ones === n || max0 < min1 || max1 < min0
+  // ≤ (not <) also catches quasi-complete separation, where the two outcomes only meet at one score
+  const separated = ones === 0 || ones === n || max0 <= min1 || max1 <= min0
 
   let b0 = 0
   let b1 = 0
@@ -83,11 +91,16 @@ export function fitLogistic(x: number[], y: number[], maxIter = 60): LogitFit {
       break
     }
   }
-  return { b0, b1, cov, converged: converged && !separated, separated, iterations: it + 1, n }
+  const finite = [b0, b1, cov[0][0], cov[0][1], cov[1][1]].every(Number.isFinite) && cov[0][0] > 0 && cov[1][1] > 0
+  return { b0, b1, cov, converged, separated, valid: converged && !separated && finite, iterations: it + 1, n }
 }
 
-/** Score at which the fitted probability equals pStar, with a delta-method 95% interval. */
-export function thresholdFor(fit: LogitFit, pStar: number): { x: number; lo: number; hi: number } {
+/**
+ * Score at which the fitted probability equals pStar, with a delta-method 95% interval.
+ * Returns null for an invalid fit (separated / not converged) or a non-increasing curve.
+ */
+export function thresholdFor(fit: LogitFit, pStar: number): { x: number; lo: number; hi: number } | null {
+  if (!fit.valid || !(fit.b1 > 0)) return null
   const L = logit(pStar)
   const x = (L - fit.b0) / fit.b1
   // gradient of x w.r.t. (b0, b1)

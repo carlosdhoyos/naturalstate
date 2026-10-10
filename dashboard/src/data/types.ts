@@ -28,6 +28,12 @@ export interface Column {
   nonNull: number
   /** Date-time columns: explicit UTC offsets found in the raw text (e.g. {"+02:00": 32}); "none" = no offset written. */
   tz?: Record<string, number>
+  /**
+   * What a date-time value means: "instant" = a true moment (source text had an offset; stored as UTC),
+   * "wall" = clock reading with no known time zone (recorder clock, offset-less CSV values),
+   * "eat" = wall-clock time assumed to be East Africa Time (UTC+3).
+   */
+  timeBasis?: 'instant' | 'wall' | 'eat'
 }
 
 export interface GeoLayer {

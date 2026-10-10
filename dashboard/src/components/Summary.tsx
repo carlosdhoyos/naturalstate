@@ -7,7 +7,7 @@ import { buildFigure, DEFAULT_SPEC, type ChartSpec } from '../charts/build'
 import { keyOf } from '../data/filter'
 import { tokens as splitTokens } from '../data/load'
 import { CHALLENGES, type Challenge } from '../data/registry'
-import { fmtDate, fmtInt, fmtNum, fmtPct, quantileSorted, wilson } from '../data/stats'
+import { CONF_BANDS, CONF_BAND_LABELS, confBandOf, fmtDate, fmtInt, fmtNum, fmtPct, medianOf, wilson } from '../data/stats'
 import type { Dataset, Row } from '../data/types'
 import { tip, tipText, type HelpKey } from '../lib/help'
 import type { ThemeTokens } from '../lib/palette'
@@ -119,13 +119,13 @@ const range = (v: number[]) => {
   }
   return [lo, hi] as const
 }
-const median = (v: number[]) => quantileSorted([...v].sort((a, b) => a - b), 0.5)
+const median = medianOf
 
 // ── Birds ─────────────────────────────────────────────────────────────────────
 
-const BANDS = [0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.0000001]
-const bandLabel = (i: number) => `${BANDS[i].toFixed(1)}–${i === BANDS.length - 2 ? '1.0' : BANDS[i + 1].toFixed(1)}`
-const bandOf = (c: number) => BANDS.findIndex((b, i) => i < BANDS.length - 1 && c >= b && c < BANDS[i + 1])
+const BANDS = CONF_BANDS
+const bandLabel = (i: number) => CONF_BAND_LABELS[i]
+const bandOf = confBandOf
 
 export function BirdsSummary({ reg, tokens, onOpen }: Props) {
   const pred = reg.get('birdnet_predictions')

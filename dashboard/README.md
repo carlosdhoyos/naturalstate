@@ -38,12 +38,12 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
 - **Birds data quality:** 18 automated checks of the files themselves (pass / info / flag), with evidence and recommendations:
   - **Structure:** empty cells, duplicates, constant columns.
   - **Segment integrity:** 3-s length, overlaps, complete selection numbers.
-  - **File naming between the two exports:** the predictions export rounds file names down to the hour and counts `begin_time_s` from the hour. The validation names keep the true start second; this is confirmed on 550 of 550 clips.
+  - **File naming between the two exports:** the predictions export rounds file names down to the hour and counts `begin_time_s` from the hour. The validation names keep the true start second. This is strongly supported: all 550 checkable clips agree with their file's 3-s grid. It is not a full proof, because start times that differ by multiples of 3 s share a grid.
   - **Linkage:** 549 of 551 validated clips link to a prediction.
-  - **Recorder clocks:** inferred from the activity of a diurnal and a nocturnal species. RBS40 and RBS71 run about 3 h behind, likely on UTC.
+  - **Recorder clocks:** inferred from the activity of a diurnal and a nocturnal species. RBS40 (both species) and RBS71 (dawn singer only) appear about 3 h behind, consistent with UTC. This is an assumed scenario, not deployment metadata, and only 22 of 43 recorders have enough data to assess.
   - **Ecological plausibility:** e.g. the nocturnal Nightjar in daytime, the diurnal Oriole at night.
 - **Data quality → Time zones & clocks tab:** whether the hours are local or UTC.
-  - **Birds:** the files carry no time zone. Oriole dawn onset and Nightjar dusk onset are compared with sunrise and sunset computed (NOAA approximation) for candidate East African sites over the recording period. 41 recorders match local time (EAT, UTC+3); RBS40 and RBS71 match UTC. There is a toggle between the hours as recorded and corrected to local time.
+  - **Birds:** the files carry no time zone. Oriole dawn onset and Nightjar dusk onset are compared with sunrise and sunset computed (NOAA approximation) for candidate East African sites over the recording period. Of the 22 recorders with enough data, 2 (RBS40, RBS71) are consistent with UTC, 15 with local time (EAT, UTC+3), and 5 are inconclusive. The other 21 recorders can't be assessed. There is a toggle between the hours as recorded and corrected to local time (an assumed scenario).
   - **Vegetation (ODK):** every form time is stamped +02:00, although Kenya is +03:00. The instants are correct: the server never receives a form before it ended, and all 640 photos fall inside their survey window. Only the label is wrong, so wall-clock times read off the stamps are 1 h behind local time.
   - **Impact table:** thresholds are unaffected; time-of-day and daily views are affected.
 - **Birds diurnal cycles:** hour by hour, in corrected local time (with an "as recorded" toggle).
@@ -110,6 +110,7 @@ Every chart has a **"Data behind this chart"** table, with CSV export, holding t
   - the validation file names keep the true start second (`…_040002`)
   - the predictions export rounds the name down to the hour (`…_040000`) and adds the offset to `begin_time_s`
 
+- **Duplicate validations.** 4 Plover clip pairs at RBS75 have file names that are identical except for the clip number, and match a single prediction, so they are probably the same segment validated twice. A fifth pair is ambiguous: two same-score predictions exist in that hour. The derived column `duplicate_check` and a Data-quality check flag them. Decision and evidence are in [`docs/challenge1_data_decisions.md`](../docs/challenge1_data_decisions.md) (D-01).
   An earlier version of this page said "only 263 match; the predictions are a subset of the BirdNET run". That was wrong, and it was corrected after the data-quality checks.
 - **Type inference is conservative.** A column is numeric or date-time only if *every* non-empty value parses. ODK multi-selects (space-separated choice names or uuids) are detected and counted per token.
 - **Datetimes display in UTC.** ODK timestamps carry their device offset (+02:00 here). Bird recording times come from file names and are shown on the recorder's clock.

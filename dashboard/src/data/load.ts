@@ -119,7 +119,7 @@ export function buildDataset(
     section: labels[i].section,
     type: types[i],
     ...columnStats(rows, f),
-    ...(types[i] === 'datetime' ? { tz: tzOf(f) } : {}),
+    ...(types[i] === 'datetime' ? (() => { const tz = tzOf(f); return { tz, timeBasis: (Object.keys(tz).some((k) => k !== 'none') ? 'instant' : 'wall') as Column['timeBasis'] } })() : {}),
   }))
   return { ...meta, notes: [], columns, rows, geo: [], paths: [] }
 }
@@ -127,7 +127,7 @@ export function buildDataset(
 /** Add a computed column. Derived columns are always marked so they never pass as source data. */
 export function addColumn(
   ds: Dataset,
-  col: { name: string; label?: string; type: ColType; description: string; sep?: string },
+  col: { name: string; label?: string; type: ColType; description: string; sep?: string; timeBasis?: Column['timeBasis'] },
   fn: (r: Row, i: number) => Value,
 ): void {
   ds.rows.forEach((r, i) => {
@@ -142,6 +142,7 @@ export function addColumn(
     derived: true,
     description: col.description,
     sep: col.sep,
+    ...(col.type === 'datetime' ? { timeBasis: col.timeBasis ?? 'wall' } : {}),
     ...columnStats(ds.rows, col.name),
   })
 }

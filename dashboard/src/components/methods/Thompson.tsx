@@ -35,7 +35,7 @@ const X_MAX = logit(0.999)
 /** Empirical-Bayes partial pooling of per-species (b0, b1) toward a precision-weighted mean. */
 function shrink(fits: LogitFit[], tau: number) {
   const T = [tau * tau, (0.5 * tau) ** 2] // between-species variance of intercept, slope
-  const covOf = (f: LogitFit) => (f.separated || !Number.isFinite(f.cov[0][0]) ? [[1e4, 0], [0, 1e4]] : f.cov)
+  const covOf = (f: LogitFit) => (!f.valid ? [[1e4, 0], [0, 1e4]] : f.cov)
   const inv2 = (m: number[][]) => {
     const d = m[0][0] * m[1][1] - m[0][1] * m[1][0]
     return [[m[1][1] / d, -m[0][1] / d], [-m[1][0] / d, m[0][0] / d]]
@@ -108,10 +108,10 @@ export function Thompson({ tokens: t }: { tokens: ThemeTokens }) {
       layout[`yaxis${sfx}`] = { ...axisStyle(t), range: [-0.08, 1.08], ...(i % 3 === 0 ? { title: { text: 'pr(correct)' } } : {}) }
       const f = sim.fits[i]
       const errs = sim.data[i].y.filter((y) => y === 0).length
-      ;(layout.annotations as object[]).push({ text: `<b>${s.name}</b> · n = ${s.n} · ${errs} wrong${f.separated ? ' · separated' : ''}`, xref: `${xa} domain`, yref: `${ya} domain`, x: 0, y: 1.04, xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 11.5, color: t.ink } })
+      ;(layout.annotations as object[]).push({ text: `<b>${s.name}</b> · n = ${s.n} · ${errs} wrong${f.separated ? ' · separated' : !f.valid ? ' · no convergence' : ''}`, xref: `${xa} domain`, yref: `${ya} domain`, x: 0, y: 1.04, xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 11.5, color: t.ink } })
       const show = i === 0
       data.push({ type: 'scatter', mode: 'lines', x: grid, y: grid.map((x) => sigmoid(s.b0 + s.b1 * x)), xaxis: xa, yaxis: ya, name: 'true curve', legendgroup: 'true', showlegend: show, line: { color: OTHER[t.theme], width: 1.5 }, hoverinfo: 'skip' })
-      if (!f.separated) data.push({ type: 'scatter', mode: 'lines', x: grid, y: grid.map((x) => sigmoid(f.b0 + f.b1 * x)), xaxis: xa, yaxis: ya, name: 'separate fit (no pooling)', legendgroup: 'sep', showlegend: show, line: { color: series[1], width: 1.5 }, hoverinfo: 'skip' })
+      if (f.valid) data.push({ type: 'scatter', mode: 'lines', x: grid, y: grid.map((x) => sigmoid(f.b0 + f.b1 * x)), xaxis: xa, yaxis: ya, name: 'separate fit (no pooling)', legendgroup: 'sep', showlegend: show, line: { color: series[1], width: 1.5 }, hoverinfo: 'skip' })
       const pb = eb.pooled[i]
       data.push({ type: 'scatter', mode: 'lines', x: grid, y: grid.map((x) => sigmoid(pb.b0 + pb.b1 * x)), xaxis: xa, yaxis: ya, name: 'partial pooling', legendgroup: 'pp', showlegend: show, line: { color: series[0], width: 2.5 }, hovertemplate: 'pr(correct) %{y:.3f}<extra>partial pooling</extra>' })
       const r = rng(77 + i)
@@ -175,7 +175,7 @@ export function Thompson({ tokens: t }: { tokens: ThemeTokens }) {
                       <td>{s.name.replace('Species ', '')}</td>
                       <td className="num">{s.n}</td>
                       <td className="num">{fmtThr(thr(s.b0, s.b1, target))}</td>
-                      <td className="num">{sim.fits[i].separated ? <span className="warn-text">separated</span> : fmtThr(thr(sim.fits[i].b0, sim.fits[i].b1, target))}</td>
+                      <td className="num">{!sim.fits[i].valid ? <span className="warn-text">{sim.fits[i].separated ? 'separated' : 'no fit'}</span> : fmtThr(thr(sim.fits[i].b0, sim.fits[i].b1, target))}</td>
                       <td className="num">
                         <b>{fmtThr(thr(eb.pooled[i].b0, eb.pooled[i].b1, target))}</b>
                       </td>

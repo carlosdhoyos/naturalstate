@@ -6,17 +6,16 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { axisStyle, baseLayout } from '../charts/build'
 import { categoryOrder } from '../data/filter'
-import { fmtDate, fmtInt, fmtNum, fmtPct, quantileSorted, wilson } from '../data/stats'
+import { CONF_BAND_LABELS, confBandOf, fmtDate, fmtInt, fmtNum, fmtPct, maxOf, medianOf, minOf, quantileSorted, wilson } from '../data/stats'
 import { CANDIDATE_SITES, EAT_OFFSET_H, fmtClock, meanSun } from '../data/sun'
 import type { Dataset, Row } from '../data/types'
 import { OTHER, SERIES, sequentialScale, type ThemeTokens } from '../lib/palette'
 import { Plot } from './Plot'
 import { Range, Segmented } from './ui'
 
-const BANDS = [0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.0000001]
-const BAND_LABELS = ['0.1–0.2', '0.2–0.3', '0.3–0.5', '0.5–0.7', '0.7–0.9', '0.9–1.0']
-const bandOf = (c: number) => BANDS.findIndex((b, i) => i < BANDS.length - 1 && c >= b && c < BANDS[i + 1])
-const median = (v: number[]) => (v.length ? quantileSorted([...v].sort((a, b) => a - b), 0.5) : NaN)
+const BAND_LABELS = CONF_BAND_LABELS
+const bandOf = confBandOf
+const median = medianOf
 
 type Tab = 'evidence' | 'flow' | 'calendar' | 'clock' | 'bouts' | 'thresholds' | 'codetect'
 const TABS: { key: Tab; label: string; sub: string }[] = [
@@ -333,20 +332,26 @@ function Flow({ pred, val, t, species, color }: Ctx) {
         link(b, wrong, inB.filter((r) => r.outcome === 0).length, `${s[3]}66`)
       })
     } else {
+      // Prediction rows, not review rows: a prediction is "validated" only when a review resolves to it
+      // uniquely (shared duplicate reviews count once); tied-score candidates are kept apart because the
+      // exact reviewed segment is unknown, and no outcome is assigned to them.
       const all = node('all', `All predictions (${fmtInt(pred.rows.length)})`, t.ink2)
       const notVal = node('nv', 'not validated', OTHER[t.theme])
-      const linked = node('lk', 'validated (linked)', s[2])
+      const tied = node('tied', 'candidate of a tied-score review', SERIES[t.theme][5])
+      const resolved = node('lk', 'validated (resolved)', s[2])
       const correct = node('ok', 'correct', s[0])
       const wrong = node('bad', 'incorrect', s[3])
       species.forEach((sp) => {
         const P = pred.rows.filter((r) => r.common_name === sp)
         const a = node(`sp:${sp}`, `${sp} (${fmtInt(P.length)})`, color(sp))
         link(all, a, P.length, `${color(sp)}44`)
-        const V = val.rows.filter((r) => r.commonName === sp && String(r.link_to_predictions).startsWith('linked'))
-        link(a, notVal, P.length - V.length, `${OTHER[t.theme]}55`)
-        link(a, linked, V.length, `${color(sp)}88`)
-        link(linked, correct, V.filter((r) => r.outcome === 1).length, `${s[0]}55`)
-        link(linked, wrong, V.filter((r) => r.outcome === 0).length, `${s[3]}66`)
+        const res = P.filter((r) => r.validated === 'yes')
+        const cand = P.filter((r) => r.validated === 'tied')
+        link(a, notVal, P.length - res.length - cand.length, `${OTHER[t.theme]}55`)
+        link(a, tied, cand.length, `${SERIES[t.theme][5]}66`)
+        link(a, resolved, res.length, `${color(sp)}88`)
+        link(resolved, correct, res.filter((r) => r.validation_outcome === 'correct').length, `${s[0]}55`)
+        link(resolved, wrong, res.filter((r) => r.validation_outcome === 'incorrect').length, `${s[3]}66`)
       })
     }
     return {
@@ -366,7 +371,7 @@ function Flow({ pred, val, t, species, color }: Ctx) {
     <>
       <Section
         title="3 · Data flow"
-        sub={mode === 'validation' ? 'The validation sample: species → confidence band → ornithologist’s verdict. Width = number of clips.' : 'From all predictions to validated outcomes. Validation is under 2% of predictions, so its flows are thin — hover for exact numbers.'}
+        sub={mode === 'validation' ? 'The validation sample: species → confidence band → ornithologist’s verdict. Width = number of clips.' : 'Distinct prediction rows: resolved validated predictions (duplicate reviews count once), candidates of tied-score reviews (exact segment unknown, no outcome assigned), and the rest. Validation is under 2% of predictions — hover for exact numbers.'}
         right={
           <Segmented
             size="sm"
@@ -419,8 +424,21 @@ function Calendar({ pred, t, species, color }: Ctx) {
       filesPer.get(k)!.add(String(r.recording_file))
     })
     const recDays = [...new Set(pred.rows.map((r) => r.recording_date as number))].sort((a, b) => a - b)
-    const activeRecs = recDays.map((dd) => new Set(pred.rows.filter((r) => r.recording_date === dd).map((r) => r.folder)).size)
-    return { rows, days, dayIdx, recs, filesPer, recDays, activeRecs }
+    // one pass: active recorders per day, and count / confidence sum per species × day
+    const recsByDay = new Map<number, Set<unknown>>()
+    const bySpDay = new Map<string, { n: number; sum: number }>()
+    pred.rows.forEach((r) => {
+      const dd = r.recording_date as number
+      if (!recsByDay.has(dd)) recsByDay.set(dd, new Set())
+      recsByDay.get(dd)!.add(r.folder)
+      const k = `${r.common_name}|${dd}`
+      const x = bySpDay.get(k) ?? { n: 0, sum: 0 }
+      x.n++
+      x.sum += r.confidence as number
+      bySpDay.set(k, x)
+    })
+    const activeRecs = recDays.map((dd) => recsByDay.get(dd)?.size ?? 0)
+    return { rows, days, dayIdx, recs, filesPer, recDays, activeRecs, bySpDay }
   }, [pred])
 
   const cal = useMemo(() => {
@@ -442,16 +460,13 @@ function Calendar({ pred, t, species, color }: Ctx) {
   }, [d, t])
 
   const trend = useMemo(() => {
-    const per = species.map((s) => {
-      const counts = d.recDays.map((dd) => pred.rows.filter((r) => r.common_name === s && r.recording_date === dd))
-      return { s, counts }
-    })
+    const per = species.map((s) => ({ s, counts: d.recDays.map((dd) => d.bySpDay.get(`${s}|${dd}`) ?? { n: 0, sum: 0 }) }))
     const x = d.recDays.map((dd) => fmtDate(dd, false))
-    const det = per.map((p) => ({ type: 'scatter', mode: 'lines+markers', x, y: p.counts.map((c, i) => (norm === 'perRec' ? c.length / Math.max(1, d.activeRecs[i]) : c.length)), name: p.s, line: { color: color(p.s), width: 2 }, marker: { color: color(p.s), size: 5 }, hovertemplate: `${p.s}<br>%{x}: %{y:.1f}<extra></extra>` }))
-    const conf = per.map((p) => ({ type: 'scatter', mode: 'lines+markers', x, y: p.counts.map((c) => (c.length >= 10 ? c.reduce((a, r) => a + (r.confidence as number), 0) / c.length : null)), name: p.s, showlegend: false, connectgaps: false, line: { color: color(p.s), width: 2 }, marker: { color: color(p.s), size: 5 }, hovertemplate: `${p.s}<br>%{x}: mean %{y:.3f}<extra></extra>` }))
+    const det = per.map((p) => ({ type: 'scatter', mode: 'lines+markers', x, y: p.counts.map((c, i) => (norm === 'perRec' ? c.n / Math.max(1, d.activeRecs[i]) : c.n)), name: p.s, line: { color: color(p.s), width: 2 }, marker: { color: color(p.s), size: 5 }, hovertemplate: `${p.s}<br>%{x}: %{y:.1f}<extra></extra>` }))
+    const conf = per.map((p) => ({ type: 'scatter', mode: 'lines+markers', x, y: p.counts.map((c) => (c.n >= 10 ? c.sum / c.n : null)), name: p.s, showlegend: false, connectgaps: false, line: { color: color(p.s), width: 2 }, marker: { color: color(p.s), size: 5 }, hovertemplate: `${p.s}<br>%{x}: mean %{y:.3f}<extra></extra>` }))
     const lay = (yt: string) => ({ ...baseLayout(t), margin: { l: 56, r: 16, t: 36, b: 60 }, legend: { orientation: 'h', x: 0, y: 1.02, yanchor: 'bottom' }, xaxis: { ...axisStyle(t), tickangle: -45, tickfont: { size: 10, color: t.muted } }, yaxis: { ...axisStyle(t), title: { text: yt } } })
     return { det, conf, layDet: lay(norm === 'perRec' ? 'detections per active recorder' : 'detections'), layConf: { ...lay('mean confidence'), showlegend: false } }
-  }, [d, pred, species, norm, t, color])
+  }, [d, species, norm, t, color])
 
   return (
     <>
@@ -505,12 +520,8 @@ function Clock({ pred, t, species, color }: Ctx) {
   const [metric, setMetric] = useState<'share' | 'conf'>('share')
   const fig = useMemo(() => {
     const days = pred.rows.map((r) => r.recording_date).filter((x): x is number => typeof x === 'number')
-    let lo = Infinity
-    let hi = -Infinity
-    for (const x of days) {
-      if (x < lo) lo = x
-      if (x > hi) hi = x
-    }
+    const lo = minOf(days)
+    const hi = maxOf(days)
     const sun = meanSun(CANDIDATE_SITES[0].lat, CANDIDATE_SITES[0].lon, lo, hi)
     const rise = sun.rise + EAT_OFFSET_H
     const set = sun.set + EAT_OFFSET_H
@@ -521,7 +532,8 @@ function Clock({ pred, t, species, color }: Ctx) {
       const P = pred.rows.filter((r) => r.common_name === s && typeof r.hour_local === 'number')
       const by = Array.from({ length: 24 }, (_, h) => P.filter((r) => r.hour_local === h))
       const mu = P.reduce((a, r) => a + (r.confidence as number), 0) / P.length
-      const r = by.map((x) => (metric === 'share' ? x.length / P.length : x.length >= 20 ? x.reduce((a, q) => a + (q.confidence as number), 0) / x.length / mu : 0))
+      // relative confidence is unknown (null), not zero, for hours with < 20 predictions
+      const r = by.map((x) => (metric === 'share' ? x.length / P.length : x.length >= 20 ? x.reduce((a, q) => a + (q.confidence as number), 0) / x.length / mu : null))
       const pid = i === 0 ? 'polar' : `polar${i + 1}`
       const col = i % 2
       const row = Math.floor(i / 2)
@@ -534,7 +546,7 @@ function Clock({ pred, t, species, color }: Ctx) {
       }
       ;(layout.annotations as object[]).push({ text: `<b>${s}</b>`, x: col * 0.5 + 0.25, y: 1 - row * 0.5 - 0.01, xref: 'paper', yref: 'paper', showarrow: false, font: { size: 12, color: t.ink } })
       data.push({ type: 'barpolar', r, theta, width: 14, subplot: pid, marker: { color: color(s), line: { color: t.surface, width: 1 } }, hovertemplate: metric === 'share' ? `${s}<br>%{theta}: %{r:.1%}<extra></extra>` : `${s}<br>relative confidence %{r:.2f}<extra></extra>` })
-      const rmax = Math.max(...r) * 1.05 || 1
+      const rmax = maxOf(r.filter((v): v is number => v !== null)) * 1.05 || 1
       for (const [h, c] of [
         [rise, SERIES[t.theme][5]],
         [set, SERIES[t.theme][4]],
@@ -610,8 +622,8 @@ function Bouts({ pred, t, species, color }: Ctx) {
       const counts = Array.from({ length: maxL }, (_, i) => x.lengths.filter((l) => (i === maxL - 1 ? l >= maxL : l === i + 1)).length / Math.max(1, x.bouts))
       return { type: 'scatter', mode: 'lines+markers', x: Array.from({ length: maxL }, (_, i) => (i === maxL - 1 ? `${maxL}+` : String(i + 1))), y: counts, name: x.s, line: { color: color(x.s), width: 2 }, marker: { color: color(x.s), size: 6 }, hovertemplate: `${x.s}<br>%{x} segments: %{y:.1%} of bouts<extra></extra>` }
     })
-    return { data, layout: { ...baseLayout(t), margin: { l: 56, r: 16, t: 36, b: 48 }, legend: { orientation: 'h', x: 0, y: 1.02, yanchor: 'bottom' }, xaxis: { ...axisStyle(t), type: 'category', title: { text: 'bout length (consecutive 3-s segments)' } }, yaxis: { ...axisStyle(t), type: 'log', title: { text: 'share of bouts (log)' } } } }
-  }, [d, t, color])
+    return { data, layout: { ...baseLayout(t), margin: { l: 56, r: 16, t: 36, b: 48 }, legend: { orientation: 'h', x: 0, y: 1.02, yanchor: 'bottom' }, xaxis: { ...axisStyle(t), type: 'category', title: { text: g === 3 ? 'bout length (consecutive 3-s segments)' : `bout length (detections ≤ ${g} s apart)` } }, yaxis: { ...axisStyle(t), type: 'log', title: { text: 'share of bouts (log)' } } } }
+  }, [d, t, color, g])
   const gapFig = useMemo(() => {
     const data = d.map((x) => {
       const step = Math.max(1, Math.floor(x.gaps.length / 600))
@@ -647,7 +659,7 @@ function Bouts({ pred, t, species, color }: Ctx) {
                 <th>Species</th>
                 <th className="num">Detections (segments)</th>
                 <th className="num">Bouts</th>
-                <th className="num">Segments per bout</th>
+                <th className="num">{g === 3 ? 'Segments per bout' : 'Detections per bout'}</th>
                 <th className="num">Single-segment bouts</th>
                 <th className="num">Median · 90th pct · longest</th>
               </tr>
@@ -691,47 +703,68 @@ function Thresholds({ pred, val, t, species, color }: Ctx) {
       species.map((s) => {
         const pc = pred.rows.filter((r) => r.common_name === s).map((r) => r.confidence as number)
         const V = val.rows.filter((r) => r.commonName === s)
-        // band precision from validation, then re-weight to the prediction distribution above T (Tseng-style)
-        const bandPrec = BAND_LABELS.map((_, i) => {
-          const inB = V.filter((r) => bandOf(r.confidence as number) === i)
-          return inB.length ? inB.filter((r) => r.outcome === 1).length / inB.length : NaN
-        })
+        // Coarse band-standardised precision above T (exploratory, not Tseng's fitted curve): each kept
+        // prediction gets the share correct among reviewed clips in its band that are also ≥ T. Kept
+        // predictions in a band with no such reviews are UNSUPPORTED: no estimate is made for the whole
+        // kept set then, only bounds (unsupported all wrong … all right). Never borrows reviews below T.
         const at = (thr: number) => {
           const keptP = pc.filter((c) => c >= thr)
           const keptV = V.filter((r) => (r.confidence as number) >= thr)
           const ok = keptV.filter((r) => r.outcome === 1).length
+          const bandPrec = BAND_LABELS.map((_, i) => {
+            const above = keptV.filter((r) => bandOf(r.confidence as number) === i)
+            return above.length ? above.filter((r) => r.outcome === 1).length / above.length : NaN
+          })
           let num = 0
-          let den = 0
-          let unknown = 0
+          let supported = 0
           for (const c of keptP) {
             const p = bandPrec[bandOf(c)]
             if (Number.isFinite(p)) {
               num += p
-              den++
-            } else unknown++
+              supported++
+            }
           }
-          return { retained: pc.length ? keptP.length / pc.length : NaN, nKept: keptP.length, nV: keptV.length, ok, raw: keptV.length ? ok / keptV.length : NaN, ci: wilson(ok, keptV.length), reweighted: den ? num / den : NaN, unknown }
+          const unsupported = keptP.length - supported
+          return {
+            retained: pc.length ? keptP.length / pc.length : NaN,
+            nKept: keptP.length,
+            nV: keptV.length,
+            ok,
+            raw: keptV.length ? ok / keptV.length : NaN,
+            ci: wilson(ok, keptV.length),
+            supported,
+            unsupported,
+            reweighted: keptP.length && unsupported === 0 ? num / keptP.length : NaN,
+            rwLo: keptP.length ? num / keptP.length : NaN,
+            rwHi: keptP.length ? (num + unsupported) / keptP.length : NaN,
+          }
         }
-        return { s, at, n: pc.length }
+        // the curves do not depend on the slider: compute them once per species
+        const curve = grid.map((g) => at(g))
+        return { s, at, curve, n: pc.length }
       }),
-    [pred, val, species],
+    [pred, val, species, grid],
   )
-  const figs = useMemo(() => {
-    const ret = d.map((x) => ({ type: 'scatter', mode: 'lines', x: grid, y: grid.map((g) => x.at(g).retained), name: x.s, line: { color: color(x.s), width: 2.5 }, hovertemplate: `${x.s}<br>T %{x:.2f}: %{y:.0%} kept<extra></extra>` }))
+  const curves = useMemo(() => {
+    const ret = d.map((x) => ({ type: 'scatter', mode: 'lines', x: grid, y: x.curve.map((a) => a.retained), name: x.s, line: { color: color(x.s), width: 2.5 }, hovertemplate: `${x.s}<br>T %{x:.2f}: %{y:.0%} kept<extra></extra>` }))
     const prec = d.flatMap((x) => {
-      const ys = grid.map((g) => x.at(g))
+      const ys = x.curve
       return [
         { type: 'scatter', mode: 'lines', x: grid, y: ys.map((a) => (a.nV >= 5 ? a.raw : null)), name: `${x.s} · validated above T`, legendgroup: x.s, line: { color: color(x.s), width: 2.5 }, hovertemplate: `${x.s}<br>T %{x:.2f}: validated precision %{y:.3f}<extra></extra>` },
-        { type: 'scatter', mode: 'lines', x: grid, y: ys.map((a) => (a.nV >= 5 ? a.reweighted : null)), name: `${x.s} · re-weighted`, legendgroup: x.s, showlegend: false, line: { color: color(x.s), width: 1.5, dash: 'dot' }, hovertemplate: `${x.s}<br>T %{x:.2f}: re-weighted precision %{y:.3f}<extra></extra>` },
+        { type: 'scatter', mode: 'lines', x: grid, y: ys.map((a) => (a.nV >= 5 && a.unsupported === 0 ? a.reweighted : null)), name: `${x.s} · re-weighted`, legendgroup: x.s, showlegend: false, line: { color: color(x.s), width: 1.5, dash: 'dot' }, hovertemplate: `${x.s}<br>T %{x:.2f}: re-weighted precision %{y:.3f}<extra></extra>` },
       ]
     })
+    return { ret, prec }
+  }, [d, grid, color])
+  // only the vertical line moves with the slider
+  const figs = useMemo(() => {
     const vline = { type: 'line', x0: T, x1: T, yref: 'paper', y0: 0, y1: 1, line: { color: t.ink, width: 1 } }
     const lay = (yt: string, extra: object = {}) => ({ ...baseLayout(t), margin: { l: 56, r: 16, t: 40, b: 48 }, legend: { orientation: 'h', x: 0, y: 1.02, yanchor: 'bottom', font: { size: 11 } }, xaxis: { ...axisStyle(t), title: { text: 'threshold T (confidence)' }, range: [0.1, 1] }, yaxis: { ...axisStyle(t), title: { text: yt }, ...extra }, shapes: [vline] })
-    return { ret, prec, layRet: lay('share of predictions kept (≥ T)', { tickformat: '.0%', range: [0, 1.02] }), layPrec: { ...lay('precision of kept predictions', { range: [0, 1.03] }), showlegend: false } }
-  }, [d, grid, T, t, color])
+    return { ...curves, layRet: lay('share of predictions kept (≥ T)', { tickformat: '.0%', range: [0, 1.02] }), layPrec: { ...lay('precision of kept predictions', { range: [0, 1.03] }), showlegend: false } }
+  }, [curves, T, t])
   return (
     <>
-      <Section title="7 · Threshold preview: what a threshold keeps, and how precise the kept set looks" sub="Before any model: the share of predictions retained at each threshold, and the precision of the kept set — raw (validated clips ≥ T) and re-weighted to the prediction distribution (band precision × how many predictions fall in each band, as in Tseng et al.). This is set-level precision, not the per-prediction 99% the brief asks for.">
+      <Section title="7 · Threshold preview: what a threshold keeps, and how precise the kept set looks" sub="Before any model: the share of predictions retained at each threshold, and the precision of the kept set — raw (validated clips ≥ T) and a coarse band-standardised estimate (share correct of reviewed clips ≥ T in each band × how many kept predictions fall in it; in the spirit of Tseng et al., not their fitted curve). Kept predictions without review support are counted, never hidden. This is set-level precision, not the per-prediction 99% the brief asks for, and it is not used for the labels.">
         <label className="field threshold-slider">
           <span className="field-label">Try a threshold T</span>
           <Range value={T} min={0.1} max={0.99} step={0.01} onChange={setT} format={(v) => fmtNum(v, 2)} />
@@ -744,7 +777,7 @@ function Thresholds({ pred, val, t, species, color }: Ctx) {
             <Plot data={figs.prec} layout={figs.layPrec} height={340} filename="precision_above_threshold" />
           </div>
         </div>
-        <p className="muted small">Solid: raw validated precision above T (shown where ≥ 5 validated clips remain). Dotted: re-weighted to the prediction distribution. The raw curve is biased upward where validation over-samples high scores.</p>
+        <p className="muted small">Solid: raw validated precision above T (shown where ≥ 5 validated clips remain). Dotted: coarse band-standardised estimate, shown only where every kept prediction’s band has reviewed clips ≥ T. Exploratory — not used for the 99% labels.</p>
         <div className="table-wrap auto">
           <table className="data-table sum-table">
             <thead>
@@ -753,7 +786,8 @@ function Thresholds({ pred, val, t, species, color }: Ctx) {
                 <th className="num">Predictions kept</th>
                 <th className="num">Validated ≥ T</th>
                 <th className="num">Raw precision (Wilson 95%)</th>
-                <th className="num">Re-weighted precision</th>
+                <th className="num has-tip" data-tip="Kept predictions whose confidence band has reviewed clips at or above T.">Supported predictions</th>
+                <th className="num has-tip" data-tip="Band-standardised estimate for all kept predictions. If some kept predictions have no review support, no estimate is made; the range treats them as all wrong … all right (a support range, not a confidence interval).">Re-weighted precision</th>
               </tr>
             </thead>
             <tbody>
@@ -769,7 +803,12 @@ function Thresholds({ pred, val, t, species, color }: Ctx) {
                     </td>
                     <td className="num">{a.nV}</td>
                     <td className="num">{a.nV ? `${fmtPct(a.raw, 1)} [${fmtPct(a.ci[0], 0)}–${fmtPct(a.ci[1], 0)}]` : '—'}</td>
-                    <td className="num">{Number.isFinite(a.reweighted) ? fmtPct(a.reweighted, 1) : '—'}</td>
+                    <td className="num">
+                      {a.nKept ? `${fmtInt(a.supported)} / ${fmtInt(a.nKept)}` : '—'}
+                    </td>
+                    <td className="num">
+                      {!a.nKept ? '—' : a.unsupported === 0 ? fmtPct(a.reweighted, 1) : <span className="warn-text">not estimable · range {fmtPct(a.rwLo, 1)}–{fmtPct(a.rwHi, 1)}</span>}
+                    </td>
                   </tr>
                 )
               })}
@@ -789,47 +828,47 @@ function Thresholds({ pred, val, t, species, color }: Ctx) {
 
 // ── 10. co-detection ──────────────────────────────────────────────────────────
 
-function CoDetection({ pred, val, t, species }: Ctx) {
+function CoDetection({ pred, t, species }: Ctx) {
   const [level, setLevel] = useState<'segment' | 'file'>('segment')
   const d = useMemo(() => {
-    const unit = (r: Row) => (level === 'segment' ? `${r.recording_file}|${r.begin_time_s}` : String(r.recording_file))
+    const segKey = (r: Row) => `${r.recording_file}|${r.begin_time_s}`
+    const unit = (r: Row) => (level === 'segment' ? segKey(r) : String(r.recording_file))
     const sets = new Map<string, Set<string>>()
     pred.rows.forEach((r) => {
       const k = unit(r)
       if (!sets.has(k)) sets.set(k, new Set())
       sets.get(k)!.add(String(r.common_name))
     })
-    const z = species.map((a) => species.map((b) => [...sets.values()].filter((s) => s.has(a) && s.has(b)).length))
-    // validated, uniquely linked clips: is another species predicted in the same segment?
-    const segSets = new Map<string, Set<string>>()
-    pred.rows.forEach((r) => {
-      const k = `${r.recording_file}|${r.begin_time_s}`
-      if (!segSets.has(k)) segSets.set(k, new Set())
-      segSets.get(k)!.add(String(r.common_name))
+    // one pass over the units: pair counts (diagonal = units with that species), units with ≥ 2 targets
+    const pos = new Map(species.map((s, i) => [s, i]))
+    const z = species.map(() => species.map(() => 0))
+    let multi = 0
+    sets.forEach((set) => {
+      const ids = [...set].map((s) => pos.get(s)).filter((i): i is number => i !== undefined)
+      if (ids.length >= 2) multi++
+      for (const i of ids) for (const j of ids) z[i][j]++
     })
-    const byHourKey = new Map<string, Row[]>()
-    pred.rows.forEach((r) => {
-      const k = `${r.common_name}|${r.folder}|${r.recording_date}|${Math.floor(((r.recording_start as number) % 86_400_000) / 3_600_000)}`
-      if (!byHourKey.has(k)) byHourKey.set(k, [])
-      byHourKey.get(k)!.push(r)
-    })
+    // validated predictions (unique link, computed in enrichment): another target in the same segment?
+    const segSets = level === 'segment' ? sets : new Map<string, Set<string>>()
+    if (level !== 'segment')
+      pred.rows.forEach((r) => {
+        const k = segKey(r)
+        if (!segSets.has(k)) segSets.set(k, new Set())
+        segSets.get(k)!.add(String(r.common_name))
+      })
     const vstats = species.map((s) => {
       const res = { ok: { n: 0, co: 0 }, bad: { n: 0, co: 0 } }
-      val.rows.forEach((r) => {
-        if (r.commonName !== s || r.link_to_predictions !== 'linked (unique)') return
-        const k = `${s}|${r.recorder}|${r.recording_date}|${r.file_start_hour}`
-        const cand = (byHourKey.get(k) ?? []).filter((p) => Math.abs((p.confidence as number) - (r.confidence as number)) <= 0.00051)
-        if (cand.length !== 1) return
-        const seg = segSets.get(`${cand[0].recording_file}|${cand[0].begin_time_s}`)
-        const co = seg ? [...seg].some((x) => x !== s) : false
-        const bucket = r.outcome === 1 ? res.ok : res.bad
+      pred.rows.forEach((r) => {
+        if (r.common_name !== s || r.validated !== 'yes') return
+        const co = [...(segSets.get(segKey(r)) ?? [])].some((x) => x !== s)
+        const bucket = r.validation_outcome === 'correct' ? res.ok : res.bad
         bucket.n++
         if (co) bucket.co++
       })
       return { s, ...res }
     })
-    return { z, vstats, units: sets.size }
-  }, [pred, val, species, level])
+    return { z, vstats, units: sets.size, multi }
+  }, [pred, species, level])
   const fig = useMemo(() => {
     const short = species.map((s) => s.split(' ').slice(-1)[0])
     const text = d.z.map((row, i) => row.map((v, j) => (i === j ? `${fmtInt(v)} ${level}s` : `${fmtInt(v)} shared (${fmtPct(v / Math.max(1, d.z[i][i]), 1)} of ${short[i]})`)))
@@ -895,7 +934,7 @@ function CoDetection({ pred, val, t, species }: Ctx) {
         <ul>
           <li>
             {(() => {
-              const off = d.z.reduce((a, row, i) => a + row.reduce((b, v, j) => b + (i < j ? v : 0), 0), 0)
+              const off = d.multi // units carrying two or more target species (each counted once)
               return level === 'segment'
                 ? `Only ${fmtInt(off)} segment${off === 1 ? '' : 's'} carry predictions of two target species at once — the four targets are almost never predicted together, so errors cannot be blamed on the other targets’ songs.`
                 : `${fmtInt(off)} audio files contain predictions of two target species: they share hours and sites even though they rarely call in the same 3-s segment.`

@@ -337,14 +337,14 @@ export function BirdsDiurnal({ reg, tokens: t, onOpen }: { reg: Map<string, Data
         <ul>
           {nj && (
             <li>
-              <b>Abyssinian Nightjar — an apparent evening effect that is really a site effect.</b>{' '}
+              <b>Abyssinian Nightjar — an apparent evening effect that is largely a site effect.</b>{' '}
               {(() => {
                 const ev = nj.periods.find((x) => x.key === 'evening')!
                 return `${ev.wrong} of its ${nj.wrong} validation errors fall in the evening (17–22 h), and its confidence dips at 19–22 h (relative ${fmtNum(nj.evRelAll, 2)}).`
               })()}{' '}
               {nj.problem.length ? (
                 <>
-                  But {nj.problem.join(' and ')} account for {nj.problemWrong} of the {nj.wrong} errors — every validated Nightjar clip from them was wrong — and they contribute {fmtInt(nj.problemPreds)} mostly low-score predictions concentrated in the evening. Excluding them, the evening dip largely disappears: evening confidence is {fmtNum(nj.evRelOk, 2)}× the remaining recorders’ own mean (vs {fmtNum(nj.evRelAll, 2)}× with them), and the hourly lows of ~0.7 vanish. Something else at those sites (another nightjar, frogs or insects) seems to trigger the Nightjar class. The candidate covariate for the logistic model is therefore the <b>site / recorder</b>, not time of day; and those recorders’ Nightjar predictions deserve review.
+                  But {nj.problem.join(' and ')} account for {nj.problemWrong} of the {nj.wrong} errors — every validated Nightjar clip from them was wrong — and they contribute {fmtInt(nj.problemPreds)} mostly low-score predictions concentrated in the evening. Excluding them, the evening dip largely disappears: evening confidence is {fmtNum(nj.evRelOk, 2)}× the remaining recorders’ own mean (vs {fmtNum(nj.evRelAll, 2)}× with them), and the hourly lows of ~0.7 vanish. Something else at those sites (another nightjar, frogs or insects) seems to trigger the Nightjar class. The first candidate covariate for the logistic model is therefore the <b>site / recorder</b>. This does not rule out an additional time-of-day effect — that needs score, recorder and time compared together — and a recorder term can itself separate the data and will not carry over to new recorders. Those recorders’ Nightjar predictions deserve review.
                 </>
               ) : (
                 'Time of day and score are confounded; test a time covariate conditional on score before using it.'

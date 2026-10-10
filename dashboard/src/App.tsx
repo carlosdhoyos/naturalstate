@@ -56,8 +56,9 @@ const DIURNAL = 'diurnal:birds'
 const EDA = 'eda:birds'
 /** Pages that are not datasets: summary:<challenge>, method:birds. */
 const challengeOf = (id: string): Challenge | null => {
-  const m = /^(summary|method|quality|diurnal|eda):(birds|vegetation)$/.exec(id)
-  return m ? (m[2] as Challenge) : null
+  // Pages that exist: a summary per challenge; the other pages only for birds.
+  const m = /^(?:summary:(birds|vegetation)|(?:method|quality|diurnal|eda):(birds))$/.exec(id)
+  return m ? ((m[1] ?? m[2]) as Challenge) : null
 }
 
 function readHash(): { id?: string; tab?: Tab } {
@@ -182,7 +183,16 @@ export default function App() {
   useEffect(() => {
     const on = () => {
       const h = readHash()
-      if (h.id) setCurrent(h.id)
+      if (!h.id) return
+      setCurrent(h.id)
+      const tab = h.tab
+      if (tab && (['overview', 'explore', 'table', 'map'] as const).includes(tab as never))
+        setViews((prev) => {
+          if (prev[h.id!]?.tab === tab) return prev
+          const next = { ...prev, [h.id!]: { ...prev[h.id!], tab } as ViewState }
+          save('views', next)
+          return next
+        })
     }
     window.addEventListener('hashchange', on)
     return () => window.removeEventListener('hashchange', on)

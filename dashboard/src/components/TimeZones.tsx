@@ -244,9 +244,9 @@ export function TimeZones({ reg, tokens: t, onOpen }: { reg: Map<string, Dataset
                 <td>
                   <b>Verdict</b>
                 </td>
-                <td className="num">{near(loc.dawn, riseEAT) ? <Verdict tone="ok">local time (EAT)</Verdict> : <Verdict tone="neutral">unclear</Verdict>}</td>
-                <td className="num">{near(flg.dawn, sun.riseUTC) ? <Verdict tone="warn">UTC</Verdict> : <Verdict tone="neutral">unclear</Verdict>}</td>
-                <td className="num">{near(flgLocal.dawn, riseEAT) ? <Verdict tone="ok">matches local</Verdict> : <Verdict tone="neutral">unclear</Verdict>}</td>
+                <td className="num">{near(loc.dawn, riseEAT) ? <Verdict tone="ok">consistent with local time</Verdict> : <Verdict tone="neutral">unclear</Verdict>}</td>
+                <td className="num">{near(flg.dawn, sun.riseUTC) ? <Verdict tone="warn">consistent with UTC</Verdict> : <Verdict tone="neutral">unclear</Verdict>}</td>
+                <td className="num">{near(flgLocal.dawn, riseEAT) ? <Verdict tone="ok">consistent with local after the assumed shift</Verdict> : <Verdict tone="neutral">unclear</Verdict>}</td>
                 <td />
               </tr>
             </tbody>
@@ -312,14 +312,14 @@ export function TimeZones({ reg, tokens: t, onOpen }: { reg: Map<string, Dataset
                   <td className="num">{c.on === null ? `— (n=${c.nO})` : `${fmtClock(c.on)} (${c.dO! >= 0 ? '+' : ''}${fmtNum(c.dO!, 2)} h)`}</td>
                   <td className="num">{c.nm === null ? `— (n=${c.nN})` : `${fmtClock(c.nm)} (${c.dN! >= 0 ? '+' : ''}${fmtNum(c.dN!, 2)} h)`}</td>
                   <td className="num">{c.correction ? `${c.correction > 0 ? '+' : ''}${c.correction} h` : '0'}</td>
-                  <td>{c.strong ? <Verdict tone="warn">clock on UTC → corrected</Verdict> : c.weak ? <Verdict tone="neutral">inconclusive (one noisy indicator) — not corrected</Verdict> : <Verdict tone="ok">local time</Verdict>}</td>
+                  <td>{c.strong ? <Verdict tone="warn">{c.dN === null ? 'consistent with UTC (dawn singer only) → assumed +3 h' : 'consistent with UTC (both species) → assumed +3 h'}</Verdict> : c.weak ? <Verdict tone="neutral">inconclusive (one noisy indicator) — not corrected</Verdict> : <Verdict tone="ok">consistent with local time</Verdict>}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p className="muted small">
-          Derived columns added to BirdNET predictions: <code>clock_correction_h</code>, <code>detection_time_local</code>, <code>hour_local</code>, <code>date_local</code>. The correction is an inference from bird activity, not recorder metadata.
+          {birds.clock.length} of {new Set(pred?.rows.map((r) => r.folder)).size} recorders have enough data to assess; the others are left uncorrected and no claim is made about their clocks. Derived columns: <code>clock_correction_h</code>, <code>detection_time_local</code>, <code>hour_local</code>, <code>date_local</code>. The correction is an <b>assumed scenario</b> inferred from bird activity (which also contains known false-positive sources and unequal schedules) — confirm against deployment metadata before treating it as fact.
         </p>
       </section>
 

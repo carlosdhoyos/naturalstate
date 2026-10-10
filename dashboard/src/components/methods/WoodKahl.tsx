@@ -422,11 +422,11 @@ function Simulator({ t, sc, setSc }: { t: ThemeTokens; sc: Scenario; setSc: (s: 
     const ys = xs.map((x) => (r() < sigmoid(b0 + b1 * x) ? 1 : 0))
     const fitL = fitLogistic(xs, ys)
     const fitC = fitLogistic(xs.map(sigmoid), ys)
-    const thrL = fitL.b1 > 0 ? thresholdFor(fitL, p) : null
-    const thrC = fitC.b1 > 0 ? thresholdFor(fitC, p) : null
+    const thrL = thresholdFor(fitL, p) // null unless the fit is valid and increasing
+    const thrC = thresholdFor(fitC, p)
     const trueX = b1 > 0 ? (logit(p) - b0) / b1 : NaN
     // Consequences on the whole simulated population, using the logit-scale threshold
-    const cut = thrL && !fitL.separated ? thrL.x : Infinity
+    const cut = thrL ? thrL.x : Infinity
     const kept = pop.filter((x) => x >= cut)
     const tpAll = pop.reduce((a, x) => a + sigmoid(b0 + b1 * x), 0)
     const tpKept = kept.reduce((a, x) => a + sigmoid(b0 + b1 * x), 0)
@@ -437,6 +437,7 @@ function Simulator({ t, sc, setSc }: { t: ThemeTokens; sc: Scenario; setSc: (s: 
     const max = onLogit ? X_MAX : 0.9999
     const min = onLogit ? X_MIN : 0.1
     if (fit.separated) return { tone: 'warn' as const, text: 'Perfect separation: no finite fit. Every clip on one side of some score is correct (or the sample has no errors at all), so the likelihood keeps improving as the curve gets steeper. The threshold is undefined — more validation (especially errors) or a different rule is needed.' }
+    if (!fit.valid) return { tone: 'warn' as const, text: 'The fit did not converge to a finite solution — no threshold is reported. Treat it like separation: more validation (especially errors) is needed.' }
     if (!thr) return { tone: 'warn' as const, text: 'The fitted curve does not increase with score — no threshold exists.' }
     if (thr.x > max) return { tone: 'warn' as const, text: `The ${p} level is above the highest possible score: no prediction qualifies as an observation.` }
     if (thr.x < min) return { tone: 'ok' as const, text: `Even the lowest exported score exceeds ${p}: every prediction qualifies.` }
@@ -457,7 +458,7 @@ function Simulator({ t, sc, setSc }: { t: ThemeTokens; sc: Scenario; setSc: (s: 
     const pts = (want: number) => sim.xs.map((x, i) => ({ x, y: jit[i], o: sim.ys[i] })).filter((d) => d.o === want)
     const xr = onL ? [X_MIN - 0.3, X_MAX + 0.3] : [0.08, 1.01]
     const shapes: object[] = [{ type: 'line', x0: xr[0], x1: xr[1], y0: p, y1: p, line: { color: t.muted, width: 1 } }]
-    if (thr && !sim[onL ? 'fitL' : 'fitC'].separated && thr.x >= (onL ? X_MIN : 0.1) && thr.x <= (onL ? X_MAX : 1)) {
+    if (thr && thr.x >= (onL ? X_MIN : 0.1) && thr.x <= (onL ? X_MAX : 1)) {
       shapes.push(
         { type: 'rect', x0: thr.x, x1: xr[1], y0: -0.1, y1: 1.1, fillcolor: `${series[0]}14`, line: { width: 0 }, layer: 'below' },
         { type: 'rect', x0: Math.max(xr[0], thr.lo), x1: Math.min(xr[1], thr.hi), y0: -0.1, y1: 1.1, fillcolor: `${series[2]}1f`, line: { width: 0 }, layer: 'below' },
@@ -479,7 +480,7 @@ function Simulator({ t, sc, setSc }: { t: ThemeTokens; sc: Scenario; setSc: (s: 
     }
     const data = [
       { type: 'scatter', mode: 'lines', x: grid.map(toAxis), y: grid.map((x) => sigmoid(b0 + b1 * x)), name: 'true curve (known only in a simulation)', line: { color: OTHER[t.theme], width: 1.5 }, hoverinfo: 'skip' },
-      ...(fit.separated
+      ...(!fit.valid
         ? []
         : [{ type: 'scatter', mode: 'lines', x: grid.map(toAxis), y: grid.map((x) => sigmoid(fit.b0 + fit.b1 * (onL ? x : sigmoid(x)))), name: `fitted on ${onL ? 'logit score' : 'confidence'}`, line: { color: series[0], width: 3 }, hovertemplate: 'score %{x:.3f} → pr(correct) %{y:.3f}<extra></extra>' }]),
       { type: 'scatter', mode: 'markers', x: pts(1).map((d) => toAxis(d.x)), y: pts(1).map((d) => d.y), name: 'validated: correct', marker: { color: series[0], size: 7, opacity: 0.6, symbol: 'circle', line: { color: t.surface, width: 1 } }, hovertemplate: 'confidence %{customdata:.3f}<br>correct<extra></extra>', customdata: pts(1).map((d) => sigmoid(d.x)) },
@@ -490,7 +491,7 @@ function Simulator({ t, sc, setSc }: { t: ThemeTokens; sc: Scenario; setSc: (s: 
 
   const hist = useMemo(() => {
     const onL = scale === 'logit'
-    const thr = sim.thrL && !sim.fitL.separated ? sim.thrL.x : Infinity
+    const thr = sim.thrL ? sim.thrL.x : Infinity
     const edges = Array.from({ length: 24 }, (_, i) => X_MIN + (i * (X_MAX - X_MIN)) / 23)
     const cnt = (keep: boolean) =>
       edges.slice(0, -1).map((lo, i) => sim.pop.filter((x) => x >= lo && x < edges[i + 1] + (i === edges.length - 2 ? 1e-9 : 0) && (x >= thr) === keep).length)
@@ -513,6 +514,7 @@ function Simulator({ t, sc, setSc }: { t: ThemeTokens; sc: Scenario; setSc: (s: 
 
   const fmtThr = (thr: { x: number; lo: number; hi: number } | null, fit: LogitFit, onLogit: boolean) => {
     if (fit.separated) return 'undefined (separation)'
+    if (!fit.valid) return 'undefined (no convergence)'
     if (!thr) return '—'
     if (thr.x > (onLogit ? X_MAX : 1)) return 'beyond every score'
     if (thr.x < (onLogit ? X_MIN : 0.1)) return 'below 0.1 — all qualify'
@@ -607,7 +609,7 @@ function Simulator({ t, sc, setSc }: { t: ThemeTokens; sc: Scenario; setSc: (s: 
             sub={(() => {
               const thr = scale === 'logit' ? sim.thrL : sim.thrC
               const fit = scale === 'logit' ? sim.fitL : sim.fitC
-              if (!thr || fit.separated) return 'confidence score'
+              if (!thr || !fit.valid) return 'confidence score'
               if (thr.x > (scale === 'logit' ? X_MAX : 1) || thr.x < (scale === 'logit' ? X_MIN : 0.1)) return `fitted ${scale === 'logit' ? 'logit' : 'confidence'} ${fmtNum(thr.x, 3)} — outside the exported range`
               return scale === 'logit'
                 ? `confidence · logit ${fmtNum(thr.x, 3)} · 95% CI ${fmtNum(sigmoid(thr.lo), 3)}–${fmtNum(sigmoid(thr.hi), 3)}`
@@ -621,9 +623,9 @@ function Simulator({ t, sc, setSc }: { t: ThemeTokens; sc: Scenario; setSc: (s: 
             value={!Number.isFinite(sim.trueX) || sim.trueX > X_MAX ? 'never reached' : sim.trueX < X_MIN ? 'below 0.1 — all qualify' : fmtNum(sigmoid(sim.trueX), 4)}
             sub="from the true curve — unknowable with real data"
           />
-          <Readout label="Fitted model" value={sim.fitL.separated ? '—' : `β₀ ${fmtNum(sim.fitL.b0, 3)} · β ${fmtNum(sim.fitL.b1, 3)}`} sub={`on logit score · ${sim.xs.length} clips · ${sim.ys.filter((y) => y === 0).length} incorrect`} />
+          <Readout label="Fitted model" value={!sim.fitL.valid ? '—' : `β₀ ${fmtNum(sim.fitL.b0, 3)} · β ${fmtNum(sim.fitL.b1, 3)}`} sub={`on logit score · ${sim.xs.length} clips · ${sim.ys.filter((y) => y === 0).length} incorrect`} />
           <div className="readout-pair">
-            <Readout label="Labelled observations" value={sim.fitL.separated || !sim.thrL ? '—' : fmtPct(sim.kept.length / sim.pop.length, 1)} sub={sim.fitL.separated || !sim.thrL ? '' : `${fmtInt(sim.kept.length)} of ${fmtInt(sim.pop.length)}`} />
+            <Readout label="Labelled observations" value={!sim.thrL ? '—' : fmtPct(sim.kept.length / sim.pop.length, 1)} sub={!sim.thrL ? '' : `${fmtInt(sim.kept.length)} of ${fmtInt(sim.pop.length)}`} />
             <Readout label="True precision of those" value={Number.isFinite(sim.precisionKept) ? fmtPct(sim.precisionKept, 2) : '—'} sub="≥ p: everything above the threshold is at least that good" tone={sim.precisionKept >= p ? 'ok' : sim.precisionKept ? 'warn' : undefined} />
           </div>
           <Readout label="True detections kept (recall)" value={Number.isFinite(sim.recall) ? fmtPct(sim.recall, 1) : '—'} sub="the price of a strict threshold: real calls left as predictions" />

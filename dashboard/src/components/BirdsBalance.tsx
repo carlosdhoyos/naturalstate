@@ -4,18 +4,18 @@
  */
 import { useMemo, type ReactNode } from 'react'
 import { axisStyle, baseLayout } from '../charts/build'
-import { fmtInt, fmtNum, fmtPct, quantileSorted } from '../data/stats'
+import { CONF_BANDS, CONF_BAND_LABELS, fmtInt, fmtNum, fmtPct, medianOf } from '../data/stats'
 import type { Dataset } from '../data/types'
 import { tip, type HelpKey } from '../lib/help'
 import { OTHER, SERIES, type ThemeTokens } from '../lib/palette'
 import { Plot } from './Plot'
 
-const BANDS = [0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.0000001]
-const BAND_LABELS = ['0.1–0.2', '0.2–0.3', '0.3–0.5', '0.5–0.7', '0.7–0.9', '0.9–1.0']
+const BANDS = CONF_BANDS
+const BAND_LABELS = CONF_BAND_LABELS
 const MIN_EVENTS = 20 // ~10 of the rarer outcome per coefficient × 2 coefficients
 
 const shares = (x: number[]) => BANDS.slice(0, -1).map((lo, i) => (x.length ? x.filter((c) => c >= lo && c < BANDS[i + 1]).length / x.length : 0))
-const median = (x: number[]) => quantileSorted([...x].sort((a, b) => a - b), 0.5)
+const median = medianOf
 
 /** Two-sample Kolmogorov–Smirnov distance and its 5% critical value (large-sample approximation). */
 function ks(a: number[], b: number[]) {
