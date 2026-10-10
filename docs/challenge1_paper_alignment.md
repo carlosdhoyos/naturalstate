@@ -28,14 +28,14 @@ Status key:
 
 We fit one curve per species and never read a confidence score as a probability until it has been calibrated against validated clips.
 
-### 2. How to choose validation clips — aligned (with an open question)
+### 2. How to choose validation clips — aligned (confirmation item C-1)
 
 > "For each desired species or class, generate a random selection of BirdNET predictions spanning the full range of BirdNET scores. … for infrequently encountered species … it can be valuable to generate a second set of randomly selected validation samples from a higher range of scores and add these to the original dataset."
 
 - We use the validations provided.
 - For three species they over-represent high scores. For example, 26% of validated Oriole clips score ≥ 0.9, against 3% of Oriole predictions (D-12, `outputs/sampling_by_band.csv`). That is what the recommended top-up would produce.
 - Selecting clips by score does not bias a model of correctness *given* the score, so the curves are unaffected.
-- **Open question for Natural State:** the actual protocol. Was sampling random within score strata, and were clips drawn with replacement? The duplicate pairs suggest they may have been (D-01).
+- **Confirmation item C-1** (Q1 report, section 9): the actual protocol. The working assumption is random sampling within score strata. Whether clips were drawn with replacement is also to confirm; the duplicate pairs suggest they may have been (D-01).
 
 ### 3. The model — aligned
 

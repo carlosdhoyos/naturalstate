@@ -8,7 +8,7 @@ This folder contains a reproducible workflow. It does three things:
 
 **The two answers to the brief:**
 
-- **[Q1_report.md](Q1_report.md):** the labels, how they were derived, the decisions, and the limitations.
+- **[Q1_report.md](Q1_report.md):** the labels, how they were derived, the decisions, the limitations, and the confirmation items for Natural State (C-1 to C-7).
 - **[Q2_tech_handover.md](Q2_tech_handover.md):** what the Tech team needs to run this automatically on NS Analytics.
 
 Related documents:

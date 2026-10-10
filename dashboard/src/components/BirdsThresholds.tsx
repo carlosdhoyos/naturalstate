@@ -566,7 +566,56 @@ function ResultsTab({ repro }: Ctx) {
           </li>
         </ul>
       </Note>
+
+      <ConfirmationItems />
     </>
+  )
+}
+
+// ── confirmation items (same IDs and wording as challenge1/Q1_report.md, section 9) ──
+
+const CONFIRMATIONS: { id: string; item: string; assumed: string; ifNot: string }[] = [
+  { id: 'C-1', item: 'How validation clips were sampled (random within score bands? high-score top-up? with replacement?)', assumed: 'Random within score bands with a high-score top-up (fits the data, D-12); duplicates are accidental re-draws (D-01)', ifNot: 'Selection on anything but score could bias the curves; refit with the real design' },
+  { id: 'C-2', item: 'BirdNET run settings: version, minimum score, sensitivity', assumed: 'v2.4, minimum 0.1, default sensitivity', ifNot: 'Sensitivity does not change confidence-scale thresholds; other versions or settings need their own calibration' },
+  { id: 'C-3', item: 'Recorder clocks: RBS40 and RBS71 on UTC (≈ 3 h behind)', assumed: 'Inferred from bird activity (D-03); used only in the time-of-day test', ifNot: 'Labels unaffected; only the evening covariate (D-13) changes' },
+  { id: 'C-4', item: 'What the wrong Nightjar detections at RBS75/RBS79 are', assumed: 'Site-specific false positives; flagged for review, not removed', ifNot: 'If another species calls there, treat the 9 flagged observations as unconfirmed until validated' },
+  { id: 'C-5', item: 'Meaning of “99%”: per prediction or set-level precision', assumed: 'Per prediction (Wood & Kahl): Nightjar 0.666639, 3,147 labels', ifNot: 'Set-level: 0.4316, 4,355 labels (already computed)' },
+  { id: 'C-6', item: 'How the two exports name the same audio (hour rounding, clip index)', assumed: 'Linked on species + recorder + date + hour + score: 476 unique, 69 tied, 2 not found (D-02)', ifNot: 'A few verdicts could attach to the wrong prediction; a stable prediction id removes the issue' },
+  { id: 'C-7', item: 'Outcome coding: 1 = BirdNET was right', assumed: 'As stated; consistent with the data (share correct rises with score)', ifNot: 'Everything would invert (sanity check)' },
+]
+
+function ConfirmationItems() {
+  return (
+    <Section title="Confirmation items for Natural State" sub="Assumptions the analysis runs on. None blocks the result; each has the working assumption used today and what would change if Natural State confirms otherwise. All are to confirm. Same list as the Q1 report, section 9.">
+      <div className="table-wrap auto">
+        <table className="data-table sum-table qa-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>To confirm</th>
+              <th>Working assumption</th>
+              <th>If different</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {CONFIRMATIONS.map((c) => (
+              <tr key={c.id}>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <b>{c.id}</b>
+                </td>
+                <td>{c.item}</td>
+                <td className="small">{c.assumed}</td>
+                <td className="small muted">{c.ifNot}</td>
+                <td>
+                  <span className="qa-chip qa-info">to confirm</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Section>
   )
 }
 
@@ -1345,7 +1394,9 @@ function SamplingTab({ t, sp, setSp }: Ctx) {
           <li>
             Choosing clips <i>by score</i> does not bias a model of correctness <i>given</i> the score, so the curves and thresholds are unaffected. It does bias any raw precision computed over all validated clips, which is why this page never reports one without the model or a score band.
           </li>
-          <li>The sampling protocol itself is not documented in the data; Natural State should confirm it (random within score strata, and whether clips were drawn with replacement — see the duplicate pairs, D-01).</li>
+          <li>
+            <b>Confirmation item C-1:</b> the sampling protocol is not documented in the data. The working assumption is random sampling within score bands with a high-score top-up, possibly with replacement (see the duplicate pairs, D-01).
+          </li>
         </ul>
       </Note>
     </>

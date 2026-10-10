@@ -419,7 +419,7 @@ The rule was fixed before looking at which recorders it selects:
   - The Firefinch validation mirrors its predictions.
 - **This matches Wood & Kahl's advice** to add a second random sample from higher scores when random samples are dominated by low ones.
 - **What it affects:** sampling by score does not bias a model of correctness *given* the score, so the curves are unaffected. It does bias any raw precision pooled over all validated clips, so none is reported without a model or a score band.
-- **Open question for Natural State:** the protocol itself is undocumented. Was it random within score strata, and were clips drawn with replacement (D-01)?
+- **Confirmation item C-1** (Q1 report, section 9): the protocol itself is undocumented. The working assumption is random sampling within score strata, possibly with replacement (D-01).
 
 ### Uncertainty
 

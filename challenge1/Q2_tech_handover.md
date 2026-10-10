@@ -209,6 +209,15 @@ Changing any of these creates a new threshold set. Nothing is edited in place.
 5. **BirdNET run metadata per prediction:** model version, sensitivity, minimum score, locale and species list.
 6. **Scores at full precision in the validation file** (currently 3 decimals in the file name).
 
+### Confirmation items that affect the implementation
+
+These are listed in full, with the working assumptions, in [Q1 report, section 9](Q1_report.md#9-confirmation-items-for-natural-state). Four of them shape what the platform has to store or check:
+
+- **C-1, validation sampling.** Store the sampling stratum per validation (`validations.sampling_stratum`), and keep sampling random within score bands.
+- **C-2, BirdNET settings.** Store the run settings per prediction (`birdnet_run_id`), and calibrate separately per configuration.
+- **C-3, recorder clocks.** Store the clock and time zone at deployment, before any time-of-day analysis.
+- **C-6, linkage.** A stable `prediction_id` makes the score-based linkage, and its 69 ties, unnecessary.
+
 ## 9. Acceptance tests for the platform implementation
 
 Run the platform job on this take-home dataset. It must reproduce:
