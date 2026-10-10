@@ -3,13 +3,13 @@
  * integrity, file naming / lineage between the two exports, recorder clocks, ecological plausibility.
  * Everything is computed from the loaded CSVs.
  */
-import { useMemo, type ReactNode } from 'react'
-import { axisStyle, baseLayout } from '../charts/build'
+import { useMemo, useState, type ReactNode } from 'react'
 import { fmtInt, fmtNum, fmtPct } from '../data/stats'
 import type { Dataset, Row } from '../data/types'
-import { OTHER, SERIES, type ThemeTokens } from '../lib/palette'
-import { Plot } from './Plot'
+import { hourOfMs as hourOf, inferClocks, NIGHTJAR, ORIOLE } from '../data/clocks'
+import { type ThemeTokens } from '../lib/palette'
 import type { OpenView } from './Summary'
+import { TimeZones } from './TimeZones'
 import { Stat } from './ui'
 
 type Status = 'pass' | 'info' | 'flag'
@@ -21,26 +21,11 @@ interface Check {
   why: string
 }
 
-const ORIOLE = 'African Black-headed Oriole'
-const NIGHTJAR = 'Abyssinian Nightjar'
-const hourOf = (ms: number) => (((ms % 86_400_000) + 86_400_000) % 86_400_000) / 3_600_000
-function circMean(hs: number[]) {
-  const s = hs.reduce((a, h) => a + Math.sin((2 * Math.PI * h) / 24), 0)
-  const c = hs.reduce((a, h) => a + Math.cos((2 * Math.PI * h) / 24), 0)
-  return ((Math.atan2(s, c) * 24) / (2 * Math.PI) + 24) % 24
-}
-const onset = (hs: number[]) => {
-  const m = hs.filter((h) => h < 12).sort((a, b) => a - b)
-  return m.length >= 20 ? m[Math.floor(0.05 * m.length)] : null
-}
-const wrapDiff = (a: number, b: number) => ((a - b + 36) % 24) - 12
-
 const StatusChip = ({ s }: { s: Status }) => <span className={`qa-chip qa-${s}`}>{s === 'pass' ? '✓ pass' : s === 'flag' ? '⚑ flag' : 'ℹ info'}</span>
 
 export function BirdsQuality({ reg, tokens: t, onOpen }: { reg: Map<string, Dataset>; tokens: ThemeTokens; onOpen: OpenView }) {
   const pred = reg.get('birdnet_predictions')
   const val = reg.get('validation_results')
-  const series = SERIES[t.theme]
 
   const q = useMemo(() => {
     if (!pred || !val) return null
@@ -106,31 +91,8 @@ export function BirdsQuality({ reg, tokens: t, onOpen }: { reg: Map<string, Data
     const species = new Set(V.map((r) => r.commonName)).size
     const link = (k: string) => V.filter((r) => r.link_to_predictions === k).length
 
-    // recorder clocks from species activity
-    const recs = new Map<string, { o: number[]; n: number[] }>()
-    P.forEach((r) => {
-      if (typeof r.detection_time !== 'number') return
-      const k = String(r.folder)
-      if (!recs.has(k)) recs.set(k, { o: [], n: [] })
-      const h = hourOf(r.detection_time)
-      if (r.common_name === ORIOLE) recs.get(k)!.o.push(h)
-      if (r.common_name === NIGHTJAR) recs.get(k)!.n.push(h)
-    })
-    const refN = circMean(P.filter((r) => r.common_name === NIGHTJAR && typeof r.detection_time === 'number').map((r) => hourOf(r.detection_time as number)))
-    const onsets = [...recs.values()].map((x) => onset(x.o)).filter((x): x is number => x !== null).sort((a, b) => a - b)
-    const refO = onsets[Math.floor(onsets.length / 2)]
-    const clock = [...recs.entries()]
-      .map(([rec, x]) => {
-        const on = onset(x.o)
-        const nm = x.n.length >= 20 ? circMean(x.n) : null
-        const dO = on === null ? null : on - refO
-        const dN = nm === null ? null : wrapDiff(nm, refN)
-        const strong = (dO !== null && Math.abs(dO) >= 2 && (dN === null || Math.abs(dN) >= 2)) || (dO !== null && dN !== null && Math.abs(dO) >= 2 && Math.abs(dN) >= 2)
-        const weak = !strong && ((dN !== null && Math.abs(dN) >= 2) || (dO !== null && Math.abs(dO) >= 2))
-        return { rec, nO: x.o.length, nN: x.n.length, on, nm, dO, dN, strong, weak }
-      })
-      .filter((c) => c.on !== null || c.nm !== null)
-      .sort((a, b) => a.rec.localeCompare(b.rec))
+    // recorder clocks from species activity (shared inference, see data/clocks.ts)
+    const { clock, refO, refN } = inferClocks(P, (r) => (typeof r.detection_time === 'number' ? hourOf(r.detection_time) : null))
     const strongRecs = clock.filter((c) => c.strong).map((c) => c.rec)
 
     // plausibility
@@ -171,7 +133,7 @@ export function BirdsQuality({ reg, tokens: t, onOpen }: { reg: Map<string, Data
       {
         area: 'Time',
         check: 'Recorder clocks (from species activity)',
-        result: strongRecs.length ? `${strongRecs.join(', ')}: activity ≈ ${fmtNum(Math.abs(clock.find((c) => c.strong)!.dO ?? 0), 2)} h early — clock likely on UTC instead of local time (UTC+3)` : 'no recorder deviates ≥ 2 h on clear evidence',
+        result: strongRecs.length ? `${strongRecs.join(', ')}: activity ≈ ${fmtNum(Math.abs(clock.find((c) => c.strong)!.dO ?? 0), 2)} h early — clocks on UTC instead of local time (UTC+3); all others match local sunrise/sunset (see the Time zones & clocks tab)` : 'no recorder deviates ≥ 2 h on clear evidence',
         status: strongRecs.length ? 'flag' : 'pass',
         why: 'Wrong clocks shift every time-of-day result (hour_of_day, detection_time). They do not affect the score thresholds.',
       },
@@ -184,56 +146,10 @@ export function BirdsQuality({ reg, tokens: t, onOpen }: { reg: Map<string, Data
         why: 'Most night-time Oriole detections come from the recorders with suspected UTC clocks — they are really dawn song.',
       },
     ]
-    return { checks, clock, refO, refN, strongRecs, recs, orioleNight, gridCounts, files: files.length }
+    return { checks, clock, refO, refN, strongRecs, orioleNight, gridCounts, files: files.length }
   }, [pred, val])
 
-  const clockFig = useMemo(() => {
-    if (!q || !pred) return null
-    const hours = Array.from({ length: 24 }, (_, h) => h)
-    const dist = (sp: string, keep: (rec: string) => boolean) => {
-      const xs = pred.rows.filter((r) => r.common_name === sp && typeof r.detection_time === 'number' && keep(String(r.folder))).map((r) => Math.floor(hourOf(r.detection_time as number)))
-      return hours.map((h) => (xs.length ? xs.filter((x) => x === h).length / xs.length : 0))
-    }
-    const others = (rec: string) => !q.strongRecs.includes(rec)
-    const panel = (sp: string, idx: number) => {
-      const sfx = idx === 0 ? '' : String(idx + 1)
-      return [
-        { type: 'bar', x: hours, y: dist(sp, others), name: 'all other recorders', legendgroup: 'o', showlegend: idx === 0, xaxis: `x${sfx}`, yaxis: `y${sfx}`, marker: { color: OTHER[t.theme] }, hovertemplate: `${sp}<br>%{x}h: %{y:.1%} (other recorders)<extra></extra>` },
-        ...q.strongRecs.map((rec, i) => ({
-          type: 'scatter',
-          mode: 'lines+markers',
-          x: hours,
-          y: dist(sp, (r) => r === rec),
-          name: rec,
-          legendgroup: rec,
-          showlegend: idx === 0,
-          xaxis: `x${sfx}`,
-          yaxis: `y${sfx}`,
-          line: { color: series[i + 1], width: 2 },
-          marker: { color: series[i + 1], size: 6, symbol: i ? 'square' : 'circle' },
-          hovertemplate: `${rec} ${sp}<br>%{x}h: %{y:.1%}<extra></extra>`,
-        })),
-      ]
-    }
-    return {
-      data: [...panel(ORIOLE, 0), ...panel(NIGHTJAR, 1)],
-      layout: {
-        ...baseLayout(t),
-        grid: { rows: 1, columns: 2, pattern: 'independent', xgap: 0.08 },
-        margin: { l: 52, r: 16, t: 64, b: 44 },
-        legend: { orientation: 'h', x: 0, y: 1.14, yanchor: 'bottom' },
-        xaxis: { ...axisStyle(t), title: { text: 'hour of detection (recorder clock)' }, dtick: 3, range: [-0.5, 23.5] },
-        xaxis2: { ...axisStyle(t), title: { text: 'hour of detection (recorder clock)' }, dtick: 3, range: [-0.5, 23.5] },
-        yaxis: { ...axisStyle(t), tickformat: '.0%', title: { text: 'share of the species’ detections' } },
-        yaxis2: { ...axisStyle(t), tickformat: '.0%' },
-        annotations: [
-          { text: `<b>${ORIOLE}</b> (diurnal)`, xref: 'x domain', yref: 'y domain', x: 0, y: 1.02, xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 12, color: t.ink } },
-          { text: `<b>${NIGHTJAR}</b> (nocturnal)`, xref: 'x2 domain', yref: 'y2 domain', x: 0, y: 1.02, xanchor: 'left', yanchor: 'bottom', showarrow: false, font: { size: 12, color: t.ink } },
-        ],
-      },
-    }
-  }, [q, pred, t, series])
-
+  const [tab, setTab] = useState<'checks' | 'time'>('checks')
   if (!q || !pred || !val) return <div className="empty">Bird files not found.</div>
   const n = (s: Status) => q.checks.filter((c) => c.status === s).length
 
@@ -245,6 +161,20 @@ export function BirdsQuality({ reg, tokens: t, onOpen }: { reg: Map<string, Data
         <p className="task-sub">Checks of the files themselves — structure, segment integrity, how the two exports name the same recordings, recorder clocks and ecological plausibility — independent of how confidence relates to correctness. Every result is computed from the CSVs; nothing is edited.</p>
       </div>
 
+      <div className="paper-tabs" role="tablist" aria-label="Data quality views">
+        <button type="button" role="tab" aria-selected={tab === 'checks'} className={`paper-tab ${tab === 'checks' ? 'on' : ''}`} onClick={() => setTab('checks')}>
+          <span>All checks</span>
+          <span className="role-dot">{q.checks.length} automated</span>
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'time'} className={`paper-tab ${tab === 'time' ? 'on' : ''}`} onClick={() => setTab('time')}>
+          <span>Time zones &amp; clocks</span>
+          <span className="role-dot">local or UTC?</span>
+        </button>
+      </div>
+
+      {tab === 'time' && <TimeZones reg={reg} tokens={t} onOpen={onOpen} />}
+      {tab === 'checks' && (
+      <>
       <div className="stats-row">
         <Stat label="Checks run" value={q.checks.length} sub={`${q.checks.length} automated, from the CSVs`} />
         <Stat label="Pass" value={n('pass')} sub="no issue found" />
@@ -289,53 +219,6 @@ export function BirdsQuality({ reg, tokens: t, onOpen }: { reg: Map<string, Data
         </div>
       </section>
 
-      <section className="sum-section">
-        <div className="sum-section-head">
-          <div>
-            <h2>Evidence: recorder clocks</h2>
-            <p className="muted">
-              Hour-of-day profile of a diurnal and a nocturnal species: flagged recorders vs all others. If a recorder’s whole profile is shifted by the same amount for both species, its clock — not the birds — is off. Network reference: Oriole dawn onset {fmtNum(q.refO, 2)} h, Nightjar mean hour {fmtNum(q.refN, 3)} h.
-            </p>
-          </div>
-          <button type="button" className="btn ghost sm" onClick={() => onOpen('birdnet_predictions', { tab: 'explore', spec: { kind: 'heatmap', x: 'hour_of_day', y: 'folder', agg: 'count', topN: 60 } })}>
-            Open recorder × hour heatmap
-          </button>
-        </div>
-        {clockFig && (
-          <div className="chart-card">
-            <Plot data={clockFig.data} layout={clockFig.layout} height={340} filename="recorder_clock_check" />
-          </div>
-        )}
-        <div className="table-wrap auto">
-          <table className="data-table sum-table">
-            <thead>
-              <tr>
-                <th>Recorder</th>
-                <th className="num has-tip" data-tip="5th percentile of the recorder’s Oriole detections before noon (needs ≥ 20).">
-                  Oriole dawn onset (Δ vs network)
-                </th>
-                <th className="num has-tip" data-tip="Circular mean hour of the recorder’s Nightjar detections (needs ≥ 20). Noisier: depends on which night hours were recorded.">
-                  Nightjar mean hour (Δ)
-                </th>
-                <th>Verdict</th>
-              </tr>
-            </thead>
-            <tbody>
-              {q.clock.map((c) => (
-                <tr key={c.rec} className={c.strong ? 'row-on' : ''}>
-                  <td>
-                    <b>{c.rec}</b>
-                  </td>
-                  <td className="num">{c.on === null ? `— (n=${c.nO})` : `${fmtNum(c.on, 2)} h (${c.dO! >= 0 ? '+' : ''}${fmtNum(c.dO!, 2)})`}</td>
-                  <td className="num">{c.nm === null ? `— (n=${c.nN})` : `${fmtNum(c.nm, 3)} h (${c.dN! >= 0 ? '+' : ''}${fmtNum(c.dN!, 2)})`}</td>
-                  <td>{c.strong ? <span className="verdict v-warn">clock ≈ {fmtNum(Math.abs(c.dO ?? c.dN ?? 0), 1)} h {(c.dO ?? c.dN ?? 0) < 0 ? 'behind' : 'ahead'}{Math.abs(Math.abs(c.dO ?? c.dN ?? 0) - 3) < 1 && (c.dO ?? 0) < 0 ? ' (likely UTC; local is UTC+3)' : ''}</span> : c.weak ? <span className="verdict v-neutral">inconclusive (one noisy indicator)</span> : <span className="verdict v-ok">consistent</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       <div className="for-us">
         <div className="pipe-col-label">What to send upstream (and what it means for the thresholds)</div>
         <ul>
@@ -351,6 +234,8 @@ export function BirdsQuality({ reg, tokens: t, onOpen }: { reg: Map<string, Data
           <li>For the thresholds themselves these issues are benign: the score–outcome pairs are intact (scores in the clip names match exactly, no duplicates, complete segments). They matter for time-of-day analyses, clip retrieval and future validation linkage.</li>
         </ul>
       </div>
+      </>
+      )}
     </div>
   )
 }

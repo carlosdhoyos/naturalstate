@@ -42,6 +42,14 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   - **Linkage:** 549 of 551 validated clips link to a prediction.
   - **Recorder clocks:** inferred from the activity of a diurnal and a nocturnal species. RBS40 and RBS71 run about 3 h behind, likely on UTC.
   - **Ecological plausibility:** e.g. the nocturnal Nightjar in daytime, the diurnal Oriole at night.
+- **Data quality → Time zones & clocks tab:** whether the hours are local or UTC.
+  - **Birds:** the files carry no time zone. Oriole dawn onset and Nightjar dusk onset are compared with sunrise and sunset computed (NOAA approximation) for candidate East African sites over the recording period. 41 recorders match local time (EAT, UTC+3); RBS40 and RBS71 match UTC. There is a toggle between the hours as recorded and corrected to local time.
+  - **Vegetation (ODK):** every form time is stamped +02:00, although Kenya is +03:00. The instants are correct: the server never receives a form before it ended, and all 640 photos fall inside their survey window. Only the label is wrong, so wall-clock times read off the stamps are 1 h behind local time.
+  - **Impact table:** thresholds are unaffected; time-of-day and daily views are affected.
+- **Derived time columns:**
+  - Birds: `clock_correction_h`, `detection_time_local`, `hour_local`, `date_local`. The correction is inferred from bird activity in `src/data/clocks.ts`, not hard-coded.
+  - Vegetation: `start_hour_eat`.
+  - Every date-time column now records the UTC offsets found in its raw text, shown on its Overview card.
 - **Vegetation summary:**
   - Headline counts.
   - Every table, with what one row means.
@@ -119,6 +127,8 @@ src/
   charts/build.ts    ChartSpec + rows → Plotly figure + table twin + click-to-filter map
   charts/presets.ts  quick views per dataset
   charts/describe.ts "How to read this chart" sentence from the current settings
+  data/sun.ts        sunrise/sunset (NOAA approximation), candidate sites
+  data/clocks.ts     recorder clock inference from species activity
   lib/logistic.ts    logistic regression (IRLS), threshold + delta-method CI, seeded RNG
   lib/simstats.ts    Beta/Gamma/normal samplers, Nelder–Mead, binomial pmf (unit-checked)
   components/Methodology.tsx  paper tabs; components/methods/* one file per paper + Overview

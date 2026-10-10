@@ -26,6 +26,8 @@ export interface Column {
   sep?: string
   distinct: number
   nonNull: number
+  /** Date-time columns: explicit UTC offsets found in the raw text (e.g. {"+02:00": 32}); "none" = no offset written. */
+  tz?: Record<string, number>
 }
 
 export interface GeoLayer {

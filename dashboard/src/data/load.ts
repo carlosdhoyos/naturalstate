@@ -97,12 +97,24 @@ export function buildDataset(
     raw.fields.forEach((f, i) => (out[f] = convert(r[f], types[i])))
     return out
   })
+  const tzOf = (f: string) => {
+    const m: Record<string, number> = {}
+    for (const r of raw.data) {
+      const v = r[f]?.trim()
+      if (!v) continue
+      const o = /(Z|[+-]\d{2}:?\d{2})$/.exec(v)?.[1] ?? 'none'
+      const k = o === 'Z' ? 'Z (UTC)' : o
+      m[k] = (m[k] ?? 0) + 1
+    }
+    return m
+  }
   const columns: Column[] = raw.fields.map((f, i) => ({
     name: f,
     label: labels[i].label,
     section: labels[i].section,
     type: types[i],
     ...columnStats(rows, f),
+    ...(types[i] === 'datetime' ? { tz: tzOf(f) } : {}),
   }))
   return { ...meta, notes: [], columns, rows, geo: [], paths: [] }
 }

@@ -167,10 +167,22 @@ function ColumnBody({ col, rows }: { col: Column; rows: Row[] }) {
                 </div>
               </>
             ) : (
+              <>
               <div className="span-3">
                 <dt {...tip('stat.span')}>span</dt>
                 <dd>{fmtDuration(s.max - s.min)} (UTC)</dd>
               </div>
+              {col.tz && (
+                <div className="span-3">
+                  <dt data-tip="UTC offsets written in the raw values. “none” = no offset in the text (recorder clock, shown as-is).">time-zone offset in the data</dt>
+                  <dd className={Object.keys(col.tz).includes('+02:00') ? 'warn-text' : ''}>
+                    {Object.entries(col.tz)
+                      .map(([k, n]) => `${k} ×${n}`)
+                      .join(', ')}
+                  </dd>
+                </div>
+              )}
+              </>
             )}
           </dl>
         </>

@@ -5,6 +5,7 @@
  * Rule: enrichment only *adds* derived columns (flagged `derived: true`). It never edits,
  * fixes or drops a source value — QA/QC findings must be flagged, not resolved.
  */
+import { inferClocks, hourOfMs } from './clocks'
 import { addColumn, tokens } from './load'
 import { applyTransform, fmtInt } from './stats'
 import type { Dataset, Row, Value } from './types'
@@ -126,6 +127,31 @@ function enrichBirds(reg: Registry) {
       { name: 'logit_confidence', type: 'number', description: 'ln(c / (1 − c)), with c clamped to [1e-4, 1 − 1e-4]. The x-axis of Wood & Kahl (2024).' },
       (r) => (typeof r.confidence === 'number' ? applyTransform(r.confidence, 'logit') : null),
     )
+
+    // Recorder clocks: most recorders run on local time (EAT, UTC+3); a few look like UTC.
+    // The correction is inferred from bird activity (see data/clocks.ts), never hard-coded.
+    const { corrections } = inferClocks(pred.rows, (r) => (typeof r.detection_time === 'number' ? hourOfMs(r.detection_time) : null))
+    const corr = (r: Row) => corrections.get(String(r.folder)) ?? 0
+    addColumn(
+      pred,
+      { name: 'clock_correction_h', type: 'number', description: 'Hours added to this recorder’s clock to express it in local time (EAT, UTC+3). 0 for recorders consistent with local sunrise/sunset; +3 where bird activity shows the clock on UTC. An inference, not metadata.' },
+      (r) => corr(r),
+    )
+    addColumn(
+      pred,
+      { name: 'detection_time_local', type: 'datetime', description: 'detection_time + clock_correction_h: best estimate of local time (EAT). Shown without time-zone conversion.' },
+      (r) => (typeof r.detection_time === 'number' ? r.detection_time + corr(r) * 3_600_000 : null),
+    )
+    addColumn(pred, { name: 'hour_local', type: 'number', description: 'Hour of day (0–23) of detection_time_local.' }, (r) =>
+      typeof r.detection_time_local === 'number' ? Math.floor(hourOfMs(r.detection_time_local)) : null,
+    )
+    addColumn(pred, { name: 'date_local', type: 'datetime', description: 'Calendar day of detection_time_local (can differ from recording_date for late-evening detections on corrected recorders).' }, (r) =>
+      typeof r.detection_time_local === 'number' ? Math.floor(r.detection_time_local / 86_400_000) * 86_400_000 : null,
+    )
+    if (corrections.size)
+      pred.notes.push(
+        `Clock check: ${[...corrections.entries()].map(([k, h]) => `${k} (${h > 0 ? '+' : ''}${h} h)`).join(', ')} look like they ran on UTC instead of local time (UTC+3); all other recorders match local sunrise/sunset. Use hour_local / detection_time_local for time-of-day work. Thresholds are unaffected.`,
+      )
   }
 
   if (val) {
@@ -217,14 +243,27 @@ function enrichVegetation(reg: Registry) {
   const register = reg.get('register_vegetation_plots')
   const species = reg.get('species')
 
+  // ODK stamps every time with +02:00, but Kenya is UTC+3. The instants are right (see Data quality),
+  // so the local hour is UTC + 3.
+  const addLocalHour = (ds: Dataset, col: string) => {
+    if (!ds.columns.some((c) => c.name === col)) return
+    addColumn(
+      ds,
+      { name: 'start_hour_eat', type: 'number', description: 'Hour the form was opened in local Kenyan time (EAT, UTC+3). The device stamped times with +02:00, i.e. one hour behind local wall-clock time.' },
+      (r) => (typeof r[col] === 'number' ? Math.floor(hourOfMs((r[col] as number) + 3 * 3_600_000)) : null),
+    )
+  }
+
   if (survey) {
     addDurations(survey, 'survey_begin-start_time', 'survey_end-end_time')
+    addLocalHour(survey, 'survey_begin-start_time')
     detectOdkGeopoints(survey, { background_geopoint: 'Background point (at submission)' })
     survey.labelColumn = 'plot_selection-plot_name'
   }
 
   if (register) {
     addDurations(register, 'survey_begin-start_time', 'survey_end-end_time')
+    addLocalHour(register, 'survey_begin-start_time')
     detectOdkGeopoints(register, {
       location_endpoint_a: 'Endpoint A',
       location_midpoint: 'Midpoint',
