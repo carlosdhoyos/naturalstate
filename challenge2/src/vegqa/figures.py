@@ -14,6 +14,7 @@ import pandas as pd  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 
 from .engine import rows  # noqa: E402
+from .load import by_key  # noqa: E402
 from .model import geometry, positions  # noqa: E402
 
 NAVY, STEEL, TEAL, TEAL_LIGHT, MIST, INK, MUTED = "#00354d", "#2b5672", "#1f9e8c", "#86d1c7", "#dfe6e9", "#0f2430", "#74868f"
@@ -29,40 +30,91 @@ def _worst(results: pd.DataFrame, rule_ids: list[str], key_col: str) -> pd.Serie
     return f.assign(o=f.severity.map(order)).groupby(key_col).o.max().map({v: k for k, v in order.items()})
 
 
-def map_overview(ctx, plots: pd.DataFrame, results: pd.DataFrame, path: Path):
-    """Longitude / latitude axes with the aspect corrected for latitude (1 deg lon = cos(lat) deg lat)."""
-    p = plots.assign(x=plots.prescribed_lon, y=plots.prescribed_lat)
-    worst = _worst(results, list(ctx.catalogue["rules"]), "plot_name")
-    fig, ax = plt.subplots(figsize=(10, 6.4))
-    cats = [
-        ("surveyed (primary)", (p.surveyed) & (p.sample_status == "primary"), dict(marker="o", s=46, c=TEAL, edgecolors="white", linewidths=0.8)),
-        ("surveyed (backup)", (p.surveyed) & (p.sample_status == "backup"), dict(marker="D", s=40, c=TEAL, edgecolors="white", linewidths=0.8)),
-        ("registered, not viable", (p.registered) & (p.viable == "no"), dict(marker="X", s=70, c=STATUS["warning"], edgecolors="white", linewidths=0.6)),
-        ("primary, never registered", (~p.registered) & (p.sample_status == "primary"), dict(marker="s", s=40, facecolors="white", edgecolors=STEEL, linewidths=1.4)),
-        ("backup, unused", (~p.registered) & (p.sample_status == "backup"), dict(marker="D", s=22, facecolors="white", edgecolors=MUTED, linewidths=0.9)),
-    ]
-    for label, m, kw in cats:
-        sub = p[m]
-        ax.scatter(sub.x, sub.y, label=f"{label} ({len(sub)})", zorder=3, **kw)
-    for r in rows(p[p.surveyed]):
-        if worst.get(r.plot_name) == "error":
-            ax.scatter(r.x, r.y, s=150, facecolors="none", edgecolors=STATUS["error"], linewidths=1.1, linestyle="--", zorder=2)
-    for r in rows(p):
-        ax.annotate(r.plot_name.replace("SavMon_LW_Plot_", ""), (r.x, r.y), xytext=(4, 3), textcoords="offset points", fontsize=6.5, color=INK)
-    for stratum, g in p.groupby("stratum"):
-        ax.annotate(stratum, (g.x.mean(), g.y.max()), xytext=(0, 14), textcoords="offset points", ha="center", fontsize=8, color=STEEL, style="italic")
-    ax.scatter([], [], s=150, facecolors="none", edgecolors=STATUS["error"], linestyle="--", label="dashed ring: plot has an error-level flag")
-    lat0 = float(p.y.mean())
-    km = 1 / (111.32 * np.cos(np.radians(lat0)))  # degrees of longitude per km
-    xb, yb = p.x.min(), p.y.min() - 0.006
-    ax.plot([xb, xb + km], [yb, yb], color=INK, lw=2)
-    ax.text(xb + km / 2, yb + 0.001, "1 km", ha="center", fontsize=8)
+def _north_arrow(ax, x=0.97, y=0.93, size=0.07):
+    ax.annotate("N", xy=(x, y), xytext=(x, y - size), xycoords="axes fraction", ha="center", va="center", fontsize=8, fontweight="bold", color=INK,
+                arrowprops=dict(arrowstyle="-|>", color=INK, lw=1.2))
+
+
+def _place_labels(ax, fig, pts: list[tuple[float, float, str]], fontsize=6.5):
+    """Greedy label placement: try offsets around each point and keep the first that overlaps no
+    earlier label and no marker; fall back to the first offset. Keeps every label legible."""
+    fig.canvas.draw()
+    rend = fig.canvas.get_renderer()
+    marker_px = [ax.transData.transform((x, y)) for x, y, _ in pts]
+    placed = []
+    offsets = [(7, 5), (7, -11), (-7, 5), (-7, -11), (0, 10), (0, -16), (12, -3), (-12, -3), (14, 12), (-14, 12), (14, -18), (-14, -18)]
+
+    def hits(bb):
+        if any(bb.overlaps(o) for o in placed):
+            return True
+        return any(bb.x0 - 3 < mx < bb.x1 + 3 and bb.y0 - 3 < my < bb.y1 + 3 for mx, my in marker_px)
+
+    for x, y, text in pts:
+        best = None
+        for dx, dy in offsets:
+            t = ax.annotate(text, (x, y), xytext=(dx, dy), textcoords="offset points", fontsize=fontsize, color=INK,
+                            ha="left" if dx > 0 else "right" if dx < 0 else "center", va="center", zorder=7,
+                            arrowprops=dict(arrowstyle="-", lw=0.4, color=MUTED, shrinkA=1, shrinkB=4))  # leader to its own point
+            bb = t.get_window_extent(rend)
+            if not hits(bb):
+                best = (t, bb)
+                break
+            t.remove()
+        if best is None:
+            t = ax.annotate(text, (x, y), xytext=offsets[0], textcoords="offset points", fontsize=fontsize, color=INK, zorder=7)
+            best = (t, t.get_window_extent(rend))
+        placed.append(best[1])
+
+
+def map_transects(ctx, plots: pd.DataFrame, results: pd.DataFrame, path: Path):
+    """Section (d): where the transects ARE (registered midpoints, coloured by the worst location or
+    shape flag), with the prescribed points for context. Longitude / latitude axes, aspect corrected for
+    latitude. At this extent a 50 m transect is below one pixel; its true-scale geometry is the panel grid."""
+    from .gis import GEOMETRY_RULES, prescribed_points, worst_flags
+
+    pts = prescribed_points(plots)
+    g = geometry(ctx)
+    g = g[g.has_geometry]
+    reg = by_key(ctx.data.registration, "plot_uuid")
+    t = pd.DataFrame({"plot_uuid": g.plot_uuid, "plot_name": g.plot_name, "x": g.plot_uuid.map(reg._midpoint_lon), "y": g.plot_uuid.map(reg._midpoint_lat)})
+    worst, _ = worst_flags(results, GEOMETRY_RULES, "plot_name")
+    t["worst"] = t.plot_name.map(worst).fillna("none")
+    fig, ax = plt.subplots(figsize=(10.5, 6.6))
+    # context: prescribed points that have no registered transect
+    ctxp = pts[~pts.plot_uuid.isin(t.plot_uuid)]
+    for label, m, kw in [
+        ("prescribed primary, never registered", (ctxp.status == "primary, never registered"), dict(marker="s", s=34, facecolors="white", edgecolors=STEEL, linewidths=1.3)),
+        ("prescribed backup, unused", (ctxp.status == "backup, unused"), dict(marker="D", s=20, facecolors="white", edgecolors=MUTED, linewidths=0.9)),
+        ("registered, not viable (no transect)", ctxp.status.str.startswith("registered"), dict(marker="X", s=60, c=STATUS["warning"], edgecolors="white", linewidths=0.6)),
+    ]:
+        sub = ctxp[m]
+        ax.scatter(sub.prescribed_lon, sub.prescribed_lat, label=f"{label} ({len(sub)})", zorder=3, **kw)
+    sty = {"none": ("no location or shape flag", TEAL), "info": ("info only", STATUS["info"]), "warning": ("warning", STATUS["warning"]), "error": ("error", STATUS["error"])}
+    for k, (lab, col) in sty.items():
+        sub = t[t.worst == k]
+        if len(sub):
+            ax.scatter(sub.x, sub.y, s=58, marker="o", c=col, edgecolors="white", linewidths=0.9, zorder=5, label=f"registered transect: {lab} ({len(sub)})")
+    lab = [(r.x, r.y, r.plot_name.replace("SavMon_LW_Plot_", "")) for r in rows(t)]
+    lab += [(r.prescribed_lon, r.prescribed_lat, r.plot_name.replace("SavMon_LW_Plot_", "")) for r in rows(ctxp)]
+    lat0 = float(pts.prescribed_lat.mean())
     ax.set_aspect(1 / np.cos(np.radians(lat0)))
-    ax.set_xlabel("longitude (deg E)")
-    ax.set_ylabel("latitude (deg N)")
-    ax.set_title("Prescribed points: what was registered and surveyed (Lewa, lw_baseline; WGS84)", loc="left")
+    pad = 0.006
+    ax.set_xlim(pts.prescribed_lon.min() - pad, pts.prescribed_lon.max() + pad)
+    ax.set_ylim(pts.prescribed_lat.min() - 2 * pad, pts.prescribed_lat.max() + pad)
+    for stratum, gg in pts.groupby("stratum"):
+        ax.annotate(stratum, (gg.prescribed_lon.mean(), gg.prescribed_lat.max()), xytext=(0, 12), textcoords="offset points", ha="center",
+                    fontsize=8, color=STEEL, style="italic")
+    km = 1 / (111.32 * np.cos(np.radians(lat0)))
+    xb, yb = pts.prescribed_lon.min(), pts.prescribed_lat.min() - 1.4 * pad
+    ax.plot([xb, xb + km], [yb, yb], color=INK, lw=2)
+    ax.text(xb + km / 2, yb + 0.0008, "1 km", ha="center", fontsize=8)
+    _north_arrow(ax, x=0.14, y=0.13)
+    ax.set_xlabel("longitude (deg E, WGS84)")
+    ax.set_ylabel("latitude (deg N, WGS84)")
+    ax.set_title("Transect locations: registered midpoints (lw_baseline), coloured by the worst location or shape flag (D01-D04, E03, E05)", loc="left")
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), frameon=False, fontsize=8)
     ax.grid(color="#e9eff1", lw=0.6)
+    _place_labels(ax, fig, lab)
     fig.savefig(path)
     plt.close(fig)
 
@@ -72,6 +124,8 @@ def transects_grid(ctx, results: pd.DataFrame, path: Path):
     g = g[g.has_geometry].sort_values("plot_name")
     q = positions(ctx)
     q = q[q.PARENT_KEY.isin(ctx.canonical)]
+    reg = by_key(ctx.data.registration, "plot_uuid")
+    reg_lat, reg_lon = reg._midpoint_lat, reg._midpoint_lon
     worst_q = _worst(results, ["E01", "E02", "E04", "E06"], "entity_key")
     plot_flags = results[(results.status == "fail") & results.rule_id.isin(["D01", "D02", "D03", "D04", "E03", "E05"]) & (results.severity != "info")]
     n = len(g)
@@ -106,6 +160,11 @@ def transects_grid(ctx, results: pd.DataFrame, path: Path):
         ax.set_yticks([])
         fl = sorted(set(plot_flags[plot_flags.plot_name == r.plot_name].rule_id))
         ax.set_title(r.plot_name.replace("SavMon_LW_", ""), fontsize=8.5, loc="left", pad=2)
+        ax.text(0.98, 0.98, f"{reg_lat.get(r.plot_uuid, np.nan):.5f}, {reg_lon.get(r.plot_uuid, np.nan):.5f}", transform=ax.transAxes, ha="right", va="top", fontsize=5.5, color=MUTED)
+        ax.plot([lim - 30, lim - 10], [-lim + 8, -lim + 8], color=INK, lw=1.4)  # 20 m scale bar
+        ax.text(lim - 20, -lim + 11, "20 m", ha="center", fontsize=5.5, color=INK)
+        ax.annotate("", xy=(-lim + 8, lim - 22), xytext=(-lim + 8, lim - 36), arrowprops=dict(arrowstyle="-|>", color=INK, lw=0.9))
+        ax.text(-lim + 8, lim - 19, "N", ha="center", fontsize=6, fontweight="bold", color=INK)
         if fl:
             ax.text(0.02, 0.02, " ".join(fl), transform=ax.transAxes, fontsize=6.5, color=STATUS["error"] if any(
                 (plot_flags.plot_name == r.plot_name) & (plot_flags.severity == "error")) else "#9a6a00")
@@ -113,7 +172,8 @@ def transects_grid(ctx, results: pd.DataFrame, path: Path):
                Line2D([], [], ls="--", color=MUTED, label="25 m limit"), plt.Rectangle((0, 0), 1, 1, color=TEAL_LIGHT, alpha=0.45, label="5 m belt")]
     handles += [Line2D([], [], marker="o", ls="", color=c, label=f"quadrat: {k}") for k, c in STATUS.items()]
     fig.legend(handles=handles, loc="lower center", ncol=8, frameon=False, fontsize=7.5, bbox_to_anchor=(0.5, -0.01))
-    fig.suptitle("Registered transects and canonical quadrats (140 m windows centred on the prescribed point; labels = plot-level warnings/errors)",
+    fig.suptitle("Registered transects at true scale, with canonical quadrats\n140 m windows centred on the prescribed point, north up; "
+                 "top right: registered midpoint (lat, lon); bottom left: plot-level warnings and errors",
                  x=0.01, ha="left", fontsize=10, fontweight="bold")
     fig.tight_layout(rect=(0, 0.03, 1, 0.97))
     fig.savefig(path)
@@ -236,7 +296,7 @@ def flags_heatmap(results: pd.DataFrame, plots: pd.DataFrame, path: Path):
 def make_all(ctx, tables: dict, results: pd.DataFrame, out: Path) -> list[str]:
     out.mkdir(parents=True, exist_ok=True)
     jobs = {
-        "map_overview.png": lambda p: map_overview(ctx, tables["plots"], results, p),
+        "map_transects.png": lambda p: map_transects(ctx, tables["plots"], results, p),
         "transects_grid.png": lambda p: transects_grid(ctx, results, p),
         "orientation.png": lambda p: orientation(ctx, p),
         "accumulation.png": lambda p: accumulation(tables["effort_curves"], tables["effort_plots"], p),

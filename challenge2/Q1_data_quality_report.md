@@ -3,7 +3,55 @@
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
 **Interactive version:** the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`, Vegetation → QA/QC dashboard): every flag with its source row, the map with per-plot transect panels, the curation queue and the effort views.
-**Prepared by:** Carlos Hoyos · run `qa-1cc918a576a8133e` · reproducible with `python challenge2/src/run_challenge2.py`
+**Prepared by:** Carlos Hoyos · run `qa-9785d0be1428322b` · reproducible with `python challenge2/src/run_challenge2.py`
+
+---
+
+## TL;DR
+
+- **Verdict:** the data can support savanna richness and diversity once three things are settled:
+  - where the data come from (C-7);
+  - the taxon names;
+  - the 10 quadrats whose species rows are missing.
+
+  Shrubland cannot be reported: it was not sampled.
+- **In good order:** the structure.
+  - Every survey has its 20 quadrats, and every photo and reference is present.
+  - Every GPS point meets the SOP's 5 m instruction.
+  - No record was edited after upload.
+- **Five problems, in order:**
+  1. **Shrubland:** none of its 6 primary points was registered (J01).
+  2. **Provenance:** altitudes are about 705 m below the terrain, including NS's own prescribed points (E14), and 20 identified taxa have no Kenyan GBIF record (F10).
+  3. **Taxon names:** 132 raw taxa become 115 after NS's curation. 23 names are probably misspelled, and 23 unknowns (15% of records) are unresolved.
+  4. **Missing species rows:** 10 quadrats say "additional species present" but have none, so the effort metrics of 7 plots are provisional (C04).
+  5. **Transect location or shape:** 6 transects have an error-level flag (Plots 05, 14, 15, 19, 22, 27).
+- **Headline numbers** (resolved taxa, provisional because of item 4): 115 taxa observed; Chao2 145 (95% CI 128–185); sample coverage 0.946 across the 30 plots.
+- **Flags:** 697 in total (24 errors, 222 warnings, 451 info). 241 of them are 10 project-wide findings repeated on every plot or submission.
+
+## What to do next
+
+| # | Action | Owner (suggested) | Unblocks | Refs |
+|---|---|---|---|---|
+| 1 | Confirm where the data were collected, and the altitude reference of the export | NS project lead / data manager | Any use of the results | C-7, E14, F10 |
+| 2 | Curate taxa: check the 23 probable misspellings, confirm the suggested merges and list additions (`outputs/species_list_suggestions.csv`), and resolve unknowns where photos or vouchers exist | NS botanist | Diversity metrics | F03, F07, F08, F13, C-5 |
+| 3 | Recover the species for the 10 quadrats with missing species rows (field sheets, photos), or accept the 7 plots as provisional | Field team lead | Effort metrics of 7 plots | C04, C08 |
+| 4 | Decide on shrubland: sample it in a later round, or drop it from reporting | NS project lead | Stratum-level reporting | J01, C-6 |
+| 5 | Review the 6 transects with error-level location or shape flags (section (d)): re-walk, re-register, or accept them | Field team lead | Comparable plots in later rounds | D01–D04, E03, E05 |
+| 6 | Fix the form's "quadrats with species" count, and confirm which form versions were deployed | ODK form owner | SOP step 13 check; future data | C07, K02, C17, C-12 |
+| 7 | Field routine: upload every evening, refresh lists before surveying, set devices to Africa/Nairobi | Field team lead | Avoids provisional-id collisions and wrong time labels | B06, B10, B12, C-8 |
+| 8 | Answer the protocol questions; the answers set rule thresholds for future runs | NS science lead | Fewer, sharper flags | C-1 to C-4, C-9 to C-11 |
+| 9 | Run the dashboard automatically, from the handover | Tech team | Same checks on every new submission | `Q2_tech_handover.md` |
+
+The protocol questions in action 8 are:
+- E–W orientation and out-and-back walking (C-3);
+- the backup rule (C-2);
+- the positional tolerance (C-4);
+- which ecosystems fit each stratum (C-10);
+- the plot definition (C-11);
+- ReviewState (C-1);
+- Plot 04 (C-9).
+
+Everything below is the detail behind these points: the Summary, then sections (a)–(d), then the decisions and the rule catalogue.
 
 ---
 
@@ -219,9 +267,7 @@ The survey is the herbaceous survey entity of the Lewa baseline replicate as a w
 
 ### Quadrat positions and timing
 
-The grid below shows each registered transect: the A–M–B line, the 5 m belt, the prescribed point and the 25 m limit. On top are its canonical quadrats, coloured by their worst position flag.
-
-![Registered transects and quadrats](outputs/figures/transects_grid.png)
+Each registered transect is drawn at true scale in section (d), Figure d2. The figure shows the A–M–B line, the 5 m belt, the prescribed point and the 25 m limit, with the canonical quadrats coloured by their worst position flag.
 
 - **Whole transects offset or rotated** (E03).
   - Plot 05's quadrats sit 19.9 m to one side of the registered line (z = 3.5): error.
@@ -415,11 +461,75 @@ Because the data are presence/absence per quadrat, diversity should use incidenc
 
 ## (d) Map of transect locations
 
-All 51 prescribed points are plotted, with the status of each. A ring marks a plot that has at least one error-level flag. The detailed transect geometry is in the grid in section (b).
+**In short:**
+- 30 transects were registered and surveyed: 29 primary and 1 backup (Plot 46). One registered plot was not viable (Plot 23), and the 6 shrubland points were never registered.
+- 6 transects carry an error-level location or shape flag: Plots 05, 14, 15, 19, 22 and 27. 8 carry a warning.
+- The dataset's provenance is unconfirmed (C-7). The coordinates are mapped exactly as exported, but whether they are where the fieldwork happened is part of that question.
 
-![Map of prescribed points and surveys](outputs/figures/map_overview.png)
+The section has three parts:
 
-For GIS use, `outputs/plots.csv` holds the prescribed and registered midpoint coordinates and the transect geometry of every plot. `outputs/quadrats.csv` holds every quadrat's coordinates, its position along and across the registered transect, and its flags.
+- **Figure d1:** where the transects are, at project scale.
+- **Figure d2:** each transect at true scale.
+- **A coordinates table**, plus a GIS file of everything mapped.
+
+**Figure d1. Transect locations.** Each filled circle is a transect's **registered midpoint**, where the team measured it, coloured by its worst location or shape flag (D01–D04, E03, E05). Open symbols are prescribed points with no transect, shown for context. At this scale a 50 m transect is smaller than its marker, so Figure d2 gives the geometry.
+
+![Transect locations](outputs/figures/map_transects.png)
+
+**Figure d2. Each transect at true scale.** Every panel is a 140 m window centred on the prescribed point (+), with north up and a 20 m scale bar. It shows:
+
+- the registered A–M–B line and its 5 m belt;
+- the 25 m limit around the prescribed point;
+- the canonical quadrats, coloured by their worst position flag.
+
+The registered midpoint's coordinates are at the top right, and the plot's location and shape warnings or errors at the bottom left.
+
+![Registered transects and quadrats](outputs/figures/transects_grid.png)
+
+**Transect coordinates** (WGS84, as exported; offset = registered midpoint to prescribed point):
+
+<!-- table:transect_locations -->
+| plot | end A (lat, lon) | midpoint (lat, lon) | end B (lat, lon) | A-B m | bearing deg | offset m | worst location/shape flag | rules |
+|---|---|---|---|---:|---:|---:|---|---|
+| Plot_01 | 0.23153, 37.40001 | 0.23136, 37.40025 | 0.23116, 37.40044 | 63.2 | 130.7 | 11.4 | warning | D03 E03 |
+| Plot_02 | 0.23417, 37.40626 | 0.23400, 37.40643 | 0.23407, 37.40673 | 53.8 | 102.7 | 13.3 | warning | D04 |
+| Plot_03 | 0.22219, 37.47586 | 0.22208, 37.47617 | 0.22204, 37.47635 | 57.5 | 106.9 | 5.3 | warning | D02 |
+| Plot_04 | 0.22563, 37.43569 | 0.22552, 37.43590 | 0.22547, 37.43614 | 53.5 | 109.5 | 5.7 | none |  |
+| Plot_05 | 0.27302, 37.48890 | 0.27296, 37.48914 | 0.27284, 37.48927 | 46.0 | 116.6 | 20.0 | error | E03 |
+| Plot_06 | 0.23170, 37.36934 | 0.23163, 37.36956 | 0.23158, 37.36976 | 48.4 | 106.1 | 4.3 | none |  |
+| Plot_07 | 0.23155, 37.42915 | 0.23163, 37.42944 | 0.23158, 37.42962 | 52.3 | 85.3 | 5.9 | warning | D02 E03 E05 |
+| Plot_08 | 0.22780, 37.35918 | 0.22780, 37.35938 | 0.22764, 37.35957 | 47.6 | 111.9 | 5.7 | info | E03 |
+| Plot_09 | 0.24230, 37.48843 | 0.24239, 37.48865 | 0.24239, 37.48883 | 45.7 | 77.9 | 5.3 | none |  |
+| Plot_10 | 0.21977, 37.49885 | 0.21972, 37.49909 | 0.21960, 37.49933 | 57.5 | 109.2 | 10.2 | none |  |
+| Plot_11 | 0.22239, 37.46637 | 0.22222, 37.46655 | 0.22227, 37.46673 | 42.5 | 107.9 | 11.6 | warning | D04 |
+| Plot_12 | 0.22986, 37.37322 | 0.22980, 37.37330 | 0.22966, 37.37354 | 41.9 | 122.8 | 12.2 | none |  |
+| Plot_13 | 0.23409, 37.39655 | 0.23426, 37.39687 | 0.23419, 37.39704 | 56.1 | 78.4 | 14.0 | warning | D02 D04 E03 |
+| Plot_14 | 0.22088, 37.50258 | 0.22087, 37.50267 | 0.22088, 37.50297 | 44.0 | 90.7 | 33.6 | error | D01 D02 E03 |
+| Plot_15 | 0.23474, 37.42584 | 0.23485, 37.42625 | 0.23469, 37.42638 | 60.4 | 95.8 | 15.2 | error | D02 D03 D04 E05 |
+| Plot_16 | 0.21961, 37.48099 | 0.21954, 37.48128 | 0.21952, 37.48150 | 58.3 | 100.4 | 3.5 | none |  |
+| Plot_17 | 0.23248, 37.38266 | 0.23258, 37.38281 | 0.23255, 37.38311 | 49.6 | 81.9 | 23.9 | info | D01 |
+| Plot_18 | 0.22263, 37.43895 | 0.22253, 37.43915 | 0.22247, 37.43933 | 45.7 | 113.6 | 2.6 | none |  |
+| Plot_19 | 0.21912, 37.49387 | 0.21920, 37.49398 | 0.21922, 37.49405 | 22.6 | 60.1 | 3.6 | error | D02 D03 |
+| Plot_20 | 0.23490, 37.42287 | 0.23480, 37.42304 | 0.23480, 37.42326 | 45.1 | 104.9 | 4.6 | info | E03 |
+| Plot_21 | 0.22558, 37.45668 | 0.22560, 37.45685 | 0.22552, 37.45708 | 44.8 | 97.8 | 13.8 | none |  |
+| Plot_22 | 0.22312, 37.47335 | 0.22315, 37.47356 | 0.22350, 37.47380 | 65.6 | 49.7 | 17.8 | error | D02 D03 D04 |
+| Plot_24 | 0.23337, 37.41079 | 0.23341, 37.41102 | 0.23334, 37.41125 | 50.6 | 93.1 | 6.2 | none |  |
+| Plot_25 | 0.21905, 37.43704 | 0.21904, 37.43724 | 0.21901, 37.43742 | 42.8 | 96.3 | 2.6 | none |  |
+| Plot_26 | 0.21765, 37.48805 | 0.21760, 37.48822 | 0.21748, 37.48847 | 50.5 | 112.7 | 7.7 | none |  |
+| Plot_27 | 0.21747, 37.49119 | 0.21764, 37.49139 | 0.21761, 37.49140 | 28.6 | 56.4 | 20.3 | error | D01 D02 D03 E03 |
+| Plot_28 | 0.23424, 37.40319 | 0.23419, 37.40331 | 0.23407, 37.40351 | 40.2 | 117.9 | 1.2 | warning | D02 |
+| Plot_29 | 0.22672, 37.46046 | 0.22670, 37.46074 | 0.22658, 37.46100 | 61.8 | 104.9 | 8.3 | none |  |
+| Plot_30 | 0.22095, 37.49629 | 0.22077, 37.49661 | 0.22079, 37.49672 | 50.9 | 110.0 | 14.5 | warning | D02 E03 |
+| Plot_46 | 0.26936, 37.49654 | 0.26931, 37.49674 | 0.26927, 37.49695 | 46.7 | 101.7 | 6.2 | none |  |
+<!-- /table -->
+
+**For GIS:** [`outputs/transects.geojson`](outputs/transects.geojson) holds the following, as WGS84 longitude/latitude (RFC 7946). It opens directly in QGIS, ArcGIS or geojson.io.
+
+- every registered transect as a line A → M → B, with length, bearing, offset, GPS accuracies and location flags;
+- all 51 prescribed points with their plan status;
+- every canonical quadrat with its position along and across the transect and its flags.
+
+Altitudes are left out on purpose until the offset is explained (E14, C-7). `outputs/plots.csv` and `outputs/quadrats.csv` hold the same coordinates as tables. The interactive **Map** view of the dashboard shows the same layers, on a light or satellite basemap when online, with a per-plot panel.
 
 ---
 

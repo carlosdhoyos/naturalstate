@@ -713,6 +713,11 @@ function MapTab({ d, t, showFlags }: Ctx) {
     const data: object[] = []
     for (const tr of TRANSECTS)
       data.push({ type: 'scattermap', mode: 'lines', lat: [tr.endpoint_a_lat, tr.midpoint_lat, tr.endpoint_b_lat], lon: [tr.endpoint_a_lon, tr.midpoint_lon, tr.endpoint_b_lon], line: { color: basemap === 'satellite' || t.theme === 'dark' ? '#ffffff' : '#00354d', width: 3 }, hoverinfo: 'skip', showlegend: false })
+    // a registered plot's marker sits on its registered midpoint (where the transect IS); the prescribed point stays as a small grey dot
+    const mid = Object.fromEntries(TRANSECTS.map((tr) => [tr.plot_name, tr]))
+    const at = (p: Row): [number, number] => (mid[p.plot_name] ? [mid[p.plot_name].midpoint_lat, mid[p.plot_name].midpoint_lon] : [p.prescribed_lat, p.prescribed_lon])
+    const reg = d.P.filter((p) => mid[p.plot_name])
+    data.push({ type: 'scattermap', mode: 'markers', name: 'prescribed point of a registered plot', lat: reg.map((p) => p.prescribed_lat), lon: reg.map((p) => p.prescribed_lon), marker: { color: '#9aa8ae', size: 5 }, text: reg.map((p) => `${p.plot_name}: prescribed point (registered midpoint ${fx(mid[p.plot_name].midpoint_offset_m, 1)} m away)`), hovertemplate: '%{text}<extra></extra>' })
     const groups = colorBy === 'status' ? Object.keys(STATUS_STYLE) : ['error', 'warning', 'info', 'none']
     const noneLabel = d.active ? 'no flags under the current filters' : 'no plot-level flags' // not the same as "passed every check"
     for (const g of groups) {
@@ -723,11 +728,11 @@ function MapTab({ d, t, showFlags }: Ctx) {
         type: 'scattermap',
         mode: 'markers',
         name: `${colorBy === 'worst' && g === 'none' ? noneLabel : g} (${ps.length})`,
-        lat: ps.map((p) => p.prescribed_lat),
-        lon: ps.map((p) => p.prescribed_lon),
+        lat: ps.map((p) => at(p)[0]),
+        lon: ps.map((p) => at(p)[1]),
         marker: { color: st.color, size: ps.map((p) => (p.plot_name === sel ? st.size + 7 : st.size)), opacity: 0.95 },
         customdata: ps.map((p) => p.plot_name),
-        text: ps.map((p) => `<b>${p.plot_name}</b><br>${plotStatus(p)} · ${p.stratum}<br>${p.n_error ?? 0} errors · ${p.n_warning ?? 0} warnings`),
+        text: ps.map((p) => `<b>${p.plot_name}</b><br>${plotStatus(p)} · ${p.stratum}<br>${mid[p.plot_name] ? `registered midpoint, ${fx(mid[p.plot_name].midpoint_offset_m, 1)} m from the prescribed point` : 'prescribed point (no transect)'}<br>${p.n_error ?? 0} errors · ${p.n_warning ?? 0} warnings`),
         hovertemplate: '%{text}<extra></extra>',
       })
     }
@@ -741,7 +746,7 @@ function MapTab({ d, t, showFlags }: Ctx) {
       <div className="qa-filters">
         <Segmented value={colorBy} onChange={setColorBy} size="sm" options={[{ value: 'status', label: 'Colour: plan status' }, { value: 'worst', label: 'Colour: worst flag' }]} />
         <Segmented value={basemap} onChange={setBasemap} size="sm" options={[{ value: 'light', label: 'Map' }, { value: 'satellite', label: 'Satellite' }, { value: 'none', label: 'No basemap' }]} />
-        <span className="muted small">Basemap tiles need a connection; points and transects draw without them. Click a plot. “Worst flag” leaves out project-wide findings that hit every plot alike ({[...SYSTEMIC].join(', ')}).</span>
+        <span className="muted small">Markers sit on the registered midpoint (grey dots: prescribed points); zoom in to see each transect line at true scale. Basemap tiles need a connection; points and transects draw without them. Click a plot. “Worst flag” leaves out project-wide findings that hit every plot alike ({[...SYSTEMIC].join(', ')}).</span>
       </div>
       <div className="sum-grid two">
         <div className="chart-card">

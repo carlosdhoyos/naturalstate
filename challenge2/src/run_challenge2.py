@@ -26,7 +26,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from vegqa import dashboard, effort, engine, figures, suggestions, tables  # noqa: E402
+from vegqa import dashboard, effort, engine, figures, gis, suggestions, tables  # noqa: E402
 from vegqa.gbif import CACHE as GBIF_CACHE  # noqa: E402
 from vegqa.contracts import check_inputs  # noqa: E402
 from vegqa.forms import set_forms_dir  # noqa: E402
@@ -187,6 +187,7 @@ def main(exports: Path = EXPORTS, entities: Path = ENTITIES, out: Path | None = 
         for name, df in b["tables"].items():
             df.to_csv(stage / f"{name}.csv", index=False)
         figs = figures.make_all(b["ctx"], b["tables"], results, stage / "figures")
+        gis.write(b["ctx"], b["tables"]["plots"], results, stage / "transects.geojson")
         dashboard.export(b["ctx"], b["tables"], results, b["summary"], b["run_id"], stage / "dashboard_results.json")
         manifest = {
             "run_id": b["run_id"], "code_version": code_version(), "catalogue_version": catalogue["version"], "inputs": b["hashes"], "runtime": runtime(),

@@ -81,6 +81,21 @@ def plots() -> str:
     return _md(df, {c: "r" for c in ("offset m", "A-B m", "off N-S deg", "all-unknown quadrats", "coverage")})
 
 
+def transect_locations() -> str:
+    """From transects.geojson, so the report table and the GIS file cannot disagree."""
+    import json
+
+    feats = [f for f in json.loads((OUT / "transects.geojson").read_text())["features"] if f["properties"]["kind"] == "transect"]
+    ll = lambda c: f"{c[1]:.5f}, {c[0]:.5f}"
+    df = pd.DataFrame([{
+        "plot": _short(f["properties"]["plot_name"]), "end A (lat, lon)": ll(f["geometry"]["coordinates"][0]),
+        "midpoint (lat, lon)": ll(f["geometry"]["coordinates"][1]), "end B (lat, lon)": ll(f["geometry"]["coordinates"][2]),
+        "A-B m": f["properties"]["length_m"], "bearing deg": f["properties"]["bearing_deg"], "offset m": f["properties"]["midpoint_offset_m"],
+        "worst location/shape flag": f["properties"]["worst_geometry_flag"], "rules": f["properties"]["geometry_flags"],
+    } for f in feats]).sort_values("plot")
+    return _md(df, {c: "r" for c in ("A-B m", "bearing deg", "offset m")})
+
+
 def effort_plan() -> str:
     e = pd.read_csv(OUT / "effort_plan.csv")
     e["share_of_primary_surveyed"] = [f"{v * 100:.0f}%" if pd.notna(v) else "—" for v in e.share_of_primary_surveyed]
@@ -124,7 +139,7 @@ def rules() -> str:
     return _md(df, {"fail": "r", "pass": "r", "not checked": "r"})
 
 
-TABLES = {"survey_overview": survey_overview, "submissions": submissions, "plots": plots, "effort_plan": effort_plan, "effort_project": effort_project,
+TABLES = {"survey_overview": survey_overview, "submissions": submissions, "plots": plots, "transect_locations": transect_locations, "effort_plan": effort_plan, "effort_project": effort_project,
           "repeatability": repeatability, "sensitivity": sensitivity, "rules": rules}
 
 

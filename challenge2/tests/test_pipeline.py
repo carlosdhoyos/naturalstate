@@ -214,3 +214,24 @@ def test_coverage_cases():
     assert coverage(np.array([3, 4, 5]), 20) == 1.0                         # no uniques
     assert coverage(np.array([1, 1, 1, 1]), 20) < 0.5                       # all uniques
     assert 0 < coverage(np.array([1, 1, 3]), 20) < 1                         # Q2 = 0 branch
+
+
+def test_transect_geojson_matches_the_registrations(b, results):
+    """Section (d)'s GIS file: one A-M-B line per registered transect at the exported coordinates
+    (lon, lat order), all prescribed points, canonical quadrats only, no altitudes."""
+    from vegqa.gis import transects_geojson
+    from vegqa.load import by_key
+
+    gj = transects_geojson(b["ctx"], b["tables"]["plots"], results)
+    kinds = pd.Series([f["properties"]["kind"] for f in gj["features"]]).value_counts().to_dict()
+    assert kinds == {"quadrat": 600, "prescribed_point": 51, "transect": 30}
+    reg = by_key(b["ctx"].data.registration, "plot_uuid")
+    for f in gj["features"]:
+        if f["properties"]["kind"] != "transect":
+            continue
+        a, m, bb = f["geometry"]["coordinates"]
+        assert len(a) == 2  # no altitude
+        r = reg[reg.KEY == f["properties"]["registration_key"]].iloc[0]
+        assert m == [round(float(r._midpoint_lon), 7), round(float(r._midpoint_lat), 7)]
+    errors = sorted(f["properties"]["plot_name"][-2:] for f in gj["features"] if f["properties"].get("worst_geometry_flag") == "error")
+    assert errors == ["05", "14", "15", "19", "22", "27"]

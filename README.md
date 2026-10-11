@@ -72,7 +72,7 @@ challenge1/.venv/bin/python -m pytest challenge1/ns_observations -q    # 50 pack
 python -m venv challenge2/.venv && challenge2/.venv/bin/pip install -r challenge2/requirements.txt
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py --verify   # outputs/ holds one complete run
-(cd challenge2/tests && ../.venv/bin/python -m pytest -q)               # 161 tests
+(cd challenge2/tests && ../.venv/bin/python -m pytest -q)               # 162 tests
 
 # Data Explorer (single HTML file)
 (cd dashboard && npm install && npm run build)
@@ -82,7 +82,7 @@ Both runs are offline and deterministic: the same inputs give the same outputs a
 
 | Verified | Not verified, or specified only |
 |---|---|
-| **Tests:** 38 + 50 (birds) and 161 (vegetation), all passing. | **iNEXT cross-check not run:** the custom Chao2 intervals and coverage were not compared with iNEXT (R unavailable here). This should be done before the numbers are used operationally. |
+| **Tests:** 38 + 50 (birds) and 162 (vegetation), all passing. | **iNEXT cross-check not run:** the custom Chao2 intervals and coverage were not compared with iNEXT (R unavailable here). This should be done before the numbers are used operationally. |
 | **Bird estimators** checked against statsmodels, an analytic Firth result and direct optimisation. | **Atomic publication not built:** one atomic switch over versioned run folders is specified only. Today's publication is staged and checkable, but not atomic across files (Challenge 2 Q2 §7). |
 | **Vegetation:** 35 rules mutation-tested; the whole workflow tested on invalid inputs; a crash during publication is detected and repaired. | **Multi-round dashboard not browser-checked:** the marts are kept per replicate and tested, but the data has one round, so the dashboard's multi-round display has not been seen in a browser. |
 | **Vegetation container** (`vegqa:1.0.0`) built and run: same run id, and its tables and dashboard JSON are byte-identical to a local run. | **Specified only, for the Tech team:** flag-review storage, structured curation fields, scheduling and database persistence. |

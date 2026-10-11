@@ -8,6 +8,63 @@
 
 ---
 
+## At a glance
+
+**What you are getting.** A working job that is also the specification.
+
+- `vegqa:1.0.0` reads the raw ODK tables, entity lists and forms.
+- It evaluates 94 rules and writes every output the dashboard needs: results, marts, effort tables, dashboard JSON, GIS file and manifest.
+- It runs in about 3 seconds, offline, and gives the same run id for the same data.
+- 162 tests define correct behaviour.
+- The QA/QC dashboard page of the Data Explorer is a working reference for every view.
+
+**Build plan.** Each step has a check that says it is done.
+
+| # | Step | Done when | Details |
+|---|---|---|---|
+| 1 | Run the container as a platform job on the three raw-table folders, triggered by new submissions, review-state changes, entity updates and nightly | On the take-home data, `run_challenge2.py --out <dir> --verify` passes and the run id is `qa-9785d0be1428322b` | §7, `challenge2/README.md` |
+| 2 | Load the outputs into the warehouse: `qa_runs`, `qa_results` and the marts | Row counts equal `run_manifest.json` → `rows` | §1, §6 (DDL) |
+| 3 | Build the nine dashboard views from the marts | Each view reproduces the reference page on the take-home data (for example 697 flags, 24 of them errors, and 7 of 30 plots with provisional effort metrics) | §6 |
+| 4 | Add flag reviews: an append-only `flag_reviews` table keyed by `flag_id` + `evidence_hash` | A review survives a rerun, and the flag reopens when its evidence or rule changes | §6 |
+| 5 | Publish runs atomically and keep run history | Readers never see a mix of two runs; two runs can be compared | §7 |
+| 6 | Only if you re-implement the rules in another stack: port the acceptance and mutation suites | The ported suites pass | §8 |
+
+**Invariants the platform must keep:**
+
+- Never change a source value; flags point to source rows.
+- Write one result per rule × entity, including `pass` and `could_not_check`, so "not flagged" can be told from "not checked".
+- Show `metrics_status` wherever an effort metric is shown (`ok`, `provisional`, `suppressed`).
+- Never pool replicates (monitoring rounds).
+- Read outputs only from a verified run.
+- External references (GBIF, elevation) are refreshed by a separate job; the QA run reads only the cache.
+
+**Natural State must answer before go-live:**
+
+- **C-7:** where the data come from. This blocks any use of the results.
+- **C-5:** whether `species_extra_ids` is authoritative, and its change to structured fields.
+- **C-12:** which form versions were deployed.
+- **C-1:** whether ReviewState is authoritative.
+
+The remaining confirmation items only tune thresholds in `rules.yaml`.
+
+**Fix upstream** (§9): these are outside the dashboard.
+
+- Rejected submissions keep their entity writes (K03).
+- The form's "quadrats with species" path is wrong (K02).
+- The curation table needs structured fields (F13).
+- Upload discipline and the device time zone (B06, B10, B12).
+
+**Not built here, and specified instead:**
+
+- flag-review storage;
+- scheduling and database persistence;
+- atomic publication;
+- structured curation.
+
+The iNEXT cross-check of the effort statistics has not been run. Do it before the numbers are used operationally (§8).
+
+---
+
 ## 1. What to build, in one paragraph
 
 On every new submission or entity change, rebuild the QA/QC outputs from the raw tables:
@@ -180,7 +237,7 @@ A working reference of every view is the **QA/QC dashboard** page of the Data Ex
 | **Overview** | Headline numbers (plots planned / registered / surveyed, quadrats, taxa raw / resolved); flags by severity and group; the top open errors; a "not checked" counter | `survey_overview`, `rule_summary`, `qa_results` |
 | **All flags** | Every failure with severity, observed and expected values, action, and source table + key; filters by severity, group, rule, plot and text; canonical-only toggle; CSV download | `qa_results` |
 | **Submissions** | Timeline per device (form open → upload), upload delay, duration against the median, review state, canonical choice, flags per submission | `submissions`, `canonical_choice` |
-| **Map** | Prescribed points by status (surveyed / not viable / never registered / backup); click a plot to see its registered A–M–B line, the 5 m belt, the 25 m circle, and quadrats coloured by flag | `plots`, `quadrats` |
+| **Map** | Registered transects at their measured midpoints, with their A–M–B lines at true scale; prescribed points by plan status (surveyed / not viable / never registered / backup); click a plot to see its registered A–M–B line, the 5 m belt, the 25 m circle, and quadrats coloured by flag | `plots`, `quadrats`; the same layers for GIS in `transects.geojson` |
 | **Plots** | One row per plot: geometry (offset, length, bearing), richness raw / resolved, all-unknown quadrats, coverage, flag counts; a heatmap of plots × rule groups | `plots`, `effort_plots` (coverage is joined by plot **and** replicate, with its metrics status) |
 | **Taxonomy** | A curation queue: names to check (F03), curation-table issues (F13), unresolved unknowns by record count (F07), out-of-range taxa (F10), duplicate entities (F04); suggested species-list updates (downloadable); raw → resolved mapping per taxon | `occurrences`, `qa_results`, `species_list_suggestions` |
 | **Effort** | One replicate at a time (a selector appears when a run has several). Shows: the metrics status (a banner when provisional, with the ok-plots-only estimate); planned vs done per replicate and stratum; accumulation curves (provisional plots dashed, median of ok plots); coverage and completeness per plot (provisional plots marked); the list of qualified plots with the rule behind each; project completeness; repeatability; richness sensitivity | `effort_*` |
@@ -246,7 +303,7 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 
 ## 8. Acceptance tests and verification status
 
-`challenge2/tests` (161 tests, run with `pytest`) holds the acceptance and mutation suites to port:
+`challenge2/tests` (162 tests, run with `pytest`) holds the acceptance and mutation suites to port:
 
 | Area | What the tests pin |
 |---|---|
@@ -261,8 +318,8 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-1cc918a576a8133e`) |
-| Acceptance, mutation, robustness and unit tests | 161 passing |
+| All rules implemented and run on the provided data | Done (run `qa-9785d0be1428322b`) |
+| Acceptance, mutation, robustness and unit tests | 162 passing |
 | GBIF cache | 99 names, retrieved 2026-10-10 |
 | Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |
 | Container job | **Built and run** (`docker build -t vegqa:1.0.0 challenge2`). On the take-home data (rebuilt 2026-10-11): same run id; every table and the dashboard JSON are byte-identical to a local run. The figure PNGs are re-rendered on Linux and are not byte-identical. Its `out/` passes `--verify` |
@@ -307,6 +364,7 @@ These are flagged by the K rules, but a QA dashboard cannot fix them:
 |---|---|
 | `challenge2/rules/rules.yaml` | Rule catalogue and thresholds |
 | `challenge2/src/run_challenge2.py` | Entry point: build everything, write `outputs/` |
+| `challenge2/src/vegqa/contracts.py` | Input contract: required files and columns, checked before any analysis |
 | `challenge2/src/vegqa/load.py` | Staging: raw text plus interpreted columns |
 | `challenge2/src/vegqa/forms.py` | XLSForm parser (versions, choices, fields, design issues) |
 | `challenge2/src/vegqa/model.py` | Canonical survey, registration geometry, quadrat positions |
@@ -316,6 +374,7 @@ These are flagged by the K rules, but a QA dashboard cannot fix them:
 | `challenge2/src/vegqa/effort.py` | Effort statistics |
 | `challenge2/src/vegqa/tables.py` | Marts |
 | `challenge2/src/vegqa/figures.py` | Report figures |
+| `challenge2/src/vegqa/gis.py` | `outputs/transects.geojson`: registered transects, prescribed points and canonical quadrats for GIS |
 | `challenge2/src/vegqa/gbif.py` | GBIF cache refresh (network) |
 | `challenge2/src/vegqa/dem.py` | Elevation cache refresh (network) |
 | `challenge2/src/vegqa/report_tables.py` | Refreshes the report's generated tables |
@@ -326,13 +385,14 @@ These are flagged by the K rules, but a QA dashboard cannot fix them:
 | `challenge2/reference/elevation_cache.json` | Cached SRTM elevations |
 | `challenge2/tests/` | Acceptance, mutation, robustness and unit tests |
 | `challenge2/Dockerfile` | Job image: the pipeline on mounted inputs, outputs to `/out` |
-| `docs/challenge2_decisions.md` | Decisions V-01 to V-11, differences, new findings, independent review, confirmation items |
+| `docs/challenge2_decisions.md` | Decisions V-01 to V-13, differences, new findings, five independent reviews, confirmation items |
 
 **To run:**
 
 ```bash
 python -m venv challenge2/.venv && challenge2/.venv/bin/pip install -r challenge2/requirements.txt
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py          # outputs/ and figures (--exports/--entities/--out for other data)
+challenge2/.venv/bin/python challenge2/src/run_challenge2.py --verify # outputs/ holds one complete run
 (cd challenge2/src && ../.venv/bin/python -m vegqa.report_tables)     # refresh the report's tables
 (cd challenge2/tests && ../.venv/bin/python -m pytest -q)            # acceptance, mutation and unit tests
 (cd dashboard && npm install && npm run build)                       # rebuild the dashboard with the new outputs
