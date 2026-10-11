@@ -221,7 +221,7 @@ create table flag_reviews (id bigserial primary key, rule_id text not null, enti
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-89f6067444a485d6`) |
+| All rules implemented and run on the provided data | Done (run `qa-3272d4edb98c6514`) |
 | Acceptance tests | 91 passing |
 | GBIF cache | 99 names, retrieved 2026-10-10 |
 | Dashboard views | Specified here; reference figures in `outputs/figures/` |

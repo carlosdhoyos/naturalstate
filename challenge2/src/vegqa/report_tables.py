@@ -8,6 +8,7 @@ rebuilt from challenge2/outputs/, so numbers in tables always match the latest r
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -116,8 +117,23 @@ TABLES = {"survey_overview": survey_overview, "submissions": submissions, "plots
           "repeatability": repeatability, "sensitivity": sensitivity, "rules": rules}
 
 
-def refresh(path: Path = REPORT) -> list[str]:
+RUN_ID_DOCS = [CH2 / "Q2_tech_handover.md", CH2.parent / "docs" / "challenge2_decisions.md"]
+
+
+def current_run_id() -> str | None:
+    m = OUT / "run_manifest.json"
+    return json.loads(m.read_text())["run_id"] if m.exists() else None
+
+
+def stamp_run_id(path: Path, run_id: str) -> None:
+    path.write_text(re.sub(r"qa-[0-9a-f]{16}", run_id, path.read_text()))
+
+
+def refresh(path: Path = REPORT, run_id: str | None = None) -> list[str]:
     text = path.read_text()
+    run_id = run_id or current_run_id()
+    if run_id:
+        text = re.sub(r"qa-[0-9a-f]{16}", run_id, text)
     done = []
     for name, fn in TABLES.items():
         # tempered: the block body may not contain an end marker, so a match never spans two blocks
@@ -131,3 +147,7 @@ def refresh(path: Path = REPORT) -> list[str]:
 
 if __name__ == "__main__":
     print("refreshed:", ", ".join(refresh()))
+    rid = current_run_id()
+    for doc in RUN_ID_DOCS:
+        if rid and doc.exists():
+            stamp_run_id(doc, rid)

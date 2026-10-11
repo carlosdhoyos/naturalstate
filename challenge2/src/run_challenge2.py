@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -40,10 +39,13 @@ def file_hashes() -> dict:
 
 
 def code_version() -> str:
-    try:
-        return subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=OUT.parent).stdout.strip() or "unversioned"
-    except OSError:
-        return "unversioned"
+    """Content hash of the pipeline code (not the git commit, so committing outputs does not change the run id)."""
+    src = Path(__file__).resolve().parent
+    files = sorted([src / "run_challenge2.py", *(src / "vegqa").rglob("*.py")])
+    h = hashlib.sha256()
+    for f in files:
+        h.update(f.relative_to(src).as_posix().encode() + b"\0" + f.read_bytes())
+    return "code-" + h.hexdigest()[:12]
 
 
 def rule_summary(results: pd.DataFrame, catalogue: dict) -> pd.DataFrame:

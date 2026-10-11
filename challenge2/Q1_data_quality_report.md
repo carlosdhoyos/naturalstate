@@ -2,7 +2,7 @@
 
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
-**Prepared by:** Carlos Hoyos · run `qa-89f6067444a485d6` · reproducible with `python challenge2/src/run_challenge2.py`
+**Prepared by:** Carlos Hoyos · run `qa-3272d4edb98c6514` · reproducible with `python challenge2/src/run_challenge2.py`
 
 ---
 
