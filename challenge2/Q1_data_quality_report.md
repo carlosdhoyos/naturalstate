@@ -3,7 +3,7 @@
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
 **Interactive version:** the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`, Vegetation → QA/QC dashboard): every flag with its source row, the map with per-plot transect panels, the curation queue and the effort views.
-**Prepared by:** Carlos Hoyos · run `qa-46e4adc99ee099c0` · reproducible with `python challenge2/src/run_challenge2.py`
+**Prepared by:** Carlos Hoyos · run `qa-1cc918a576a8133e` · reproducible with `python challenge2/src/run_challenge2.py`
 
 ---
 
@@ -360,8 +360,8 @@ The two scales are not comparable.
 The project figures inherit the qualification of their plots. Because 7 of the 30 plots are provisional (C04), the project row is provisional too. The last column repeats the estimate on the 23 plots whose own metrics are ok.
 
 - **Resolved layer:** 104 taxa and Chao2 139 (119–186) on the 23 ok plots, against 115 and 145 (128–185) on all 30.
-- **What this shows:** the provisional plots add taxa, but they barely move the estimated total.
-- **What it does not show:** it does not estimate the species missing from the empty additional-species rows. Those records cannot be recovered from the data.
+- **What this is:** a sensitivity comparison. Dropping the 7 plots changes which plots are sampled as well as removing the incomplete records, so the two estimates differ for both reasons.
+- **What it is not:** an estimate of the bias from the missing records. A similar Chao2 does not show that the missing records matter little. The species in the empty additional-species rows cannot be recovered from the data.
 
 <!-- table:effort_project -->
 | replicate | layer | plots | taxa observed | in 1 plot | in 2 plots | Chao2 (95% CI) | observed / Chao2 | coverage | Hill q1 / q2 | status | ok plots only: plots, taxa, Chao2 (95% CI) |

@@ -1089,7 +1089,7 @@ function EffortTab({ t, showFlags }: Ctx) {
       {!projOk && (
         <div className="note">
           <span>
-            <b>These effort metrics are provisional.</b> {String(proj.metrics_status).replace(/^provisional:\s*/, '')}: those plots have quadrats that declare additional species without species rows, so their lists may be incomplete, and every project figure below includes them. On the {proj.units_ok_plots} plots whose own metrics are ok: {fmtInt(proj.S_obs_ok_plots)} taxa, Chao2 {fx(proj.chao2_ok_plots, 0)} (95% CI {fx(proj.chao2_lo95_ok_plots, 0)}–{fx(proj.chao2_hi95_ok_plots, 0)}), coverage {fx(proj.coverage_ok_plots, 3)}. Provisional plots are marked * and drawn dashed or open below.{' '}
+            <b>These effort metrics are provisional.</b> {String(proj.metrics_status).replace(/^provisional:\s*/, '')}: those plots have quadrats that declare additional species without species rows, so their lists may be incomplete, and every project figure below includes them. As a sensitivity comparison (not an estimate of the missing-record bias, because it also changes which plots are sampled), on the {proj.units_ok_plots} plots whose own metrics are ok: {fmtInt(proj.S_obs_ok_plots)} taxa, Chao2 {fx(proj.chao2_ok_plots, 0)} (95% CI {fx(proj.chao2_lo95_ok_plots, 0)}–{fx(proj.chao2_hi95_ok_plots, 0)}), coverage {fx(proj.coverage_ok_plots, 3)}. Provisional plots are marked * and drawn dashed or open below.{' '}
             {statusRules(String(proj.metrics_status)).map((r) => (
               <button key={r} type="button" className="link-btn" onClick={() => showFlags({ rule: r })}>
                 {r} flags
@@ -1105,9 +1105,9 @@ function EffortTab({ t, showFlags }: Ctx) {
         <Stat label="Diversity (Hill)" value={`${fx(proj.hill_q1, 0)} / ${fx(proj.hill_q2, 0)}`} sub="q1 exp(Shannon) / q2 inverse Simpson, effective number of taxa (plot incidence)" />
         <Stat label="Median plot coverage" value={fx(median(plotsHere.filter((x) => x.metrics_status === 'ok').map((x) => x.coverage)), 2)} sub="ok plots only · share of a plot's incidences from taxa already seen" />
       </div>
-      <Section title="Planned against done" sub="Primary and backup points per stratum (centroids), registrations and canonical surveys, per replicate.">
+      <Section title="Planned against done" sub="Primary and backup points per stratum (centroids), registrations and canonical surveys, for the selected replicate.">
         <DataTable
-          rows={EFF_PLAN}
+          rows={EFF_PLAN.filter((x) => x.replicate === rep)}
           cols={[
             { key: 'replicate', label: 'Replicate' },
             { key: 'stratum', label: 'Stratum' },

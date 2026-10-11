@@ -156,7 +156,7 @@ These use incidence data per canonical plot (T = 20 quadrats), on both the raw a
   - `suppressed`: records are missing or none is analytical, so there is nothing to read. Suppressed takes precedence over provisional.
 - **Project level:** the same statistics with plots as the sampling units, per replicate (rounds are never pooled).
   - Its `metrics_status` inherits from its plots: provisional when any plot is provisional or suppressed (here "7 of 30 plots provisional (C04)").
-  - The `*_ok_plots` columns repeat the estimate on the ok plots only, so readers see how much the qualified plots move it.
+  - The `*_ok_plots` columns repeat the estimate on the ok plots only. This is a sensitivity comparison, not a correction: it changes the sampled plots as well as dropping incomplete records, so it does not estimate the bias from the missing records.
 - **Planned vs done:** per stratum, from `centroids` (primary/backup), registrations and canonical surveys.
 - **Repeatability:** plot and mean quadrat Jaccard for any plot with two or more submissions in a replicate.
 - **Richness sensitivity (per replicate):** raw, canonical, resolved, resolved with GBIF spelling variants collapsed, identified only, unknowns only. A sensitivity analysis over defensible definitions, not bounds on true richness.
@@ -261,7 +261,7 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-46e4adc99ee099c0`) |
+| All rules implemented and run on the provided data | Done (run `qa-1cc918a576a8133e`) |
 | Acceptance, mutation, robustness and unit tests | 161 passing |
 | GBIF cache | 99 names, retrieved 2026-10-10 |
 | Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |

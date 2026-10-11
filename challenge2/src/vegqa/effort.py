@@ -180,7 +180,8 @@ def project_level(ctx, pp: pd.DataFrame | None = None) -> pd.DataFrame:
 
     The project figure inherits its plots' qualifications: metrics_status is provisional (or suppressed
     plots are counted) when any plot is, and the *_ok_plots columns repeat the main numbers on the plots
-    whose own metrics are ok, so a reader sees how much the qualified plots move the result."""
+    whose own metrics are ok. That is a sensitivity comparison: it changes the sampled plots as well as
+    dropping incomplete records, so it does not estimate the bias from the missing records."""
     s = ctx.data.survey[ctx.data.survey.KEY.isin(ctx.canonical)]
     rows = []
     for rep, g in s.groupby("replicate"):
