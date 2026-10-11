@@ -3117,3 +3117,57 @@ ol.conclusions {
 .sch-swatch.t-reference { border-color: var(--t-reference); }
 .sch-swatch.t-config { border-color: var(--t-config); }
 .sch-swatch.t-spec { border-color: var(--t-spec); border-style: dashed; }
+
+/* ── vegetation story (Summary page + QA/QC overview) ─────────────────────── */
+.story {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 22px;
+}
+.story-verdict {
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 6px 0 14px;
+  max-width: 980px;
+}
+.story-h {
+  font-size: 14px;
+  margin: 16px 0 6px;
+}
+.story-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  line-height: 1.45;
+  max-width: 1040px;
+}
+.story-good {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--accent-ink);
+}
+.story-brief .story-verdict {
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+.story-brief {
+  margin-bottom: 14px;
+}
+.story-section-title {
+  font-size: 16px;
+  margin: 8px 0 10px;
+}
+.story a,
+.story-brief a {
+  color: var(--accent-ink);
+  font-weight: 600;
+}

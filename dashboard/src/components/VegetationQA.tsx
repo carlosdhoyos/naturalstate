@@ -14,6 +14,7 @@ import { SERIES, type ThemeTokens } from '../lib/palette'
 import type { Dataset } from '../data/types'
 import { Plot } from './Plot'
 import { Segmented, Stat, Toggle } from './ui'
+import { VegetationStoryBrief } from './VegetationStory'
 
 // ── embedded data ────────────────────────────────────────────────────────────
 
@@ -446,6 +447,7 @@ function OverviewTab({ d, t, showFlags }: Ctx) {
   const cnc = D.status_counts.could_not_check ?? 0
   return (
     <>
+      {!d.active && <VegetationStoryBrief />}
       <div className="stats-row">
         <Stat
           label={d.active ? 'Plots surveyed (filtered)' : 'Plots surveyed'}

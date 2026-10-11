@@ -2,6 +2,7 @@
  * Challenge landing pages. Every number is computed from the loaded CSVs at runtime —
  * nothing is typed in by hand — so the page always matches the data.
  */
+import { VegetationStory } from './VegetationStory'
 import { useMemo, type ReactNode } from 'react'
 import { buildFigure, DEFAULT_SPEC, type ChartSpec } from '../charts/build'
 import { keyOf } from '../data/filter'
@@ -428,6 +429,9 @@ export function VegetationSummary({ reg, onOpen }: Props) {
     <div className="summary">
       <TaskCard challenge="vegetation" />
 
+      <VegetationStory />
+
+      <h2 className="story-section-title">About the data</h2>
       <div className="stats-row">
         <Stat tipKey="sum.v.surveys" label="Herbaceous surveys" value={survey.rows.length} sub={`${s.plotsSurveyed} plots · ${s.rejected} rejected in review`} />
         <Stat tipKey="sum.v.quadrats" label="Quadrats" value={fmtInt(quad.rows.length)} sub={`${fmtInt(s.listOcc)} list-species records`} />
@@ -490,7 +494,7 @@ export function VegetationSummary({ reg, onOpen }: Props) {
             The project species list has <b>{fmtInt(sp.rows.length)}</b> species ({s.herbSp} herbaceous). Species seen in a quadrat but not on that list are recorded as <i>additional species</i> and create or re-use a provisional taxon in <i>Species extra</i> ({s.seActive} of {fmtInt(se.rows.length)} slots in use).
           </li>
           <li>Species extra IDs is the curated table that resolves provisional taxa (herb_NNN / wood_NNN) to names.</li>
-          <li>QA/QC findings will be flagged here as the analysis progresses — the source data is never edited.</li>
+          <li>Every QA/QC finding is a flag in the QA/QC dashboard, with its source row; the source data is never edited.</li>
         </ul>
       </Section>
     </div>
