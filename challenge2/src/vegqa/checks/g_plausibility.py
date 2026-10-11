@@ -73,7 +73,7 @@ def repeat_agreement(ctx):
         sets = {k: set(o.loc[o.survey_key == k, "resolved_key"]) for k in (a, b)}
         jp = len(sets[a] & sets[b]) / len(sets[a] | sets[b])
         jq = []
-        for n in range(1, 21):
+        for n in range(1, ctx.th["quadrats_per_survey"] + 1):
             qa = set(o.loc[(o.survey_key == a) & (o.quadrat_number == n), "resolved_key"])
             qb = set(o.loc[(o.survey_key == b) & (o.quadrat_number == n), "resolved_key"])
             if qa | qb:

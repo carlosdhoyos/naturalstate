@@ -2,7 +2,9 @@
 
 **For:** the Natural State Tech team building the automatic Vegetation QA/QC dashboard on the Analytics platform.
 **Assumes:** the ODK submissions, entity lists and form definitions already arrive on the platform as tables. This document covers everything after that.
-**Reference implementation:** `challenge2/` (Python 3.11). It is the executable specification: same rules, same outputs, an acceptance test suite, and a full run in about 3 seconds.
+**Reference implementation:** `challenge2/` (Python 3.11 or later; tested with 3.13). It is the executable specification: same rules, same outputs, acceptance and mutation test suites, and a full run in about 3 seconds.
+
+**Deployment model (recommended):** run the reference implementation as a scheduled container job, not a re-write. It takes the input folders as arguments (`--exports`, `--entities`, `--out`) and writes the tables the dashboard reads. If the team prefers to re-implement the rules in SQL or another stack, the acceptance and mutation suites define what "equivalent" means.
 
 ---
 
@@ -13,7 +15,7 @@ On every new submission or entity change, rebuild the QA/QC outputs from the raw
 1. **Stage** the raw tables without changing any value.
 2. **Join** them into four grains: submission, plot, quadrat, occurrence.
 3. **Resolve** taxa through Natural State's curation table.
-4. **Evaluate** every rule in a declarative catalogue (`rules/rules.yaml`), writing one result row per rule × entity (`fail` / `pass` / `could_not_check`).
+4. **Evaluate** every rule, writing one result row per rule × entity (`fail` / `pass` / `could_not_check`). The catalogue (`rules/rules.yaml`) holds each rule's metadata and thresholds; its logic is a Python function in `vegqa/checks/`.
 5. **Publish** marts that the dashboard reads.
 
 Flags never change data. Reviewers acknowledge them in a separate, append-only table that survives reruns.
@@ -79,7 +81,7 @@ raw (ODK tables, entity lists, form XLSX)        untouched; load id + content ha
 
 ## 4. The rule catalogue (`rules/rules.yaml`)
 
-The catalogue is the contract. It has 91 rules, in groups:
+The catalogue is the contract. It has 94 rules, in groups:
 
 | Group | Covers |
 |---|---|
@@ -95,7 +97,7 @@ The catalogue is the contract. It has 91 rules, in groups:
 | X | Entity vs what the forms wrote |
 | P | Column profiling |
 
-Each rule has:
+The YAML holds each rule's **metadata and thresholds**, not its logic. The logic is one Python function per rule, so changing a threshold needs no code, but a new rule does. Each rule has:
 
 ```yaml
 D01: {group: D, level: plot, severity: error, metric_impact: indirect,
@@ -119,7 +121,7 @@ Thresholds live in the same file, under `thresholds:`, each commented with its s
 
 | Sweep | Rules | What it checks |
 |---|---|---|
-| H | C01–C16 | Every required / relevant / constraint / calculation expression of both forms re-evaluated on the export |
+| H | C01–C17 | The form rules re-checked on the export. C01–C16 are hand-written from the forms' required, relevant, constraint and calculation rows. C17 is generic: it parses every `instance('list')/root/item[name = ${field}]/column` calculation from the XLSForm and recomputes it from the entity list. More complex expressions (counts, joins and positions inside repeats) have their own rules: C05–C07, C14, F14 |
 | P | P01–P03 | Profiling of every column: padding, mixed types, duplicate labels, values outside their choice list |
 | X | X01 | Entity state compared with what the last submission wrote |
 
@@ -137,20 +139,24 @@ Thresholds live in the same file, under `thresholds:`, each commented with its s
 - **Stale entity list (B10):** compare `base_active_herb_count` with the number of distinct slots activated (`new_*` rows) by surveys that **ended** before this one **started**, on any device. Separately, say whether those slots were already on the server, which tells a late upload from a device that was not refreshed.
 - **Form calculation bug (C07):** recompute "quadrats with species" correctly and also as the form literally computes it. A stored value equal to the literal version identifies the form bug (K02).
 - **Spelling (F03, F13):** use the GBIF backbone match from the cached reference file. A GBIF exact match outranks similarity to another list name. Never call GBIF during a QA run (§7).
+- **Lookup calculations (C17):** a stored value different from the entity value its calculation reads could not come from the app. Entity lists the forms themselves write to (`species_extra`) are excluded, because their values legitimately change after the form read them; F14 and X01 check those slots.
+- **Terrain (E14):** the median of GPS altitude minus SRTM elevation per submission, from the cached elevation file; flagged beyond 100 m.
 
 ## 5. Effort statistics (marts `effort_*`)
 
 These use incidence data per canonical plot (T = 20 quadrats), on both the raw and the resolved layer:
 
 - **Rarefaction curve:** S(t) = Σᵢ [1 − C(T−Yᵢ, t) / C(T, t)].
-- **Chao2:** S_obs + (T−1)/T · Q1² / (2 Q2), or (T−1)/T · Q1(Q1−1)/2 when Q2 = 0.
-- **Sample coverage:** 1 − Q1/U · [(T−1)Q1 / ((T−1)Q1 + 2Q2)].
+- **Bias-corrected Chao2:** S_obs + (T−1)/T · Q1(Q1−1) / (2(Q2+1)), with the log-normal 95% interval (Chao 1987).
+- **Sample coverage:** 1 − Q1/U · [(T−1)Q1 / ((T−1)Q1 + 2Q2)]. No interval; a valid one needs iNEXT's assemblage bootstrap.
+- **New taxa in one more quadrat:** Q0 · Q1 / (T·Q0 + Q1), with Q0 = (T−1)/T · Q1²/(2Q2) (Chao et al. 2014).
+- **Diversity:** observed incidence-based Hill numbers q = 0, 1, 2 from relative quadrat frequencies.
 - **Project level:** the same statistics with plots as the sampling units.
 - **Planned vs done:** per stratum, from `centroids` (primary/backup), registrations and canonical surveys.
 - **Repeatability:** plot and mean quadrat Jaccard for any plot with two or more submissions in a replicate.
 - **Richness sensitivity:** raw, canonical, resolved, identified only, unknowns only.
 
-Show coverage first. Chao2 is unstable with 20 quadrats when Q2 is small (V-10).
+Show coverage first. Chao2 intervals are wide with 20 quadrats (V-10).
 
 ## 6. The dashboard
 
@@ -200,7 +206,7 @@ create table flag_reviews (id bigserial primary key, rule_id text not null, enti
 - **Idempotent:** the same inputs give the same `run_id`, so a rerun replaces nothing.
 - **Keep runs:** retain `qa_runs` with input hashes; the dashboard shows the latest and can diff two runs.
 - **External references stay outside the run:**
-  - A separate job refreshes `reference/gbif_cache.json` (backbone match plus occurrence counts by country) for names not yet cached, for example weekly or when new names appear.
+  - A separate job refreshes `reference/gbif_cache.json` (backbone match plus occurrence counts by country) for names not yet cached, for example weekly or when new names appear. The same applies to `reference/elevation_cache.json` (`python -m vegqa.dem`) for new points.
   - The QA run reads only the cache, so it is offline and reproducible.
   - A name missing from the cache is `could_not_check`.
 - **Form versions:** parse the XLSForm on each run (versions, choice lists, rule expressions). When a new version is deployed, rules that read the form follow it automatically. A07 flags submissions made with an older version.
@@ -208,22 +214,24 @@ create table flag_reviews (id bigserial primary key, rule_id text not null, enti
 
 ## 8. Acceptance tests and verification status
 
-`challenge2/tests` (91 tests, run with `pytest`) is the acceptance suite to port:
+`challenge2/tests` (131 tests, run with `pytest`) holds the acceptance and mutation suites to port:
 
 | Area | What the tests pin |
 |---|---|
 | Exploration findings | All 35 findings of the exploratory review (S1–S10, R1–R6, Q1–Q9, T1–T10), each pinned to the rule that must re-find it |
 | Passed checks | The 12 checks that passed must still report `pass` |
 | Differences | Deliberate differences from the exploration (`docs/challenge2_decisions.md`) |
-| New findings | N1–N9 |
+| New findings | N1–N13 |
+| Mutations | 34 rules must fire on a copy of the data with one injected error (`test_mutations.py`), so a rule that never fails cannot pass the suite |
 | Properties | Determinism (identical results and `run_id` on rerun); inputs never modified (file hashes before and after); raw columns identical to the export; row counts; one canonical survey per plot; every result field is text; catalogue = code |
 | Unit tests | Projection, bearings, segment frame, robust line, Chao2 / coverage / rarefaction formulas, curation parsing |
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-3272d4edb98c6514`) |
-| Acceptance tests | 91 passing |
+| All rules implemented and run on the provided data | Done (run `qa-51d04ffae4815cf9`) |
+| Acceptance, mutation and unit tests | 131 passing |
 | GBIF cache | 99 names, retrieved 2026-10-10 |
+| Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |
 | Dashboard views | Specified here; reference figures in `outputs/figures/` |
 | Flag-review workflow | Specified (DDL above); not implemented in the reference |
 | Platform integration (triggers, storage) | To build |
@@ -233,7 +241,7 @@ create table flag_reviews (id bigserial primary key, rule_id text not null, enti
 These are flagged by the K rules, but a QA dashboard cannot fix them:
 
 1. **Rejected submissions keep their entity writes** (K03). ODK Central does not roll back entity updates on rejection: herb_100–102 still carry what the rejected Plot 21 survey wrote. The review process needs a manual revert step, or a platform check.
-2. **Upload discipline** (B06, B10). Devices must upload after each survey and refresh entity lists before the next. Otherwise two devices claim the same provisional id. Add a dashboard alert when `base_active_herb_count` is below the server's active count at form start.
+2. **Upload discipline** (B06, B10). Devices must upload after each survey and refresh entity lists before the next. Otherwise two devices can give the same provisional id to different plants. On 26 May this happened only for repeats of the same plants, so no record is wrong, but the process allowed it. Add a dashboard alert when `base_active_herb_count` is below the server's active count at form start.
 3. **Form fix** (K02). `quadrats_with_species` should use `herb_species/selected_herb_species_uuids`.
 4. **Form hygiene** (K01, K04):
    - choice names without spaces;
@@ -260,17 +268,19 @@ These are flagged by the K rules, but a QA dashboard cannot fix them:
 | `challenge2/src/vegqa/effort.py` | Effort statistics |
 | `challenge2/src/vegqa/tables.py` | Marts |
 | `challenge2/src/vegqa/figures.py` | Report figures |
-| `challenge2/src/vegqa/gbif.py` | GBIF cache refresh (the only network code) |
+| `challenge2/src/vegqa/gbif.py` | GBIF cache refresh (network) |
+| `challenge2/src/vegqa/dem.py` | Elevation cache refresh (network) |
 | `challenge2/src/vegqa/report_tables.py` | Refreshes the report's generated tables |
 | `challenge2/reference/gbif_cache.json` | Cached GBIF reference |
+| `challenge2/reference/elevation_cache.json` | Cached SRTM elevations |
 | `challenge2/tests/` | Acceptance and unit tests |
-| `docs/challenge2_decisions.md` | Decisions V-01 to V-11, differences, new findings, confirmation items |
+| `docs/challenge2_decisions.md` | Decisions V-01 to V-11, differences, new findings, independent review, confirmation items |
 
 **To run:**
 
 ```bash
 python -m venv challenge2/.venv && challenge2/.venv/bin/pip install -r challenge2/requirements.txt
-challenge2/.venv/bin/python challenge2/src/run_challenge2.py          # outputs/ and figures
+challenge2/.venv/bin/python challenge2/src/run_challenge2.py          # outputs/ and figures (--exports/--entities/--out for other data)
 cd challenge2/src && ../.venv/bin/python -m vegqa.report_tables       # refresh the report's tables
 cd challenge2/tests && ../.venv/bin/python -m pytest -q              # acceptance suite
 ```

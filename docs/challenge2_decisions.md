@@ -2,12 +2,13 @@
 
 This log records the decisions behind the vegetation QA/QC. Each entry gives what we observed, what we decided, and how the decision changes the results. **No source value is ever changed.** Every decision acts on how values are interpreted, joined or flagged.
 
-The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-3272d4edb98c6514` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
+The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-51d04ffae4815cf9` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
 
 - **V-01 to V-11** are decisions.
 - **"Differences from the exploration"** lists where the pipeline deliberately disagrees with the earlier exploratory review.
-- **N1 to N9** are findings the systematic sweeps added.
-- **C-1 to C-9** are confirmation items for Natural State.
+- **N1 to N13** are findings the systematic sweeps and the independent review added.
+- **"Independent review"** records what the review found and what changed.
+- **C-1 to C-11** are confirmation items for Natural State.
 
 ---
 
@@ -70,7 +71,15 @@ The reported accuracy is used as one standard deviation. That is conservative: O
 
 Every rule also declares whether it can change richness or diversity (`metric_impact`: yes / indirect / no) and its source. The source is an SOP step, a form row, an entity list, or "judgement" when the threshold is ours.
 
-Every evaluated entity gets a row with status `fail`, `pass` or `could_not_check`, so "not checked" is never reported as "fine". A value the form could not have produced, such as one that breaks a constraint, is an **error with "investigate"**. It points to an edit after collection or to an export problem.
+Every evaluated entity gets a row with status `fail`, `pass` or `could_not_check`, so "not checked" is never reported as "fine". A value the form could not have produced, such as one that breaks a constraint or differs from the entity value a calculation copies, is an **error with "investigate"**. It points to an edit after collection or to an export problem.
+
+A single result may carry a different severity from its rule's default, always with the reason in its message. The cases are:
+
+- GPS z-score tiers (V-04);
+- duplicate entity writes that hold identical values (F09: info);
+- the aggregate range row (F10: warning, while each taxon row is info).
+
+The one exception to "could not have come from the app" is C14's letter-case difference (`lw_baseline` stored against `LW_baseline` computed by the form file). It is consistent across all 32 submissions, so it is far more likely a difference between the deployed form and the form file than 32 edits. It is reported as info. The report's appendix splits every rule's failures by the severity actually given.
 
 ## V-06. Quadrats without herbs count as samples
 
@@ -93,6 +102,10 @@ Every evaluated entity gets a row with status `fail`, `pass` or `could_not_check
 
 The results are stored in `challenge2/reference/gbif_cache.json` (99 names, retrieved 2026-10-10). The QA run reads only this file. A name missing from it is `could_not_check`. A GBIF exact match outranks similarity to another list name, because two valid species of one genus are often similar (Eragrostis pilosa / E. viscosa).
 
+Having no GBIF record in the country is weak evidence for a single taxon, because GBIF is incomplete, so each taxon row is info. The aggregate is a warning when a fifth of the list shows it. Native-range data (POWO/WCVP) would be the stronger reference.
+
+Terrain elevation is handled the same way. `python -m vegqa.dem` caches SRTM 90 m elevations (OpenTopoData) for every recorded point in `challenge2/reference/elevation_cache.json` (770 points). Rule E14 compares GPS altitudes with it.
+
 ## V-09. Relative thresholds where the SOP gives none
 
 **Decision.**
@@ -103,11 +116,18 @@ The results are stored in `challenge2/reference/gbif_cache.json` (99 names, retr
 
 Every threshold of ours is labelled `judgement` in the catalogue and can be changed in `rules.yaml` without code.
 
-## V-10. Effort statistics: coverage first, Chao2 with care
+## V-10. Effort statistics: coverage first, bias-corrected Chao2 with intervals, Hill numbers
 
-**Observed.** With only 20 quadrats, plot-level Chao2 is unstable when few taxa occupy exactly two quadrats. Plot 10 has 11 single-quadrat taxa and 1 two-quadrat taxon, so Chao2 = 78.5 against 21 observed.
+**Observed.** With only 20 quadrats, richness estimators are uncertain when few taxa occupy exactly two quadrats. The first version used the classic Chao2 whenever Q2 ≥ 1, which gave Plot 10 (Q1 = 11, Q2 = 1) an estimate of 78.5 against 21 observed.
 
-**Decision.** The report leads with **sample coverage** (Chao & Jost 2012), which is stable at these sample sizes. Chao2 completeness is shown beside it as a secondary, more uncertain measure. Project-level estimates use plots as the sampling units.
+**Decision.**
+
+- The report leads with **sample coverage** (Chao & Jost 2012), which is stable at these sample sizes.
+- Chao2 is the **bias-corrected** form (Chao 2005; always defined), with the log-normal 95% interval (Chao 1987). Plot 10 is now 47 (27–129).
+- The expected number of new taxa in one more quadrat is the extrapolation of Chao et al. (2014), not the slope of the rarefaction curve.
+- Diversity is given as observed incidence-based Hill numbers (q = 0, 1, 2) from quadrat frequencies.
+- No interval is given for coverage: a naive bootstrap over quadrats is biased upwards (Plot 10's interval did not contain its estimate). A valid one needs iNEXT's assemblage bootstrap.
+- Project-level estimates use plots as the sampling units.
 
 ## V-11. The walking order is not assumed
 
@@ -132,6 +152,7 @@ The exploration's numbers were approximate. The pipeline re-derives them, and th
 | Grace recorder 26/32 (S8) | 25/30 canonical | Canonical surveys only |
 | Canavalia rosea "coastal" (T10) | Not flagged | GBIF has Kenyan records; a coastal-vs-inland test needs habitat data |
 | Background geopoint 12–44 m (S9) | Reported as distances; pass (≤ 50 m) | Missing points are `could_not_check` |
+| Slot collision "between different plants" (S3; also this report's first version) | The repeats reused herb_100–102 for the same plants in the same plots | Checked plant by plant (F09); it is a process risk that did not change any record |
 
 ## New findings from the systematic sweeps
 
@@ -139,13 +160,17 @@ The exploration's numbers were approximate. The pipeline re-derives them, and th
 |---|---|---|
 | N1 | device-03 (Plot 11) also worked from the stale species list | B10 |
 | N2 | The **shrubland stratum** (Plots 31–36 and backups 47–51) is entirely unsampled: 0 of 6 primary points | J01 |
-| N3 | Plot 16's registration form was open for 17 h, from 26 May 16:35 to 27 May 09:36 | B05 |
+| N3 | Plot 16's registration form was open for 17 h, from 26 May 17:35 to 27 May 10:36 EAT | B05 |
 | N4 | More curation misspellings: Duosperma "cretanum" (crenatum), Leucas "tettenesis" (tettensis), "Polygalaerioptera" (Polygala erioptera). Melosperma bracteatum (41 canonical records) does not exist at species level in GBIF | F03, F13 |
 | N5 | Every survey stores replicate `lw_baseline`, but the form as written computes `LW_baseline`. The centroid list uses `baseline` | C14, X01 |
 | N6 | The non-viable Plot 23 was confirmed 157 m from its prescribed point, consistent with "on private property" | E12 |
 | N7 | Form design: macro photos at max-pixels 4097–4100 (copy-paste drift); quadrat GPS warning at 10 m against 5 m elsewhere; the registration plot list has no filter, so a plot can be registered twice | K01, K04 |
 | N8 | The curation table's label disagrees with its number for herb_039 (labelled herb_011) and herb_072 (labelled herb_036) | F13 |
 | N9 | 20 of 90 identified taxa have no GBIF record in Kenya but hundreds in southern Africa. The species list (Acacia galpinii, Pechuel-loeschea) and the transport options ("Mokoro", an Okavango dugout) suggest the list was built for a southern-African project | F10 |
+| N10 | **Three registrations edited after collection.** Plots 01, 04 and 15 store a geohash equal to the geohash-7 of their measured midpoint, not the centroid geohash the form copies; the edited value also reached `vegplots` | C17 |
+| N11 | Every GPS altitude is about 705 m below the SRTM terrain at its position (range −785 to −631 m), consistent with data from a site near 1,000 m | E14 |
+| N12 | The 51 prescribed points are 9–104 m (median 66 m) from the centres of their geohash cells, although the SOP defines the midpoint as the cell centre | J04 |
+| N13 | 29 of 30 savanna plots are recorded as "Scrub"; the ecosystem list has no savanna option | D08 |
 
 ## Confirmation items for Natural State
 
@@ -157,6 +182,29 @@ The exploration's numbers were approximate. The pipeline re-derives them, and th
 | C-4 | What positional tolerance does NS use for endpoints and quadrats, given ±5 m GPS? | V-04 |
 | C-5 | Is `species_extra_ids` the authoritative resolution table? Can merges and exclusions move to structured columns? | V-02, F13 |
 | C-6 | Is the shrubland stratum (Plots 31–36) still planned for this replicate? | J01, N2 |
-| C-7 | Is the species list the right one for Lewa? | F10, N9 |
+| C-7 | Where were the data collected, and is the species list (including its life-form groups) the right one for Lewa? | F10, E14, N9, N11 |
 | C-8 | Can the device time zone be set to Africa/Nairobi? | B12 |
 | C-9 | Should Plot 04 ("Forest" in a savanna stratum) stay in the savanna sample? | D08 |
+| C-10 | Which ecosystem types are compatible with each stratum? | D08, N13 |
+| C-11 | Which defines a plot: the prescribed coordinates or the geohash-cell centre? | J04, N12 |
+
+---
+
+## Independent review
+
+An independent reviewer, given no context, re-ran the pipeline and the tests, explored the raw data, and mutation-tested the rules on a copy of the data. Its confirmed findings and what changed:
+
+| Finding | Change |
+|---|---|
+| Registration geohash edited in 3 plots; no rule checked form lookups | New rule C17 recomputes every simple entity-lookup calculation of both forms from the parsed XLSForm (N10) |
+| The slot-collision narrative overstated the effect | Rewritten as a process risk; F09 now says whether duplicate writes are identical; B10's metric impact lowered to "indirect" |
+| Times labelled EAT were read off the +02:00 stamps | Corrected (+1 h) |
+| Resolved richness includes a certain duplicate (Polygalaerioptera) | A sensitivity row collapses names GBIF matches to one species (114) |
+| The stratum mapping hides that savanna plots are all "Scrub" | A D08 project row discloses it; C-10 |
+| Classic Chao2; slope reported as an extrapolation; no intervals | Bias-corrected Chao2 with a log-normal CI; Chao et al. 2014 extrapolation; Hill numbers (V-10) |
+| Repeatability overreached (Plot 18 has the same recorder; effort confounded) | Caveats added; recorders shown |
+| The handover overclaimed: "every expression re-evaluated", "declarative" logic | Wording corrected; deployment model stated |
+| Tests pinned this dataset only | `tests/test_mutations.py`: 34 rules must fire on an injected error |
+| Hard-coded paths, 20 quadrats, country | Input folders are arguments; quadrats and countries read from `rules.yaml` |
+| Suggestions taken up | The altitude/terrain check (E14), geohash-centre check (J04), shared app user, life-form caveat |
+| Suggestion not taken up | SOP version history naming another project: not found in the SOP text |

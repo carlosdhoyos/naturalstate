@@ -30,37 +30,37 @@ def _worst(results: pd.DataFrame, rule_ids: list[str], key_col: str) -> pd.Serie
 
 
 def map_overview(ctx, plots: pd.DataFrame, results: pd.DataFrame, path: Path):
-    proj = ctx.proj
-    x, y = proj.xy(plots.prescribed_lat, plots.prescribed_lon)
-    p = plots.assign(x=np.asarray(x) / 1000, y=np.asarray(y) / 1000)
+    """Longitude / latitude axes with the aspect corrected for latitude (1 deg lon = cos(lat) deg lat)."""
+    p = plots.assign(x=plots.prescribed_lon, y=plots.prescribed_lat)
     worst = _worst(results, list(ctx.catalogue["rules"]), "plot_name")
-    fig, ax = plt.subplots(figsize=(9.5, 6.4))
+    fig, ax = plt.subplots(figsize=(10, 6.4))
     cats = [
         ("surveyed (primary)", (p.surveyed) & (p.sample_status == "primary"), dict(marker="o", s=46, c=TEAL, edgecolors="white", linewidths=0.8)),
         ("surveyed (backup)", (p.surveyed) & (p.sample_status == "backup"), dict(marker="D", s=40, c=TEAL, edgecolors="white", linewidths=0.8)),
         ("registered, not viable", (p.registered) & (p.viable == "no"), dict(marker="X", s=70, c=STATUS["warning"], edgecolors="white", linewidths=0.6)),
-        ("primary, never registered", (~p.registered) & (p.sample_status == "primary"), dict(marker="o", s=46, facecolors="white", edgecolors=STATUS["error"], linewidths=1.4)),
+        ("primary, never registered", (~p.registered) & (p.sample_status == "primary"), dict(marker="s", s=40, facecolors="white", edgecolors=STEEL, linewidths=1.4)),
         ("backup, unused", (~p.registered) & (p.sample_status == "backup"), dict(marker="D", s=22, facecolors="white", edgecolors=MUTED, linewidths=0.9)),
     ]
     for label, m, kw in cats:
         sub = p[m]
         ax.scatter(sub.x, sub.y, label=f"{label} ({len(sub)})", zorder=3, **kw)
     for r in rows(p[p.surveyed]):
-        w = worst.get(r.plot_name)
-        if w == "error":
-            ax.scatter(r.x, r.y, s=170, facecolors="none", edgecolors=STATUS["error"], linewidths=1.2, zorder=2)
+        if worst.get(r.plot_name) == "error":
+            ax.scatter(r.x, r.y, s=150, facecolors="none", edgecolors=STATUS["error"], linewidths=1.1, linestyle="--", zorder=2)
     for r in rows(p):
-        ax.annotate(r.plot_name.replace("SavMon_LW_Plot_", ""), (r.x, r.y), xytext=(4, 3), textcoords="offset points", fontsize=7, color=INK)
+        ax.annotate(r.plot_name.replace("SavMon_LW_Plot_", ""), (r.x, r.y), xytext=(4, 3), textcoords="offset points", fontsize=6.5, color=INK)
     for stratum, g in p.groupby("stratum"):
         ax.annotate(stratum, (g.x.mean(), g.y.max()), xytext=(0, 14), textcoords="offset points", ha="center", fontsize=8, color=STEEL, style="italic")
-    ax.scatter([], [], s=170, facecolors="none", edgecolors=STATUS["error"], label="ring: plot has an error-level flag")
-    xb, yb = p.x.min(), p.y.min() - 0.6
-    ax.plot([xb, xb + 1], [yb, yb], color=INK, lw=2)
-    ax.text(xb + 0.5, yb + 0.12, "1 km", ha="center", fontsize=8)
-    ax.set_aspect("equal")
-    ax.set_xlabel("km east of the project centre")
-    ax.set_ylabel("km north")
-    ax.set_title("Prescribed points: what was registered and surveyed (Lewa, lw_baseline)", loc="left")
+    ax.scatter([], [], s=150, facecolors="none", edgecolors=STATUS["error"], linestyle="--", label="dashed ring: plot has an error-level flag")
+    lat0 = float(p.y.mean())
+    km = 1 / (111.32 * np.cos(np.radians(lat0)))  # degrees of longitude per km
+    xb, yb = p.x.min(), p.y.min() - 0.006
+    ax.plot([xb, xb + km], [yb, yb], color=INK, lw=2)
+    ax.text(xb + km / 2, yb + 0.001, "1 km", ha="center", fontsize=8)
+    ax.set_aspect(1 / np.cos(np.radians(lat0)))
+    ax.set_xlabel("longitude (deg E)")
+    ax.set_ylabel("latitude (deg N)")
+    ax.set_title("Prescribed points: what was registered and surveyed (Lewa, lw_baseline; WGS84)", loc="left")
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), frameon=False, fontsize=8)
     ax.grid(color="#e9eff1", lw=0.6)
     fig.savefig(path)

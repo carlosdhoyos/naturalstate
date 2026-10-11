@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from vegqa import effort, engine, figures, tables  # noqa: E402
 from vegqa.gbif import CACHE as GBIF_CACHE  # noqa: E402
-from vegqa.load import DATA, load  # noqa: E402
+from vegqa.load import DATA, ENTITIES, EXPORTS, load  # noqa: E402
 from vegqa.model import canonical_survey_keys, projection  # noqa: E402
 from vegqa.taxonomy import build_occurrences  # noqa: E402
 
@@ -62,9 +62,10 @@ def rule_summary(results: pd.DataFrame, catalogue: dict) -> pd.DataFrame:
     return out.reset_index()
 
 
-def build() -> dict:
-    """Everything the run produces, in memory (tests use this; main() writes it)."""
-    d = load()
+def build(exports: Path = EXPORTS, entities: Path = ENTITIES) -> dict:
+    """Everything the run produces, in memory (tests use this; main() writes it). Point `exports` and
+    `entities` at the platform's tables (same file names as the ODK exports) to run on new data."""
+    d = load(exports, entities)
     canonical, canon_table = canonical_survey_keys(d)
     occ = build_occurrences(d, canonical)
     catalogue = engine.load_catalogue()
@@ -85,9 +86,11 @@ def build() -> dict:
             "catalogue": catalogue}
 
 
-def main() -> dict:
-    OUT.mkdir(exist_ok=True)
-    b = build()
+def main(exports: Path = EXPORTS, entities: Path = ENTITIES, out: Path | None = None) -> dict:
+    global OUT
+    OUT = out or OUT
+    OUT.mkdir(parents=True, exist_ok=True)
+    b = build(exports, entities)
     results, catalogue = b["results"], b["catalogue"]
     results.to_csv(OUT / "qa_results.csv", index=False)
     flags = results[results.status == "fail"]
@@ -106,5 +109,12 @@ def main() -> dict:
 
 
 if __name__ == "__main__":
-    m = main()
+    import argparse
+
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--exports", type=Path, default=EXPORTS, help="folder with the ODK export CSVs")
+    ap.add_argument("--entities", type=Path, default=ENTITIES, help="folder with the entity list CSVs")
+    ap.add_argument("--out", type=Path, default=OUT, help="output folder")
+    a = ap.parse_args()
+    m = main(a.exports, a.entities, a.out)
     print(json.dumps({k: m[k] for k in ("run_id", "status_counts", "fail_by_severity", "rows")}, indent=1))

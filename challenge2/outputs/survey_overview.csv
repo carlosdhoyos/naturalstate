@@ -1,2 +1,2 @@
 survey_entity,survey_uuid,replicate,first_day,last_day,field_days,primary_points_planned,backup_points,plots_registered,plots_viable,plots_surveyed,submissions,submissions_rejected,canonical_surveys,quadrats_canonical,occurrences_canonical,taxa_raw,taxa_resolved,taxa_resolved_identified,devices,recorders,flags_error,flags_warning,flags_info
-savmon|lw|herbs|ho,858076d3-1f5a-4aad-b9ad-1205828807e0,lw_baseline,2026-05-19,2026-05-27,9,36,15,31,30,30,32,2,30,600,2093,132,115,92,"demo-device-01, demo-device-02, demo-device-03",2,24,224,392
+savmon|lw|herbs|ho,858076d3-1f5a-4aad-b9ad-1205828807e0,lw_baseline,2026-05-19,2026-05-27,9,36,15,31,30,30,32,2,30,600,2093,132,115,92,"demo-device-01, demo-device-02, demo-device-03",2,27,284,448

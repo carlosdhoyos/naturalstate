@@ -66,13 +66,15 @@ def submissions() -> str:
 def plots() -> str:
     p = pd.read_csv(OUT / "plots.csv")
     e = pd.read_csv(OUT / "effort_plots.csv")
-    cov = e[e.layer == "resolved"].set_index("plot_name").coverage
+    er = e[e.layer == "resolved"].set_index("plot_name")
+    cov, h1, h2 = er.coverage, er.hill_q1, er.hill_q2
     p = p[p.registered].sort_values("plot_name")
     df = pd.DataFrame({
         "plot": p.plot_name.map(_short), "status": p.sample_status, "viable": p.viable,
         "offset m": p.midpoint_offset_m, "A-B m": p.transect_length_m, "off N-S deg": p.deviation_ns_deg.astype("Int64"),
         "taxa raw / resolved": p.richness_raw.astype("Int64").astype(str) + " / " + p.richness_resolved.astype("Int64").astype(str),
         "all-unknown quadrats": p.quadrats_all_unknown.astype("Int64"), "coverage": p.plot_name.map(cov),
+        "Hill q1 / q2": p.plot_name.map(lambda n: f"{h1[n]:.1f} / {h2[n]:.1f}" if n in h1 else ""),
         "E/W/I": p.n_error.fillna(0).astype(int).astype(str) + "/" + p.n_warning.fillna(0).astype(int).astype(str) + "/" + p.n_info.fillna(0).astype(int).astype(str),
         "failed rules": p.failed_rules.fillna(""),
     }).replace("<NA> / <NA>", "")
@@ -88,15 +90,16 @@ def effort_plan() -> str:
 
 def effort_project() -> str:
     e = pd.read_csv(OUT / "effort_project.csv")
-    df = e[["layer", "units", "S_obs", "Q1_uniques", "Q2_duplicates", "chao2", "completeness", "coverage"]]
-    df.columns = ["layer", "plots", "taxa observed", "in 1 plot", "in 2 plots", "Chao2", "observed / Chao2", "coverage"]
+    df = pd.DataFrame({"layer": e.layer, "plots": e.units, "taxa observed": e.S_obs, "in 1 plot": e.Q1_uniques, "in 2 plots": e.Q2_duplicates,
+                       "Chao2 (95% CI)": [f"{c:.0f} ({lo:.0f}–{hi:.0f})" for c, lo, hi in zip(e.chao2, e.chao2_lo95, e.chao2_hi95)],
+                       "observed / Chao2": e.completeness, "coverage": e.coverage, "Hill q1 / q2": [f"{a:.0f} / {b:.0f}" for a, b in zip(e.hill_q1, e.hill_q2)]})
     return _md(df)
 
 
 def repeatability() -> str:
     r = pd.read_csv(OUT / "effort_repeatability.csv")
     r = r[r.layer == "resolved"]
-    df = pd.DataFrame({"plot": r.plot_name.map(_short), "first": r["first"], "second": r["second"],
+    df = pd.DataFrame({"plot": r.plot_name.map(_short), "first": r["first"] + " (" + r.recorder_first + ")", "second": r["second"] + " (" + r.recorder_second + ")",
                        "taxa": r.taxa_first.astype(str) + " / " + r.taxa_second.astype(str), "shared": r.shared,
                        "plot Jaccard": r.plot_jaccard, "mean quadrat Jaccard": r.mean_quadrat_jaccard, "minutes": r.duration_first_min.astype(int).astype(str) + " / " + r.duration_second_min.astype(int).astype(str)})
     return _md(df)
@@ -108,8 +111,10 @@ def sensitivity() -> str:
 
 def rules() -> str:
     s = pd.read_csv(OUT / "rule_summary.csv")
-    df = pd.DataFrame({"rule": s.rule_id, "severity": s.severity, "metric impact": s.metric_impact, "check": s.title, "source": s.source,
-                       "fail": s["fail"], "pass": s["pass"], "not checked": s.could_not_check})
+    sev = lambda c: s[c] if c in s else 0
+    df = pd.DataFrame({"rule": s.rule_id, "default severity": s.severity, "metric impact": s.metric_impact, "check": s.title, "source": s.source,
+                       "fail": s["fail"], "of which E/W/I": [f"{e}/{w}/{i}" for e, w, i in zip(sev("fail_error"), sev("fail_warning"), sev("fail_info"))],
+                       "pass": s["pass"], "not checked": s.could_not_check})
     return _md(df, {"fail": "r", "pass": "r", "not checked": "r"})
 
 

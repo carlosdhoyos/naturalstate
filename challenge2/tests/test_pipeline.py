@@ -110,9 +110,13 @@ def test_chao2_and_coverage_formulas():
     inc = pd.DataFrame({"taxon": ["a", "b", "c", "c", "d", "d", "d", "d", "d"], "quadrat_number": [1, 2, 3, 4, 5, 6, 7, 8, 9]})
     s = stats(inc, 10)
     assert (s["S_obs"], s["Q1_uniques"], s["Q2_duplicates"], s["incidences"]) == (4, 2, 1, 9)
-    assert s["chao2"] == pytest.approx(4 + 0.9 * 2 ** 2 / 2, abs=0.05)
+    assert s["chao2"] == pytest.approx(4 + 0.9 * 2 * 1 / (2 * 2), abs=0.05)  # bias-corrected Chao2
+    assert s["chao2_lo95"] <= s["chao2"] <= s["chao2_hi95"]
     assert s["coverage"] == pytest.approx(1 - (2 / 9) * (9 * 2 / (9 * 2 + 2)), abs=1e-3)
+    q0 = 0.9 * 2 ** 2 / 2
+    assert s["new_taxa_next_quadrat"] == pytest.approx(q0 * 2 / (10 * q0 + 2), abs=0.01)
     assert s["curve"][-1] == pytest.approx(4) and s["curve"][0] == pytest.approx(0.9)  # one random quadrat holds 9/10 taxa on average
+    assert s["hill_q0"] == 4 and s["hill_q0"] >= s["hill_q1"] >= s["hill_q2"]
 
 
 def test_slot_number_and_names():
@@ -137,6 +141,16 @@ def test_report_tables_refresh_is_idempotent_and_keeps_prose(tmp_path):
     once = p.read_text()
     report_tables.refresh(p)
     assert p.read_text() == once
-    prose = lambda t: [line for line in t.splitlines() if not line.startswith("|")]
+    import re
+
+    prose = lambda t: [re.sub(r"qa-[0-9a-f]{16}", "RUN", line) for line in t.splitlines() if not line.startswith("|")]
     assert prose(once) == prose(src)
     assert once.count("<!-- table:") == len(report_tables.TABLES)
+
+
+def test_geohash_roundtrip():
+    from vegqa.geo import geohash, geohash_centre
+
+    g = geohash(0.2278005, 37.3591777, 7)
+    lat, lon = geohash_centre(g)
+    assert geohash(lat, lon, 7) == g and abs(lat - 0.2278) < 0.001 and abs(lon - 37.3592) < 0.001

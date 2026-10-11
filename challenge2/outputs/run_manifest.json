@@ -1,6 +1,6 @@
 {
- "run_id": "qa-3272d4edb98c6514",
- "code_version": "code-ea7f527528c2",
+ "run_id": "qa-51d04ffae4815cf9",
+ "code_version": "code-5c78d6faf201",
  "catalogue_version": "1.0",
  "inputs": {
   "Data Vegetation/Entity lists/areas.csv": "48e56055a5d5694f",
@@ -20,12 +20,12 @@
   "Data Vegetation/ODK Data Exports/herbaceous_veg_survey-quadrat_repeat.csv": "bd7269f6a802f6b8",
   "Data Vegetation/ODK Data Exports/herbaceous_veg_survey.csv": "3f085dc97ca4e1df",
   "Data Vegetation/ODK Data Exports/register_vegetation_plots.csv": "91f8aa18019a6443",
-  "challenge2/reference/gbif_cache.json": "d0550e73c4f00bc8",
-  "challenge2/rules/rules.yaml": "7f0bed55dc2ae859"
+  "challenge2/reference/gbif_cache.json": "92098e101a7e658e",
+  "challenge2/rules/rules.yaml": "65ba80a623d5c848"
  },
  "rows": {
-  "qa_results": 24647,
-  "qa_flags": 640,
+  "qa_results": 24827,
+  "qa_flags": 759,
   "submissions": 32,
   "plots": 51,
   "quadrats": 640,
@@ -37,17 +37,17 @@
   "effort_curves": 1200,
   "effort_project": 2,
   "effort_repeatability": 4,
-  "effort_richness_sensitivity": 5
+  "effort_richness_sensitivity": 6
  },
  "status_counts": {
-  "pass": 23986,
-  "fail": 640,
-  "could_not_check": 21
+  "pass": 24046,
+  "fail": 759,
+  "could_not_check": 22
  },
  "fail_by_severity": {
-  "info": 392,
-  "warning": 224,
-  "error": 24
+  "info": 448,
+  "warning": 284,
+  "error": 27
  },
  "figures": [
   "accumulation.png",

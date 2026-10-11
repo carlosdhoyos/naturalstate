@@ -118,7 +118,9 @@ def test_R3_lengths_and_bends(results):
 
 
 def test_R4_forest_in_savanna(results):
-    assert set(fails(results, "D08").plot_name) == {P + "04"}
+    d08 = fails(results, "D08")
+    assert set(d08[d08.entity_type == "plot"].plot_name) == {P + "04"}
+    assert d08[d08.entity_type == "project"].observed.str.contains("Scrub 29").all()  # no 'savanna' option in the ecosystem list
 
 
 def test_R5_unknown_woody_named(results):
@@ -308,3 +310,33 @@ def test_N8_curation_label_mismatch(results):
 def test_N9_species_list_region(results):
     f10 = fails(results, "F10")
     assert f10[f10.entity_type == "project"].observed.str.startswith("20/90").all()
+
+
+def test_N10_registration_geohash_edited(results):
+    """The registration copies the centroid geohash; three stored values are the geohash of the measured
+    midpoint instead, which the form cannot produce (found by the independent review)."""
+    c17 = fails(results, "C17")
+    assert set(c17.plot_name) == {P + "01", P + "04", P + "15"}
+    assert c17.observed.str.contains("= geohash of the registered midpoint").all()
+
+
+def test_N11_altitudes_inconsistent_with_terrain(results):
+    e14 = fails(results, "E14")
+    proj = e14[e14.entity_type == "project"]
+    assert len(proj) == 1 and "median -7" in proj.observed.iloc[0]
+    assert (e14.entity_type != "project").sum() == 62  # every submission with altitudes (Plot 23 has none)
+
+
+def test_repeat_surveys_reused_same_slots_for_same_plants(b):
+    """Correction of the first narrative: the rejected repeats wrote herb_100-102 for the same plants in the
+    same plots as the device-01 surveys, so no two different plants share an id."""
+    d = b["ctx"].data
+    e = d.extra[d.extra.entry_mode.isin(["new_unknown", "new_missing"])]
+    e = e.assign(plot_of=e.PARENT_KEY.map(d.quadrat.set_index("KEY").PARENT_KEY).map(d.survey.set_index("KEY").plot_name))
+    shared = e[e.assigned_unknown_index.isin(["100", "101", "102"])]
+    assert shared.groupby("target_extra_name").plot_of.nunique().eq(1).all()
+
+
+def test_N12_prescribed_points_not_geohash_centres(results):
+    j = fails(results, "J04")
+    assert j[j.entity_type == "project"].observed.str.startswith("51/51").all()

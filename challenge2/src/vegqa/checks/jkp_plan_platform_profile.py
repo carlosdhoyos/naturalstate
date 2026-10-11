@@ -8,6 +8,7 @@ import pandas as pd
 
 from ..engine import rows, rule
 from ..forms import choices, design_issues, fields, select_fields
+from ..geo import geohash, geohash_centre
 
 JUNK = re.compile(r"^[\W_]*\w?[\W_]*$")  # empty of words: punctuation / whitespace / one character
 FREE_TEXT = {"quadrat_repeat": ["quadrat_comment"], "survey": ["survey_end-herbaceous_veg_notes"],
@@ -48,6 +49,26 @@ def viable_without_survey(ctx):
         ok = r.plot_uuid in surveyed
         ctx.add("pass" if ok else "fail", "plot", r.plot_name, plot_name=r.plot_name, source_table="registration", source_key=r.KEY,
                 observed="surveyed" if ok else "no canonical survey", expected="a canonical herbaceous survey")
+
+
+@rule("J04")
+def geohash_centres(ctx):
+    tol = ctx.th["geohash_centre_tolerance_m"]
+    c = ctx.data.ent["centroids"]
+    dists = []
+    for r in rows(c):
+        glat, glon = geohash_centre(r.geohash)
+        x1, y1 = ctx.proj.xy(r._lat, r._lon)
+        x2, y2 = ctx.proj.xy(glat, glon)
+        dist = float(((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5)
+        dists.append(dist)
+        inside = geohash(r._lat, r._lon, len(r.geohash)) == r.geohash
+        ctx.add("fail" if dist > tol else "pass", "centroid", r["__id"], plot_name=r.choice_name, source_table="centroids", source_key=r["__id"],
+                observed=f"{dist:.0f} m from the centre of geohash {r.geohash} ({'inside' if inside else 'outside'} the cell)", expected=f"<= {tol} m")
+    n = sum(x > tol for x in dists)
+    ctx.add("fail" if n else "pass", "project", "geohash centres", source_table="centroids",
+            observed=f"{n}/{len(dists)} prescribed points are not at their geohash-cell centre (median {sorted(dists)[len(dists) // 2]:.0f} m, max {max(dists):.0f} m)",
+            expected="midpoint = centroid of a geohash cell (Registration SOP)", message="design rule and coordinates disagree (confirmation item)" if n else "")
 
 
 # ── K. Form / platform / documentation ───────────────────────────────────

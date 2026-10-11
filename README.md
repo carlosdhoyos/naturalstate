@@ -29,13 +29,15 @@ Each challenge has its own folder with code and a Markdown write-up.
 
 - **Q1 answer:** [`challenge2/Q1_data_quality_report.md`](challenge2/Q1_data_quality_report.md): (a) survey-level summary, (b) plot-level summary, (c) sampling effort, (d) map of transect locations.
 - **Q2 answer, for the Tech team:** [`challenge2/Q2_tech_handover.md`](challenge2/Q2_tech_handover.md).
-- **Rule catalogue:** [`challenge2/rules/rules.yaml`](challenge2/rules/rules.yaml): 91 rules, each with its source, severity and metric impact.
+- **Rule catalogue:** [`challenge2/rules/rules.yaml`](challenge2/rules/rules.yaml): 94 rules, each with its source, severity and metric impact.
 - **Headline:**
   - The 30 surveyed plots are complete at record level.
   - The shrubland stratum was not sampled.
-  - Taxon names need curation: raw richness is 132 taxa, resolved 115; 23 names are probably misspelled; 20 identified taxa have no Kenyan GBIF record.
+  - Positions, altitudes and species do not fit together at Lewa: GPS altitudes sit about 705 m below the terrain, and 20 identified taxa have no Kenyan GBIF record.
+  - Taxon names need curation: raw richness is 132 taxa, resolved 115; 23 names are probably misspelled.
+  - Three plot registrations were edited after collection: their geohash is that of the measured midpoint.
   - Several transects are offset, too short or bent.
-  - A late upload let two devices claim the same provisional species ids.
+  - A late upload let two devices claim the same provisional species ids. Here they were the same plants, so it is a process risk that did not change the data.
 
 ## Data Explorer
 
@@ -50,4 +52,4 @@ Each challenge has its own folder with code and a Markdown write-up.
   - D-13 is Wood & Kahl's covariate test, compared by AIC; D-14 records how the five other papers were used (reported, used as a check, not adopted, or downstream).
   - Each entry separates the policy from its measured consequences; superseded parts are marked, not deleted.
 - [`docs/challenge1_paper_alignment.md`](docs/challenge1_paper_alignment.md): Wood & Kahl's recommendations, point by point, against what the analysis does.
-- [`docs/challenge2_decisions.md`](docs/challenge2_decisions.md): Challenge 2 decisions (V-01 to V-11), differences from the exploratory review, new findings (N1–N9) and confirmation items (C-1 to C-9).
+- [`docs/challenge2_decisions.md`](docs/challenge2_decisions.md): Challenge 2 decisions (V-01 to V-11), differences from the exploratory review, new findings (N1–N13), the independent review, and confirmation items (C-1 to C-11).

@@ -238,31 +238,41 @@ def entity_writers(ctx):
             p.append(f"written by {len(writers)} submissions: " + ", ".join(f"{w.plot_name} ({w.review or 'not reviewed'})" for w in rows(writers)))
         if len(rejected):
             p.append("written by a rejected submission")
+        same = writers.plot_name.nunique() == 1 and writers.entity_label_to_write.nunique() == 1
+        if p:
+            p.append("identical values from a repeat survey of the same plot (same plant re-recorded)" if same
+                     else "different plots or values: two taxa share one provisional id")
         ctx.add("fail" if p else "pass", "species_extra", num, source_table="species_extra", source_key=slot,
                 observed="; ".join(p) or f"one writer ({writers.plot_name.iloc[0]})", expected="one accepted writer per slot",
-                message=f"entity __updates={upd}; rejection does not roll back entity writes (K03)" if p else "")
+                message=f"entity __updates={upd}; rejection does not roll back entity writes (K03)" if p else "",
+                severity=("info" if same else None) if p else None)
 
 
 @rule("F10")
 def range_check(ctx):
+    """No GBIF occurrence in the project country is weak evidence on its own (GBIF is incomplete); it is
+    reported as info per taxon, with the contrast-region count beside it, and as a warning only in aggregate."""
     g = _gbif(ctx)
+    country, contrast = ctx.th["range_country"], "/".join(ctx.th["range_contrast_countries"])
     occ = ctx.occ[ctx.occ.canonical_survey & ctx.occ.resolved_status.isin(["identified", "identified_uncurated"])]
     zero, total = 0, 0
     for name, n in occ.groupby("resolved_name").size().items():
         c = g.get(name.strip())
-        if not c or "count_KE" not in c:
+        if not c or f"count_{country}" not in c:
             ctx.add("could_not_check", "taxon_name", name, source_table="reference/gbif_cache.json", observed=f"{name!r} ({n} records)",
                     message="not in the GBIF cache or not matched to a species")
             continue
         total += 1
-        ke, sa = c["count_KE"], c["count_southern_africa"]
-        bad = ke == 0
+        here, there = c[f"count_{country}"], c["count_contrast"]
+        bad = here == 0
         zero += bad
         ctx.add("fail" if bad else "pass", "taxon_name", name, source_table="reference/gbif_cache.json",
-                observed=f"{name!r} ({n} records): GBIF {ke} records in Kenya, {sa} in southern Africa (as {c.get('canonicalName')!r})",
-                expected=">= 1 GBIF record in Kenya", message="possible misidentification or a name from another region's list: verify" if bad else "")
+                observed=f"{name!r} ({n} records): GBIF {here} records in {country}, {there} in {contrast} (as {c.get('canonicalName')!r})",
+                expected=f">= 1 GBIF record in {country}",
+                message="no GBIF record in the country: verify the identification or the source of the species list (GBIF is incomplete)" if bad else "")
     ctx.add("fail" if zero else "pass", "project", "range summary", source_table="reference/gbif_cache.json",
-            observed=f"{zero}/{total} identified taxa have no GBIF record in Kenya", expected="0", severity="warning" if zero else None)
+            observed=f"{zero}/{total} identified taxa have no GBIF record in {country}", expected="0", severity="warning" if zero else None,
+            message="aggregate raised to warning: one taxon without records is weak evidence, a fifth of the list is a pattern" if zero else "")
 
 
 @rule("F11")
@@ -276,7 +286,7 @@ def unknown_burden(ctx):
         n_au = int((q[q.PARENT_KEY == s.KEY].all_unknown == "yes").sum())
         bad = share > th["unknown_share_info"] or n_au > th["all_unknown_quadrats_info"]
         ctx.add("fail" if bad else "pass", "plot", s.plot_name, plot_name=s.plot_name, survey_key=s.KEY, source_table="survey", source_key=s.KEY,
-                observed=f"{share:.0%} of records unresolved unknowns; {n_au}/20 all-unknown quadrats",
+                observed=f"{share:.0%} of records unresolved unknowns; {n_au}/{len(q[q.PARENT_KEY == s.KEY])} all-unknown quadrats",
                 expected=f"<= {th['unknown_share_info']:.0%} unknown records and <= {th['all_unknown_quadrats_info']} all-unknown quadrats")
 
 

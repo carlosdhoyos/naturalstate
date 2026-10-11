@@ -9,6 +9,8 @@ import re
 import pandas as pd
 
 from ..engine import rows, rule
+from ..forms import fields
+from ..geo import geohash
 
 NEW_MODES = ("new_unknown", "new_missing")
 CANONICAL_FORBIDDEN = re.compile(r"[,;()]")  # form constraint not(regex(., '[,;()]'))
@@ -302,3 +304,59 @@ def registration_rules(ctx):
             p.append(f"is_plot_viable={r.viable!r}")
         ctx.add("fail" if p else "pass", "registration", r.KEY, plot_name=r.plot_name, source_table="registration", source_key=r.KEY,
                 observed="; ".join(p) or "consistent with the registration form", expected="registration form required/relevant/constraint rules")
+
+
+LOOKUP = re.compile(r"""instance\(['"](\w+)['"]\)/root/item\[name\s*=\s*\$\{(\w+)\}\]/([\w-]+)\s*$""")
+# Entity lists the forms themselves write to are excluded: their values legitimately change after the
+# form read them (species_extra labels are rewritten on activation; F14 / X01 check those slots).
+WRITTEN_BY_FORMS = {"species_extra"}
+
+
+def lookup_calculations(form: str) -> list[tuple[str, str, str, str]]:
+    """(calculated field, entity list, key field, entity column) for every simple lookup calculation."""
+    out = []
+    f = fields(form)
+    for _, r in f[f.base_type == "calculate"].iterrows():
+        m = LOOKUP.match(r.calculation.strip())
+        if m and m.group(1) not in WRITTEN_BY_FORMS:
+            out.append((r["name"], m.group(1), m.group(2), m.group(3)))
+    return out
+
+
+def _col(df: pd.DataFrame, name: str):
+    hits = [c for c in df.columns if c == name or c.endswith("-" + name)]
+    return hits[0] if len(hits) == 1 else None
+
+
+@rule("C17")
+def lookup_calculations_match_entities(ctx):
+    """Sweep H, generic part: every calculation of the form `instance('list')/root/item[name = ${field}]/column`
+    is recomputed from the entity list and compared with the stored value (both forms, parsed from the XLSX)."""
+    d = ctx.data
+    for form, table, df in (("herbaceous_veg_survey", "survey", d.survey), ("register_vegetation_plots", "registration", d.registration)):
+        checks = []
+        for calc, ent, keyf, col in lookup_calculations(form):
+            stored_col, key_col = _col(df, calc), _col(df, keyf)
+            e = d.ent.get(ent)
+            if stored_col is None or key_col is None or e is None:
+                continue
+            ecol = {"name": "__id"}.get(col, col)
+            if ecol not in e.columns:
+                continue
+            checks.append((calc, ent, stored_col, key_col, e.set_index("__id")[ecol]))
+        for _, r in df.iterrows():
+            diffs = []
+            for calc, ent, stored_col, key_col, emap in checks:
+                k = r[key_col]
+                if not k:
+                    continue
+                want = str(emap.get(k, ""))
+                if str(r[stored_col]) != want:
+                    note = ""
+                    if calc == "geohash" and pd.notna(r.get("_midpoint_lat")):
+                        mid = geohash(r["_midpoint_lat"], r["_midpoint_lon"], len(want) or 7)
+                        note = f" (= geohash of the registered midpoint)" if mid == r[stored_col] else ""
+                    diffs.append(f"{calc}: stored {r[stored_col]!r}, {ent} has {want!r}{note}")
+            ctx.add("fail" if diffs else "pass", table, r.KEY, plot_name=r.plot_name, survey_key=r.KEY if table == "survey" else "", source_table=table, source_key=r.KEY,
+                    observed="; ".join(diffs) or f"{len(checks)} lookups consistent", expected="stored value = entity value the calculation reads",
+                    message="the app copies this value from the entity list: a different value points to an edit after collection" if diffs else "")

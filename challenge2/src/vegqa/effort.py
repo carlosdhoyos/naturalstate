@@ -1,12 +1,14 @@
 """Sampling effort: planned vs done, how complete each plot's species list is, and how repeatable it is.
 
-Incidence data: a plot is T = 20 quadrats; Q_k = number of taxa found in exactly k quadrats; U = total
-incidences (taxon x quadrat). Statistics (Chao et al. 2014 / Chao & Jost 2012, incidence form):
+Incidence data: a plot is T = 20 quadrats; Y_i = quadrats occupied by taxon i; Q_k = number of taxa found in
+exactly k quadrats; U = total incidences. Statistics (incidence form):
   * sample-based rarefaction  S(t) = sum_i [1 - C(T - Y_i, t) / C(T, t)]   (expected taxa in t random quadrats)
-  * Chao2 = S_obs + (T-1)/T * Q1^2 / (2 Q2)    (bias-corrected (T-1)/T * Q1 (Q1-1) / 2 when Q2 = 0)
-  * sample coverage  C = 1 - Q1/U * [(T-1) Q1 / ((T-1) Q1 + 2 Q2)]
-    (share of the community's incidences belonging to taxa already seen; 1 - C = chance that one more
-     quadrat's next record is a new taxon)
+  * bias-corrected Chao2 = S_obs + (T-1)/T * Q1 (Q1 - 1) / (2 (Q2 + 1))   (Chao 2005), with the log-normal
+    95% interval of Chao (1987)
+  * sample coverage  C = 1 - Q1/U * [(T-1) Q1 / ((T-1) Q1 + 2 Q2)]   (Chao & Jost 2012): the share of the
+    community's incidences belonging to taxa already seen
+  * expected new taxa in one more quadrat  Q0 * Q1 / (T Q0 + Q1), Q0 = (T-1)/T * Q1^2 / (2 Q2)   (Chao et al. 2014)
+  * observed incidence-based Hill numbers q = 0, 1, 2 from p_i = Y_i / U (richness, exp Shannon, inverse Simpson)
 Both layers are reported: raw keys over-count taxa (several provisional ids = one species) and resolved
 keys merge them; unresolved unknowns stay as their own taxa in both. Only canonical surveys count.
 """
@@ -32,19 +34,46 @@ def incidence(occ: pd.DataFrame, survey_key: str, layer: str) -> pd.DataFrame:
     return o.drop_duplicates(["quadrat_number", "taxon"])[["quadrat_number", "taxon"]]
 
 
+def chao2_bc(s_obs: int, q1: int, q2: int, T: int) -> tuple[float, float, float]:
+    """Bias-corrected Chao2 (Chao 2005; always defined) with its log-normal 95% interval (Chao 1987)."""
+    k = (T - 1) / T
+    f0 = k * q1 * (q1 - 1) / (2 * (q2 + 1))
+    var = (k * q1 * (q1 - 1) / (2 * (q2 + 1)) + k ** 2 * q1 * (2 * q1 - 1) ** 2 / (4 * (q2 + 1) ** 2)
+           + k ** 2 * q1 ** 2 * q2 * (q1 - 1) ** 2 / (4 * (q2 + 1) ** 4))
+    if f0 <= 0:
+        return float(s_obs), float(s_obs), float(s_obs)
+    c = np.exp(1.96 * np.sqrt(np.log(1 + var / f0 ** 2)))
+    return s_obs + f0, s_obs + f0 / c, s_obs + f0 * c
+
+
+def coverage(y: np.ndarray, T: int) -> float:
+    U, q1, q2 = int(y.sum()), int((y == 1).sum()), int((y == 2).sum())
+    if not U or not q1:
+        return 1.0
+    return 1 - (q1 / U) * ((T - 1) * q1 / ((T - 1) * q1 + 2 * q2))
+
+
+def hill(y: np.ndarray) -> tuple[float, float, float]:
+    """Observed incidence-based Hill numbers q = 0, 1, 2 from relative quadrat frequencies p_i = Y_i / U."""
+    p = y / y.sum()
+    return float(len(y)), float(np.exp(-(p * np.log(p)).sum())), float(1 / (p ** 2).sum())
+
+
 def stats(inc: pd.DataFrame, T: int) -> dict:
-    y = inc.groupby("taxon").size()  # number of quadrats each taxon occupies
+    """No interval is given for coverage: a naive bootstrap over quadrats is biased upwards (resampled
+    quadrats turn uniques into duplicates); a valid interval needs Chao's assemblage bootstrap (iNEXT)."""
+    y = inc.groupby("taxon").size().to_numpy()  # number of quadrats each taxon occupies
     s_obs, U = len(y), int(y.sum())
     q1, q2 = int((y == 1).sum()), int((y == 2).sum())
-    if q2 > 0:
-        chao2 = s_obs + (T - 1) / T * q1 ** 2 / (2 * q2)
-    else:
-        chao2 = s_obs + (T - 1) / T * q1 * (q1 - 1) / 2
-    cov = 1 - (q1 / U) * ((T - 1) * q1 / ((T - 1) * q1 + 2 * q2)) if U and q1 else 1.0
+    chao2, lo, hi = chao2_bc(s_obs, q1, q2, T)
+    q0_classic = (T - 1) / T * (q1 ** 2 / (2 * q2) if q2 else q1 * (q1 - 1) / 2)
+    next_q = q0_classic * (q1 / (T * q0_classic + q1)) if q0_classic else 0.0  # extrapolated S(T+1) - S(T)
     curve = [sum(1 - comb(T - yi, t) / comb(T, t) for yi in y) for t in range(1, T + 1)]
-    return {"T": T, "S_obs": s_obs, "incidences": U, "Q1_uniques": q1, "Q2_duplicates": q2, "chao2": round(chao2, 1),
-            "completeness": round(s_obs / chao2, 3) if chao2 else np.nan, "coverage": round(cov, 3),
-            "new_taxa_last_quadrat": round(curve[-1] - curve[-2], 2), "curve": curve}
+    h0, h1, h2 = hill(y)
+    return {"T": T, "S_obs": s_obs, "incidences": U, "Q1_uniques": q1, "Q2_duplicates": q2,
+            "chao2": round(chao2, 1), "chao2_lo95": round(lo, 1), "chao2_hi95": round(hi, 1),
+            "completeness": round(s_obs / chao2, 3) if chao2 else np.nan, "coverage": round(coverage(y, T), 3),
+            "new_taxa_next_quadrat": round(next_q, 2), "hill_q0": h0, "hill_q1": round(h1, 2), "hill_q2": round(h2, 2), "curve": curve}
 
 
 def plan_vs_done(plots: pd.DataFrame) -> pd.DataFrame:
@@ -67,7 +96,7 @@ def per_plot(ctx) -> tuple[pd.DataFrame, pd.DataFrame]:
     team = ctx.data.ent["project_team"].set_index("__id").label
     recs, curves = [], []
     for r in rows(s):
-        T = int((ctx.data.quadrat.PARENT_KEY == r.KEY).sum())
+        T = int((ctx.data.quadrat.PARENT_KEY == r.KEY).sum())  # 20 by design; A03 flags any other count
         for layer in ("raw", "resolved"):
             st = stats(incidence(ctx.occ, r.KEY, layer), T)
             curve = st.pop("curve")
@@ -106,11 +135,13 @@ def repeatability(ctx) -> pd.DataFrame:
             ia, ib = incidence(ctx.occ, a, layer), incidence(ctx.occ, b, layer)
             sa, sb = set(ia.taxon), set(ib.taxon)
             jq = []
-            for n in range(1, 21):
+            for n in sorted(set(ia.quadrat_number) | set(ib.quadrat_number)):
                 qa, qb = set(ia.taxon[ia.quadrat_number == n]), set(ib.taxon[ib.quadrat_number == n])
                 if qa | qb:
                     jq.append(len(qa & qb) / len(qa | qb))
+            team = ctx.data.ent["project_team"].set_index("__id").label
             rows.append({"plot_name": plot, "layer": layer, "first": f"{g._device.iloc[0]} {g._start.iloc[0]:%d %b %H:%M}Z", "second": f"{g._device.iloc[1]} {g._start.iloc[1]:%d %b %H:%M}Z",
+                         "recorder_first": team.get(g.recorder_uuid.iloc[0], ""), "recorder_second": team.get(g.recorder_uuid.iloc[1], ""),
                          "taxa_first": len(sa), "taxa_second": len(sb), "shared": len(sa & sb), "plot_jaccard": round(len(sa & sb) / len(sa | sb), 3),
                          "mean_quadrat_jaccard": round(float(np.mean(jq)), 3), "min_quadrat_jaccard": round(float(np.min(jq)), 3),
                          "duration_first_min": round(g._duration_min.iloc[0], 0), "duration_second_min": round(g._duration_min.iloc[1], 0)})
@@ -119,14 +150,27 @@ def repeatability(ctx) -> pd.DataFrame:
 
 def richness_sensitivity(ctx) -> pd.DataFrame:
     """How the headline richness moves with each data decision (all canonical surveys pooled)."""
+    from .gbif import load_cache
+    from .taxonomy import norm_name
+
     occ = ctx.occ
     canon = occ[occ.canonical_survey]
     res = canon[canon.resolved_status.isin(RESOLVED_OK)]
+    n_sub = occ.survey_key.nunique()
+    gb = load_cache()["names"]
+
+    def gbif_key(name, key):
+        g = gb.get(str(name).strip(), {})
+        return norm_name(g["canonicalName"]) if g.get("matchType") in ("EXACT", "FUZZY") and g.get("rank") in ("SPECIES", "SUBSPECIES", "VARIETY") else key
+
+    ident = res[res.resolved_status.str.startswith("identified")]
     rows = [
-        ("raw keys, all 32 submissions", occ[occ.raw_key != ""].raw_key.nunique()),
+        (f"raw keys, all {n_sub} submissions", occ[occ.raw_key != ""].raw_key.nunique()),
         ("raw keys, canonical surveys", canon[canon.raw_key != ""].raw_key.nunique()),
         ("resolved (curation merges, woody excluded)", res.resolved_key.nunique()),
-        ("resolved, identified taxa only", res[res.resolved_status.str.startswith("identified")].resolved_key.nunique()),
+        ("resolved, names matched to GBIF species (spelling variants collapsed)",
+         len({gbif_key(n, k) for n, k in zip(ident.resolved_name, ident.resolved_key)}) + res[res.resolved_status.str.startswith("unknown")].resolved_key.nunique()),
+        ("resolved, identified taxa only", ident.resolved_key.nunique()),
         ("resolved, unresolved unknowns only", res[res.resolved_status.str.startswith("unknown")].resolved_key.nunique()),
     ]
     return pd.DataFrame(rows, columns=["definition", "taxa"])

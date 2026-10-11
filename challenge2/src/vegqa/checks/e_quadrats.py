@@ -272,15 +272,16 @@ def walking_order(ctx):
     """Correlate along-line position with quadrat number under two templates: the SOP (both sides at each
     5 m mark: positions 0,0,5,5,...) and out-and-back (one side out, the other back: 0,5,...,45,45,...,0)."""
     q = positions(ctx).sort_values(["PARENT_KEY", "_quadrat_number"])
-    n = np.arange(1, 21)
+    N = ctx.th["quadrats_per_survey"]
+    n = np.arange(1, N + 1)
     sop = np.floor((n - 1) / 2) * 5
-    oab = np.where(n <= 10, (n - 1) * 5, (20 - n) * 5)
+    oab = np.where(n <= N // 2, (n - 1) * 5, (N - n) * 5)
     kinds = []
     for s in rows(ctx.data.survey):
         sub = q[q.PARENT_KEY == s.KEY]
         a = sub.own_along_m.to_numpy()
-        if len(a) != 20 or np.isnan(a).any():
-            _sadd(ctx, "could_not_check", s, "", "", "needs 20 positioned quadrats")
+        if len(a) != N or np.isnan(a).any():
+            _sadd(ctx, "could_not_check", s, "", "", f"needs {N} positioned quadrats")
             continue
         c_sop, c_oab = abs(np.corrcoef(a, sop)[0, 1]), abs(np.corrcoef(a, oab)[0, 1])
         kind = "out-and-back" if c_oab > c_sop else "SOP pairs"
@@ -289,3 +290,35 @@ def walking_order(ctx):
     n_oab = kinds.count("out-and-back")
     ctx.add("fail" if n_oab else "pass", "project", "all surveys", source_table="quadrat_repeat", observed=f"{n_oab}/{len(kinds)} surveys walked out-and-back",
             expected="SOP order", message="consistent practice: spatially equivalent; confirm it is accepted (confirmation item)" if n_oab > len(kinds) / 2 else "")
+
+
+@rule("E14")
+def altitude_vs_terrain(ctx):
+    """Median (GPS altitude - SRTM terrain) per submission, from the cached DEM reference (vegqa.dem)."""
+    from ..dem import key, load_cache
+
+    dem = ctx.cached("dem", lambda: load_cache()["points"])
+    tol = ctx.th["dem_altitude_tolerance_m"]
+    d = ctx.data
+    items = []
+    for s in rows(d.survey):
+        sub = d.quadrat[d.quadrat.PARENT_KEY == s.KEY]
+        items.append(("survey", s.KEY, s.plot_name, s.KEY, list(zip(sub._lat, sub._lon, sub._alt))))
+    for r in rows(d.registration):
+        pts = [(r[f"_{p}_lat"], r[f"_{p}_lon"], r[f"_{p}_alt"]) for p in ("endpoint_a", "midpoint", "endpoint_b")]
+        items.append(("registration", r.KEY, r.plot_name, "", pts))
+    all_diffs = []
+    for form, key_, plot, skey, pts in items:
+        diffs = [alt - dem[key(a, b)] for a, b, alt in pts if pd.notna(a) and pd.notna(alt) and key(a, b) in dem]
+        if not diffs:
+            ctx.add("could_not_check", form, key_, plot_name=plot, survey_key=skey, source_table=form, source_key=key_, message="no positions with altitude in the DEM cache")
+            continue
+        med = float(np.median(diffs))
+        all_diffs += diffs
+        ctx.add("fail" if abs(med) > tol else "pass", form, key_, plot_name=plot, survey_key=skey, source_table=form, source_key=key_,
+                observed=f"GPS altitude {med:+.0f} m against SRTM terrain (median of {len(diffs)} points)", expected=f"within {tol} m")
+    if all_diffs:
+        v = np.array(all_diffs)
+        ctx.add("fail" if abs(np.median(v)) > tol else "pass", "project", "altitude vs terrain", source_table="reference/elevation_cache.json",
+                observed=f"{len(v)} points: GPS minus terrain median {np.median(v):+.0f} m (range {v.min():+.0f} to {v.max():+.0f} m)",
+                expected=f"within {tol} m", message="systematic offset: positions and altitudes do not belong to the same place (confirmation item)" if abs(np.median(v)) > tol else "")

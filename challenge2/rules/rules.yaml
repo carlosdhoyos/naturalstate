@@ -28,7 +28,8 @@ thresholds:
   watch_submission_delay_h: 8             # judgement (info)
   altitude_mad_z: 4                       # judgement, robust z within a survey
   altitude_jump_m: 15                     # judgement: altitude change between consecutive quadrats (5 m apart)
-  walked_line_rotation_deg: 30            # judgement: survey's own line vs the registered line
+  walked_line_rotation_deg: 30
+  geohash_centre_tolerance_m: 5           # judgement: rounding of the prescribed coordinates            # judgement: survey's own line vs the registered line
   background_point_max_m: 50              # judgement: confirmation location vs plot midpoint
   campaign_start: "2026-05-15"            # survey entities created 2026-05-15
   campaign_end: "2026-06-30"
@@ -40,6 +41,9 @@ thresholds:
   recorder_share_info: 0.75               # judgement: one recorder doing more than this share of surveys
   repeat_jaccard_info: 0.70               # judgement: plot-level species agreement between repeat surveys
   registration_overnight_hours: 6         # judgement: a registration form open longer than this spans a break
+  dem_altitude_tolerance_m: 100          # judgement: SRTM ~16 m + GPS vertical error, with a wide margin
+  range_country: KE                       # country of the project (GBIF range check, F10)
+  range_contrast_countries: [BW, NA, ZA, ZW]   # contrast region reported beside it (southern Africa)
   stratum_ecosystems:                     # judgement + Registration SOP step 3; confirmation item
     savanna: [Grassland, Scrub]
     shrubland: [Scrub]
@@ -67,7 +71,7 @@ rules:
   B07: {group: B, level: survey, severity: error, metric_impact: "no", source: "survey entity (baseline year, campaign window)", title: "Survey date outside the campaign window", why: "Wrong dates break replicate logic", action: "Check device clock"}
   B08: {group: B, level: survey, severity: warning, metric_impact: "no", source: "judgement", title: "Same team member on two overlapping surveys", why: "A person cannot be in two places", action: "Check team selection / clocks"}
   B09: {group: B, level: survey, severity: info, metric_impact: "no", source: "judgement", title: "Implausible travel speed between consecutive surveys of one device", why: "Points to clock or location errors", action: "Check device clock"}
-  B10: {group: B, level: survey, severity: warning, metric_impact: "yes", source: "form calculation base_active_herb_count; entity list lifecycle", title: "Device's species_extra list missed slots already activated by earlier surveys (any device)", why: "Two devices can claim the same new-species slot; provisional IDs collide", action: "Refresh forms before each survey; upload daily"}
+  B10: {group: B, level: survey, severity: warning, metric_impact: indirect, source: "form calculation base_active_herb_count; entity list lifecycle", title: "Device's species_extra list missed slots already activated by earlier surveys (any device)", why: "Two devices can claim the same new-species slot; provisional IDs can collide (a process risk; F09 shows whether it changed any record)", action: "Refresh forms before each survey; upload daily"}
   B11: {group: B, level: survey, severity: error, metric_impact: "no", source: "form choice_filter recorder in selected team", title: "Recorder not among the selected team / inactive team member", why: "Accountability for identifications", action: "Check team selection"}
   B12: {group: B, level: survey, severity: info, metric_impact: "no", source: "ODK timestamps", title: "Timestamps carry +02:00 while project local time is +03:00 (EAT)", why: "Instants are correct but local wall-clock times read off the stamps are 1 h behind", action: "Set the device time zone to Africa/Nairobi"}
 
@@ -87,6 +91,7 @@ rules:
   C13: {group: C, level: quadrat, severity: error, metric_impact: indirect, source: "form required herbs_present, quadrat_image, location_quadrat", title: "Required quadrat field missing", why: "The form requires it", action: "Investigate the record"}
   C14: {group: C, level: survey, severity: error, metric_impact: "no", source: "form calculations survey_year, replicate_index, replicate, labels", title: "Stored calculated survey fields differ from recomputed", why: "Replicate attribution would be wrong", action: "Investigate form logic"}
   C15: {group: C, level: quadrat, severity: error, metric_impact: "yes", source: "form constraint additional_species_present: . = 'yes' or all_unknown != 'yes'", title: "all_unknown = yes but additional species = no", why: "The form forbids it: an all-unknown quadrat must list its unknowns", action: "Investigate the record"}
+  C17: {group: C, level: survey, severity: error, metric_impact: indirect, source: "form calculations instance('<list>')/root/item[name = ${field}]/<column> (both forms, parsed)", title: "Stored lookup calculation differs from its entity list", why: "A calculation copies an entity value; a different stored value could not come from the app (an edit, or the entity changed afterwards)", action: "Investigate the record and the entity history"}
   C16: {group: C, level: plot, severity: error, metric_impact: "no", source: "registration form required/relevant/constraints", title: "Registration field missing or violating its form rule", why: "The form forbids it", action: "Investigate the record"}
 
   # ── D. Registration geometry ────────────────────────────────────────────
@@ -115,6 +120,7 @@ rules:
   E10: {group: E, level: quadrat, severity: warning, metric_impact: "no", source: "judgement", title: "Implausibly short time between consecutive quadrats", why: "May indicate rushed or batch-entered quadrats", action: "Review"}
   E11: {group: E, level: quadrat, severity: error, metric_impact: "no", source: "judgement", title: "Same photo file used more than once", why: "One photo cannot document two quadrats", action: "Investigate"}
   E12: {group: E, level: survey, severity: info, metric_impact: "no", source: "form background-geopoint", title: "Confirmation location far from the plot, or missing", why: "Where the form was confirmed", action: "None (context)"}
+  E14: {group: E, level: survey, severity: warning, metric_impact: "no", source: "SRTM 90 m terrain elevation (cached reference)", title: "GPS altitudes inconsistent with the terrain at the recorded position", why: "Hundreds of metres of difference cannot be GPS error: positions, altitudes or both may not belong together", action: "Confirm where the data were collected (confirmation item)"}
   E13: {group: E, level: survey, severity: info, metric_impact: "no", source: "Herbaceous SOP steps 11-12 (both sides at each 5 m mark)", title: "Walking order differs from the SOP (e.g. out-and-back)", why: "Spatial design equivalent; position checks must not assume SOP order", action: "Confirm accepted local practice (confirmation item)"}
 
   # ── F. Species and taxonomy ─────────────────────────────────────────────
@@ -143,6 +149,8 @@ rules:
   J01: {group: J, level: plot, severity: warning, metric_impact: "yes", source: "centroids (prescribed primary points)", title: "Prescribed primary point not registered or not surveyed", why: "Planned sample incomplete", action: "Confirm whether still planned (confirmation item)"}
   J02: {group: J, level: plot, severity: info, metric_impact: indirect, source: "centroids (backup points)", title: "Backup point used", why: "Context for coverage", action: "None"}
   J03: {group: J, level: plot, severity: warning, metric_impact: "yes", source: "design", title: "Viable registered plot without an accepted survey", why: "Planned sample incomplete", action: "Survey the plot"}
+
+  J04: {group: J, level: plot, severity: info, metric_impact: "no", source: "Registration SOP definitions (plot midpoint = centroid of a geohash cell)", title: "Prescribed point is not the centre of its geohash cell", why: "The design rule and the prescribed coordinates disagree; field teams navigate to the coordinates", action: "Confirm which defines the plot (confirmation item)"}
 
   # ── K. Form / platform / documentation issues (feedback to NS, not field errors) ──
   K01: {group: K, level: project, severity: info, metric_impact: "no", source: "Herbaceous SOP glossary vs form", title: "SOP and form disagree on conventions", why: "Teams follow one, data follow the other", action: "Align SOP and form"}

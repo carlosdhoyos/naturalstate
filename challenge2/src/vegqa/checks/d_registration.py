@@ -135,6 +135,16 @@ def ecosystem_vs_stratum(ctx):
         ok = r.ecosystem in ok_list
         _add(ctx, "pass" if ok else "fail", r, f"{r.ecosystem} in stratum {r.stratum}", f"one of {ok_list}",
              "" if ok else "obvious stratum mismatch can justify non-viability (Reg. SOP 3); confirm stratum / viability")
+    reg = ctx.data.registration[ctx.data.registration.viable == "yes"]
+    eco_names = sorted(ctx.data.ent["ecosystem_types"].label)
+    for stratum, g in reg.groupby("stratum"):
+        counts = g.ecosystem.value_counts()
+        top, n = counts.index[0], int(counts.iloc[0])
+        same_word = any(stratum.lower() in e.lower() for e in eco_names)
+        ctx.add("fail" if not same_word else "pass", "project", f"stratum {stratum}", source_table="registration",
+                observed=f"{stratum}: " + ", ".join(f"{k} {v}" for k, v in counts.items()) + f"; ecosystem list: {', '.join(eco_names)}",
+                expected="the ecosystem list can express the stratum", severity="info",
+                message=f"no '{stratum}' ecosystem option: {n}/{len(g)} plots recorded as {top}; the allowed mapping is our judgement (confirmation item)" if not same_word else "")
 
 
 @rule("D09")

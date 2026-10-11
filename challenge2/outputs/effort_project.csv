@@ -1,3 +1,3 @@
-layer,sampling_unit,units,S_obs,incidences,Q1_uniques,Q2_duplicates,chao2,completeness,coverage,new_taxa_last_quadrat
-raw,plot,30,132,654,51,20,194.9,0.677,0.924,1.7
-resolved,plot,30,115,645,36,19,148.0,0.777,0.946,1.2
+layer,sampling_unit,units,S_obs,incidences,Q1_uniques,Q2_duplicates,chao2,chao2_lo95,chao2_hi95,completeness,coverage,new_taxa_next_quadrat,hill_q0,hill_q1,hill_q2
+raw,plot,30,132,654,51,20,190.7,160.7,252.0,0.692,0.924,1.66,132.0,78.9,59.0
+resolved,plot,30,115,645,36,19,145.4,128.3,184.6,0.791,0.946,1.16,115.0,71.95,55.75

@@ -84,3 +84,39 @@ def robust_line(x, y):
     u = vt[0]
     res = np.abs((pts - c) @ np.array([-u[1], u[0]]))
     return c, u, res
+
+
+_GH = "0123456789bcdefghjkmnpqrstuvwxyz"
+
+
+def geohash(lat: float, lon: float, precision: int = 7) -> str:
+    """Standard geohash encoding (base-32, alternating longitude/latitude bits)."""
+    la, lo = [-90.0, 90.0], [-180.0, 180.0]
+    out, ch, bit, even = "", 0, 0, True
+    while len(out) < precision:
+        rng, v = (lo, lon) if even else (la, lat)
+        mid = (rng[0] + rng[1]) / 2
+        if v >= mid:
+            ch, rng[0] = ch * 2 + 1, mid
+        else:
+            ch, rng[1] = ch * 2, mid
+        even, bit = not even, bit + 1
+        if bit == 5:
+            out, ch, bit = out + _GH[ch], 0, 0
+    return out
+
+
+def geohash_centre(gh: str) -> tuple[float, float]:
+    """Centre (lat, lon) of a geohash cell."""
+    la, lo, even = [-90.0, 90.0], [-180.0, 180.0], True
+    for ch in gh:
+        v = _GH.index(ch)
+        for i in range(4, -1, -1):
+            rng = lo if even else la
+            mid = (rng[0] + rng[1]) / 2
+            if (v >> i) & 1:
+                rng[0] = mid
+            else:
+                rng[1] = mid
+            even = not even
+    return (la[0] + la[1]) / 2, (lo[0] + lo[1]) / 2
