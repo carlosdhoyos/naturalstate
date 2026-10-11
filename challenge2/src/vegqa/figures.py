@@ -169,7 +169,7 @@ def transects_grid(ctx, results: pd.DataFrame, path: Path):
             ax.text(0.02, 0.02, " ".join(fl), transform=ax.transAxes, fontsize=6.5, color=STATUS["error"] if any(
                 (plot_flags.plot_name == r.plot_name) & (plot_flags.severity == "error")) else "#9a6a00")
     handles = [Line2D([], [], color=NAVY, lw=1.4, label="registered A-M-B"), Line2D([], [], marker="+", ls="", color=INK, label="prescribed point"),
-               Line2D([], [], ls="--", color=MUTED, label="25 m limit"), plt.Rectangle((0, 0), 1, 1, color=TEAL_LIGHT, alpha=0.45, label="5 m belt")]
+               Line2D([], [], ls="--", color=MUTED, label="25 m limit"), plt.Rectangle((0, 0), 1, 1, color=TEAL_LIGHT, alpha=0.45, label="5 m belt along A-B")]
     handles += [Line2D([], [], marker="o", ls="", color=c, label=f"quadrat: {k}") for k, c in STATUS.items()]
     fig.legend(handles=handles, loc="lower center", ncol=8, frameon=False, fontsize=7.5, bbox_to_anchor=(0.5, -0.01))
     fig.suptitle("Registered transects at true scale, with canonical quadrats\n140 m windows centred on the prescribed point, north up; "

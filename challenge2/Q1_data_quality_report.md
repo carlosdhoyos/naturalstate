@@ -3,7 +3,7 @@
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
 **Interactive version:** the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`, Vegetation → QA/QC dashboard): every flag with its source row, the map with per-plot transect panels, the curation queue and the effort views.
-**Prepared by:** Carlos Hoyos · run `qa-9785d0be1428322b` · reproducible with `python challenge2/src/run_challenge2.py`
+**Prepared by:** Carlos Hoyos · run `qa-f40167b5f7e510c5` · reproducible with `python challenge2/src/run_challenge2.py`
 
 ---
 
@@ -478,7 +478,7 @@ The section has three parts:
 
 **Figure d2. Each transect at true scale.** Every panel is a 140 m window centred on the prescribed point (+), with north up and a 20 m scale bar. It shows:
 
-- the registered A–M–B line and its 5 m belt;
+- the registered A–M–B line, and the 5 m belt along A–B (the line the quadrat position checks use);
 - the 25 m limit around the prescribed point;
 - the canonical quadrats, coloured by their worst position flag.
 
@@ -680,12 +680,14 @@ Every rule evaluated in this run, with its source and result counts. "Not checke
 | `outputs/rule_summary.csv` | The catalogue with fail / pass / not-checked counts |
 | `outputs/survey_overview.csv` | Section (a) in one row |
 | `outputs/submissions.csv` | One row per submission, with timing, device, canonical flag, richness and flag counts |
-| `outputs/plots.csv` | One row per prescribed point: plan, registration, geometry, canonical survey, richness, flags |
+| `outputs/plots.csv` | One row per prescribed point and replicate: plan, registration, geometry, canonical survey, richness, flags |
 | `outputs/quadrats.csv` | One row per quadrat: position on the transect, photo time, species counts, flags |
 | `outputs/occurrences.csv` | One row per record, with raw and resolved taxon and curation note |
 | `outputs/effort_*.csv` | Planned vs done, per-plot statistics and curves, project level, repeatability, richness sensitivity |
 | `outputs/canonical_choice.csv` | Which submission is canonical, and why |
 | `outputs/species_list_suggestions.csv` | Suggested species-list and curation updates for NS's curators: spellings to confirm (GBIF's spelling), taxa to add, merges, range checks. Suggestions only |
+| `outputs/transects.geojson` | Section (d) for GIS: registered transects (A–M–B lines), prescribed points and canonical quadrats, WGS84 lon/lat, no altitudes |
+| `outputs/figures/*.png` | The report's figures, including the transect map (`map_transects.png`) and the true-scale transect panels (`transects_grid.png`) |
 | `outputs/dashboard_results.json` | Everything the QA/QC dashboard page embeds |
-| `outputs/run_manifest.json` | Run id, input file hashes, catalogue version, row counts |
+| `outputs/run_manifest.json` | Run id, input file hashes, catalogue version, row counts, runtime, and a hash of every output (checked by `--verify`) |
 | `outputs/qa_results.csv` | Every rule × entity result, pass included; git-ignored because the run regenerates it in seconds |

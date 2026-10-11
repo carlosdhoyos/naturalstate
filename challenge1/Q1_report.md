@@ -15,6 +15,19 @@ Only one species gets an automatic threshold. That is a finding about the **vali
 
 Section 10 discusses how closely the analysis follows Wood & Kahl, what the other papers contributed, and the conclusions. The code is in [`src/`](src/), every decision with its evidence is logged in [`docs/challenge1_data_decisions.md`](../docs/challenge1_data_decisions.md) (D-01 to D-14), and the dashboard page **Birds → Thresholds & observations** shows all of it interactively.
 
+### What to do next
+
+| # | Action | Owner (suggested) | Unblocks | Refs |
+|---|---|---|---|---|
+| 1 | Use the 3,460 observations now. Treat a missing observation as "not detected", never as absence | Analysts | Use of the results | §7 |
+| 2 | Validate a further random sample of Oriole clips across scores and recorders (a few hundred; 381 correct in a row gives a model-free 99% bound) | Ornithologist | An Oriole threshold | §8 |
+| 3 | Validate random Plover clips from recorders other than RBS75 | Ornithologist | A Plover threshold | §8 |
+| 4 | Review the Firefinch predictions by hand: the 8 scoring ≥ 0.5, then the 21 ≥ 0.3 | Ornithologist | Firefinch observations | §8 |
+| 5 | Find out what the wrong Nightjar detections at RBS75 and RBS79 are, and validate Nightjar clips from other recorders, evening included | Ornithologist / field team | Confidence in the Nightjar threshold; the 9 flagged predictions above it | C-4, D-11 |
+| 6 | Confirm how validation clips were sampled, and the BirdNET run settings | NS data manager | Unbiased curves; when thresholds transfer | C-1, C-2 |
+| 7 | Carry a stable `prediction_id` into the validation export | Tech team | Linkage without the 69 ties | C-6, Q2 §8 |
+| 8 | Deploy the two jobs (calibrate, label) | Tech team | Automatic labelling on new data | [Q2](Q2_tech_handover.md) |
+
 ---
 
 ## 1. The method, and where I kept to the paper

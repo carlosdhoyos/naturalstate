@@ -22,7 +22,7 @@
 
 | # | Step | Done when | Details |
 |---|---|---|---|
-| 1 | Run the container as a platform job on the three raw-table folders, triggered by new submissions, review-state changes, entity updates and nightly | On the take-home data, `run_challenge2.py --out <dir> --verify` passes and the run id is `qa-9785d0be1428322b` | §7, `challenge2/README.md` |
+| 1 | Run the container as a platform job on the three raw-table folders, triggered by new submissions, review-state changes, entity updates and nightly | On the take-home data, `run_challenge2.py --out <dir> --verify` passes and the run id is `qa-f40167b5f7e510c5` | §7, `challenge2/README.md` |
 | 2 | Load the outputs into the warehouse: `qa_runs`, `qa_results` and the marts | Row counts equal `run_manifest.json` → `rows` | §1, §6 (DDL) |
 | 3 | Build the nine dashboard views from the marts | Each view reproduces the reference page on the take-home data (for example 697 flags, 24 of them errors, and 7 of 30 plots with provisional effort metrics) | §6 |
 | 4 | Add flag reviews: an append-only `flag_reviews` table keyed by `flag_id` + `evidence_hash` | A review survives a rerun, and the flag reopens when its evidence or rule changes | §6 |
@@ -318,7 +318,7 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-9785d0be1428322b`) |
+| All rules implemented and run on the provided data | Done (run `qa-f40167b5f7e510c5`) |
 | Acceptance, mutation, robustness and unit tests | 162 passing |
 | GBIF cache | 99 names, retrieved 2026-10-10 |
 | Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |

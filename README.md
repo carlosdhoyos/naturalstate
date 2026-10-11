@@ -13,8 +13,8 @@ This page leads with the answers. It then gives the main findings and decisions,
 |---|---|---|
 | Birds | Q1: thresholds and labelled observations | [`challenge1/Q1_report.md`](challenge1/Q1_report.md). Every prediction is labelled in `challenge1/outputs/` (`observation` column) |
 | Birds | Q2: how the Tech team automates it | [`challenge1/Q2_tech_handover.md`](challenge1/Q2_tech_handover.md) |
-| Vegetation | Q1: data quality report: (a) surveys, (b) plots, (c) sampling effort, (d) transect map | [`challenge2/Q1_data_quality_report.md`](challenge2/Q1_data_quality_report.md) |
-| Vegetation | Q2: the QA/QC dashboard and its pipeline, for the Tech team | [`challenge2/Q2_tech_handover.md`](challenge2/Q2_tech_handover.md). A working reference is the **QA/QC dashboard** page of the Data Explorer (below) |
+| Vegetation | Q1: data quality report: (a) surveys, (b) plots, (c) sampling effort, (d) transect map | [`challenge2/Q1_data_quality_report.md`](challenge2/Q1_data_quality_report.md). It opens with a TL;DR and an action table. The transects are also in `challenge2/outputs/transects.geojson` for GIS |
+| Vegetation | Q2: the QA/QC dashboard and its pipeline, for the Tech team | [`challenge2/Q2_tech_handover.md`](challenge2/Q2_tech_handover.md). It opens with an "At a glance" build plan. A working reference is the **QA/QC dashboard** page of the Data Explorer (below) |
 
 ## 2. Principal findings and decisions
 

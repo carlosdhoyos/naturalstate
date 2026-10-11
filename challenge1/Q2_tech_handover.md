@@ -14,6 +14,44 @@
 
 ---
 
+## At a glance
+
+**Build plan.** Each step has a check that says it is done.
+
+| # | Step | Done when | Details |
+|---|---|---|---|
+| 1 | Run the package on the platform (container or Python): `ns-observations calibrate` (job A) and `label` (job B) | On the take-home data it reproduces section 9: Nightjar 0.666639; 3,460 observations; the row-status counts; 2,277 review-flag rows. `pytest challenge1/ns_observations` checks this | §9, [`ns_observations/README.md`](ns_observations/README.md) |
+| 2 | Create the tables of section 3 and complete the PostgreSQL adapter (a stub is provided) | A threshold set and its labels round-trip through the database unchanged | §3, §6 |
+| 3 | Wire the triggers. Job A runs on new validations or a re-validation trigger. Job B runs on new predictions, a new threshold set, or changed human verdicts | A new verdict relabels its prediction without any refit | §2, §7 |
+| 4 | Send validation requests: random within score bands, plus a recorder acceptance check for each new recorder | Requests are random within bands and never target likely errors | §7 |
+| 5 | Show review flags (here the Nightjar at RBS75 and RBS79) | Flagged rows are visible for review, never dropped or relabelled | §1, §9 |
+
+**Invariants:**
+
+- Job B never fits anything. It reads one published, immutable, versioned threshold set.
+- A human verdict decides before any threshold.
+- No species threshold means no automatic observations.
+- Thresholds belong to one deployment context (recorders, season, hardware, BirdNET version and settings). A new context needs new validation.
+- Policy values (target probability, evidence gate, estimator) are owned by Biometrics and stored with each threshold set (§5).
+
+**Natural State should confirm** (none of these blocks the current labels):
+
+- **C-1:** how validation clips were sampled.
+- **C-2:** the BirdNET run settings.
+- **C-4:** what the RBS75 and RBS79 Nightjar detections are.
+- **C-5:** what "99%" means: per prediction (used here) or per labelled set.
+
+**Fix upstream** (§8):
+
+- a stable `prediction_id` in both exports;
+- the true audio-file start time;
+- validation sampling without replacement;
+- the recorder clock and time zone at deployment;
+- the BirdNET run metadata;
+- full-precision scores in the validation file.
+
+---
+
 ## 1. What the platform has to do, in one paragraph
 
 **Per species, per deployment context:** fit a logistic regression of the ornithologist's verdict on the logit of the BirdNET confidence. A species gets a **threshold** only when its validation data contain at least 5 correct and at least 5 incorrect clips, the fit is valid and increasing, and the score where the fitted probability reaches 0.99 lies inside the range of validated scores.
