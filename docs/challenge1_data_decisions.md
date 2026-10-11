@@ -418,7 +418,7 @@ The rule was fixed before looking at which recorders it selects:
   - Nightjar: 36% vs 18%.
   - The Firefinch validation mirrors its predictions.
 - **This matches Wood & Kahl's advice** to add a second random sample from higher scores when random samples are dominated by low ones.
-- **What it affects:** sampling by score does not bias a model of correctness *given* the score, so the curves are unaffected. It does bias any raw precision pooled over all validated clips, so none is reported without a model or a score band.
+- **What it affects:** sampling by score does not bias a model of correctness *given* the score, provided that, within a score, clips were not chosen by their outcome or by factors the model leaves out (such as the recorder), so the curves are unaffected. It does bias any raw precision pooled over all validated clips, so none is reported without a model or a score band.
 - **Confirmation item C-1** (Q1 report, section 9): the protocol itself is undocumented. The working assumption is random sampling within score strata, possibly with replacement (D-01).
 
 ### Uncertainty
@@ -437,8 +437,8 @@ The rule was fixed before looking at which recorders it selects:
 ### Model-free checks, for every species
 
 - The fitted 99% comes from the logistic shape. Direct validation supports less.
-- **Nightjar:** all 74 validated clips at or above the threshold are correct. Wilson 95% lower bound: **95.1%**.
-- **Oriole:** 150 of 150 correct, lower bound 97.5%. A lower bound of 99% would need 381 consecutive correct clips (Wilson), or 300 by the one-sided rule of three.
+- **Nightjar:** all 74 validated clips at or above the threshold are correct. Wilson 95% lower bound: **95.1%**. This is a binomial reference that assumes independent, representative clips; these cluster by recorder and were chosen by score, so it does not validate future performance.
+- **Oriole:** 150 of 150 correct, lower bound 97.5%. A lower bound of 99% would need 381 consecutive correct clips (Wilson), drawn at random and independent of each other, or 300 by the one-sided rule of three.
 - These are reported beside the model results in `species_thresholds.csv` and on the dashboard.
 
 ### Estimator robustness

@@ -843,7 +843,7 @@ function CurvesTab({ t, sp, setSp }: Ctx) {
               {r.validated_above_threshold != null && (
                 <div className="readout ok">
                   <div className="readout-label">
-                    <Tip tip="Model-free check: the validated clips at or above the threshold, and the Wilson 95% lower bound for their share correct.">Validated above it</Tip>
+                    <Tip tip="Model-free check: the validated clips at or above the threshold, and the Wilson 95% lower bound for their share correct. A binomial reference: it assumes independent, representative clips, while these cluster by recorder and were chosen by score.">Validated above it</Tip>
                   </div>
                   <div className="readout-value">
                     {r.validated_above_threshold_correct}/{r.validated_above_threshold} correct
@@ -1084,7 +1084,7 @@ function GateTab({ t }: Ctx) {
                     {fmtPct(s.observed_precision, 1)} ({fmtPct(s.observed_precision_wilson_lo, 1)}–{fmtPct(s.observed_precision_wilson_hi, 1)})
                   </td>
                   <td className="small">
-                    {s.species.includes('Oriole') && 'No errors: the slope of the curve is not identified. Even without a model, 381 correct clips in a row would be needed for a Wilson 95% lower bound of 99% (300 by the one-sided rule of three).'}
+                    {s.species.includes('Oriole') && 'No errors: the slope of the curve is not identified. Even without a model, 381 correct clips in a row, drawn at random and independent, would be needed for a Wilson 95% lower bound of 99% (300 by the one-sided rule of three).'}
                     {s.species.includes('Plover') && 'One error: the threshold depends entirely on the estimator (0.16, 0.26 or 0.85).'}
                     {s.species.includes('Nightjar') && 'Enough of both outcomes; the three estimators agree within 0.042.'}
                     {s.species.includes('Firefinch') && 'Passes the gate (6 correct), but the curve never reaches 99% within the validated scores.'}
@@ -1453,14 +1453,14 @@ function SamplingTab({ t, sp, setSp }: Ctx) {
           <Plot data={fig.data} layout={fig.layout} height={320} filename={`validation_design_${short(sp)}`} />
         </div>
       </Section>
-      <Note label="Why it matters, and why it does not bias the curve">
+      <Note label="Why it matters, and when it does not bias the curve">
         <ul>
           <li>For the Oriole, Plover and Nightjar the validation over-represents high scores (Oriole: 26% of validated clips score ≥ 0.9, against 3% of predictions). The Firefinch validation mirrors its predictions.</li>
           <li>
             This matches Wood &amp; Kahl’s own advice: when random samples are dominated by low scores, add “a second set of randomly selected validation samples from a higher range of scores … providing additional resolution in the range of scores where false positives transition to true positives.”
           </li>
           <li>
-            Choosing clips <i>by score</i> does not bias a model of correctness <i>given</i> the score, so the curves and thresholds are unaffected. It does bias any raw precision computed over all validated clips, which is why this page never reports one without the model or a score band.
+            Choosing clips <i>by score</i> does not bias a model of correctness <i>given</i> the score, provided that, within a score, clips were not chosen by their outcome or by factors the model leaves out (such as the recorder); then the curves and thresholds are unaffected. It does bias any raw precision computed over all validated clips, which is why this page never reports one without the model or a score band.
           </li>
           <li>
             <b>Confirmation item C-1:</b> the sampling protocol is not documented in the data. The working assumption is random sampling within score bands with a high-score top-up, possibly with replacement (see the duplicate pairs, D-01).

@@ -316,7 +316,7 @@ Changing any of these creates a new threshold set. Nothing is edited in place.
 
 | Trigger | Action |
 |---|---|
-| **New recorder** in a project | **Recorder acceptance check:** before its predictions can be model-labelled, validate a random sample (suggested: 10 per species with predictions, spread across score bands). Run the review-flag test on it. This is what would have caught RBS75/RBS79 |
+| **New recorder** in a project | **Recorder acceptance check:** before its predictions can be model-labelled, validate a random sample (suggested: 10 per species with predictions, spread across score bands). Run the review-flag test on it; the recorder passes if the test does not flag it. Such a check can reveal recorders like RBS75/RBS79, whose validated clips all disagreed with the curve, but its detection power at 10 clips per species has not been tested |
 | New season, site or ecosystem | Validate a fresh stratified sample; Wood & Kahl: thresholds hold only for "the range of conditions encompassed by data from which they were drawn" |
 | New recorder hardware, sample rate or BirdNET version/settings | Treat as a new context: scores are not comparable |
 | A species is `insufficient_validation` or `not_reached` | Queue validation requests for it (sampling below) |
@@ -326,7 +326,7 @@ Changing any of these creates a new threshold set. Nothing is edited in place.
 - **Draw random predictions within score bands** (e.g. 0.1–0.2, 0.2–0.3, 0.3–0.5, 0.5–0.7, 0.7–0.9, 0.9–1.0), **without replacement**, across recorders. Record the stratum.
 - **Top up high-score bands** when most predictions score low, as Wood & Kahl recommend.
 - **Never target likely errors.** That would bias the curve.
-- **Stopping rule for zero-error species:** keep sampling until either errors appear (the gate can pass) or enough correct clips accumulate. 381 correct in a row gives a model-free 99% Wilson lower bound.
+- **Stopping rule for zero-error species:** keep sampling until either errors appear (the gate can pass) or enough correct clips accumulate. 381 correct in a row gives a 99% Wilson lower bound, if the clips are a random, independent sample across recorders.
 
 ## 8. Upstream data-contract fixes (found while doing this)
 

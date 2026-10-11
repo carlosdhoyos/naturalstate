@@ -68,7 +68,7 @@ Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evid
 
 **Nightjar uncertainty.** The recorder-level bootstrap gives a threshold in 93% of resamples, with a 95% interval of 0.471–0.835. The 95% interval for the labelled count is 0 to 4,109 (median 3,123). Every resample without a threshold leaves out both RBS75 and RBS79, which hold 29 of the 33 errors.
 
-**Nightjar model-free check.** All 74 validated clips at or above the threshold are correct, with a Wilson 95% lower bound of 95.1%. The 99% comes from the logistic shape.
+**Nightjar model-free check.** All 74 validated clips at or above the threshold are correct, with a Wilson 95% lower bound of 95.1% (a binomial reference that assumes independent clips; these cluster by recorder). The 99% comes from the logistic shape.
 
 **Review flags.** The flagged recorders are RBS75 and RBS79, for the Nightjar only. They cover 2,277 predictions; 9 of them are above the threshold.
 

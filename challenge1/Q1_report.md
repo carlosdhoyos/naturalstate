@@ -20,7 +20,7 @@ Section 10 discusses how closely the analysis follows Wood & Kahl, what the othe
 | # | Action | Owner (suggested) | Unblocks | Refs |
 |---|---|---|---|---|
 | 1 | Use the 3,460 observations now. Treat a missing observation as "not detected", never as absence | Analysts | Use of the results | §7 |
-| 2 | Validate a further random sample of Oriole clips across scores and recorders (a few hundred; 381 correct in a row gives a model-free 99% bound) | Ornithologist | An Oriole threshold | §8 |
+| 2 | Validate a further random sample of Oriole clips across scores and recorders (a few hundred; 381 correct in a row, drawn at random across recorders, would give a 99% binomial lower bound) | Ornithologist | An Oriole threshold | §8 |
 | 3 | Validate random Plover clips from recorders other than RBS75 | Ornithologist | A Plover threshold | §8 |
 | 4 | Review the Firefinch predictions by hand: the 8 scoring ≥ 0.5, then the 21 ≥ 0.3 | Ornithologist | Firefinch observations | §8 |
 | 5 | Find out what the wrong Nightjar detections at RBS75 and RBS79 are, and validate Nightjar clips from other recorders, evening included | Ornithologist / field team | Confidence in the Nightjar threshold; the 9 flagged predictions above it | C-4, D-11 |
@@ -54,7 +54,7 @@ The full checks are on the dashboard (**Data quality**). Five of them affected t
 2. **Linking clips to predictions (D-02).** The two exports name files differently: the predictions round the start time down to the hour. I linked clips on species + recorder + date + hour + score, allowing for the 3-decimal rounding in the validation file names. Of the 547 clips, 476 link to exactly one prediction, 69 tie with another prediction that has the same rounded score, and 2 are not found.
 3. **Clustering.** The 551 clips come from 353 audio files and 32 recorders. 93% of the Plover clips come from one recorder (RBS75). The clips are distinct but not independent, so uncertainty is estimated by resampling whole recorders.
 4. **Recorder clocks (D-03).** Bird activity suggests that RBS40 and RBS71 run about 3 hours behind, consistent with UTC. This matters only for the time-of-day test in section 6; thresholds use score and verdict only.
-5. **Validation design (D-12).** The validation set over-represents high scores: 26% of validated Oriole clips score ≥ 0.9, against 3% of Oriole predictions. That is what the paper's recommended top-up of high-score samples would produce. Choosing clips *by score* does not bias a model of correctness *given* the score, so the curves are fine. But a raw "share correct" over all validated clips would be biased, so I never report one without the model or a score band.
+5. **Validation design (D-12).** The validation set over-represents high scores: 26% of validated Oriole clips score ≥ 0.9, against 3% of Oriole predictions. That is what the paper's recommended top-up of high-score samples would produce. Choosing clips *by score* does not bias a model of correctness *given* the score, provided that, within a score, clips were not chosen by their outcome or by factors the model leaves out (such as the recorder), so the curves are fine. But a raw "share correct" over all validated clips would be biased, so I never report one without the model or a score band.
 
 ## 3. The decision procedure
 
@@ -88,7 +88,7 @@ I arrived at the evidence gate after an independent review of a first version. T
 
 - **The curve.** It rises steeply between 0.2 and 0.6. Below 0.3 most validated predictions are wrong; above 0.6 virtually all are right. The 99% point, 0.6666, lies well inside the validated range (0.102–1.0).
 - **Labels.** 3,147 of 10,187 predictions (31%) are at or above it. The model expects 99.85% of them to be correct.
-- **Model-free check.** All 74 validated clips at or above the threshold were judged correct. The Wilson 95% lower bound on that share is 95.1%. So the "99%" comes from the shape of the logistic curve, and the validation directly supports about 95%. That is the honest strength of the claim.
+- **Model-free check.** All 74 validated clips at or above the threshold were judged correct. The Wilson 95% lower bound on that share is 95.1%. So the "99%" comes from the shape of the logistic curve, and the validation directly supports about 95%. That bound is a binomial reference, not a validation of future performance: it assumes independent, representative clips, while these cluster by recorder and were chosen by score. That is the honest strength of the claim.
 - **Uncertainty (D-12).** I resampled whole recorders 2,000 times and re-ran the whole procedure each time, gate included.
   - 93% of resamples produce a threshold, with a 95% interval of **0.471–0.835**. The 95% interval for the labelled count is 0 to 4,109 (median 3,123).
   - Every resample without a threshold (7%) leaves out both RBS75 and RBS79. The reverse does not hold: some resamples that leave out both still produce a threshold.
@@ -101,7 +101,7 @@ I arrived at the evidence gate after an independent review of a first version. T
 ![Oriole curve](outputs/figures/curve_african_black_headed_oriole.png)
 
 - **The data.** All 150 validated clips are correct, across scores from 0.104 to 0.989 and 14 recorders. Ordinary maximum likelihood has no finite estimate. Firth's curve is flat (slope −0.06 ± 0.53), so the slope is not identified.
-- **What the validation does support.** At least 97.5% correct (Wilson lower bound). A 99% lower bound without any model would need 381 correct clips in a row.
+- **What the validation does support.** At least 97.5% correct (Wilson lower bound). A 99% lower bound without any model would need 381 correct clips in a row, drawn at random across recorders and independent of each other.
 - **Result.** No threshold. The 132 human-confirmed predictions are observations.
 - **What I did not do.** Read the flat Firth curve at face value. That would have labelled 17,646 Orioles on the strength of a penalty term, with zero errors to calibrate it.
 
@@ -156,7 +156,7 @@ For the Nightjar:
 ## 7. Limitations
 
 - **Recall is unknown.** The files hold predictions above BirdNET's minimum score and verdicts on some of them; nothing records the vocalisations BirdNET missed. Observations are high-precision by design. **A missing observation is not evidence of absence**, so dashboards should not present it as such.
-- **The 99% is model-based.** Direct validation supports about 95% for the Nightjar (Wilson lower bound).
+- **The 99% is model-based.** Direct validation supports about 95% for the Nightjar (Wilson lower bound, a binomial reference that assumes independent clips).
 - **The thresholds belong to this deployment.** They apply to these recorders, this season, this hardware and BirdNET v2.4. Wood & Kahl are explicit that scores don't transfer across equipment or settings.
 - **Some inputs rest on inference, not metadata:** the clip linkage (69 ties), the recorder clocks (D-03) and the validation protocol are all inferred.
 - **`p_correct` is exported only where the curve is identified** (Nightjar, Firefinch). It is the input that false-positive occupancy models need. The Oriole and Plover rows have no `p_correct`, rather than a number driven by an artefact.
@@ -165,7 +165,7 @@ For the Nightjar:
 
 | Species | What to validate | Why |
 |---|---|---|
-| African Black-headed Oriole | A further random sample across scores and recorders, a few hundred clips | Either errors appear and the curve becomes estimable, or the share correct climbs high enough to support a threshold. 381 correct in a row would give a model-free 99% lower bound |
+| African Black-headed Oriole | A further random sample across scores and recorders, a few hundred clips | Either errors appear and the curve becomes estimable, or the share correct climbs high enough to support a threshold. 381 correct in a row would give a 99% binomial lower bound, if they are a random, independent sample across recorders |
 | Three-banded Plover | Random clips across scores from recorders other than RBS75 | With one error, the threshold moves from 0.16 to 0.85 depending on the estimator. RBS75 dominates both the predictions and the validation |
 | Abyssinian Nightjar | Random clips from recorders other than RBS75/RBS79, including evening clips | So the threshold stands without the two flagged recorders, and to test the dusk hypothesis |
 | Red-billed Firefinch | All 8 predictions scoring ≥ 0.5, and 21 ≥ 0.3 | Few enough to review by hand. This species is better served by review than by a threshold |
@@ -179,7 +179,7 @@ These are assumptions the analysis runs on. None of them blocks the result. Each
 
 | ID | To confirm | Working assumption used here | If it turns out differently |
 |---|---|---|---|
-| **C-1** | **How validation clips were sampled:** random, random within score bands, a high-score top-up; with or without replacement | Chosen at random within score ranges, with a top-up of high scores, as Wood & Kahl recommend. This fits the validated score distribution (D-12). So the curve of correctness *given* the score is unbiased. The 4 duplicate pairs are accidental re-draws and are removed (D-01) | If clips were chosen for any reason other than their score (a recorder, a time, or because they looked wrong), the curves may be biased and should be refitted with that design in mind. If sampling was without replacement, the duplicate pairs need another explanation |
+| **C-1** | **How validation clips were sampled:** random, random within score bands, a high-score top-up; with or without replacement | Chosen at random within score ranges, with a top-up of high scores, as Wood & Kahl recommend. This fits the validated score distribution (D-12). So the curve of correctness *given* the score is unbiased, provided that, within a score, clips were not chosen by their outcome or by factors the model leaves out (such as the recorder). The 4 duplicate pairs are accidental re-draws and are removed (D-01) | If clips were chosen for any reason other than their score (a recorder, a time, or because they looked wrong), the curves may be biased and should be refitted with that design in mind. If sampling was without replacement, the duplicate pairs need another explanation |
 | **C-2** | **BirdNET run settings:** model version, minimum score, sensitivity | v2.4, as stated in the validation file; minimum score 0.1, the lowest prediction is exactly 0.1000; default sensitivity | Sensitivity rescales BirdNET's logit scores but not thresholds expressed as confidence scores, so the labels would not change. Thresholds do not carry over to runs with a different version or settings |
 | **C-3** | **Recorder clocks:** RBS40 and RBS71 about 3 h behind local time, i.e. on UTC | Inferred from bird activity (D-03). Used only for the evening term of the covariate test | Thresholds and labels are unaffected. Only the time-of-day test (D-13) changes, through 4 Nightjar clips at RBS40 |
 | **C-4** | **What the wrong Nightjar detections at RBS75 and RBS79 are:** another species, noise, a recorder fault | Site-specific false positives. Their predictions are flagged for review, not removed (D-04, D-11) | If they are another species calling there (RBS75 also produces 92% of the Plover predictions), high-scoring Nightjar predictions at those recorders may be wrong too. The 9 flagged predictions above the threshold should then count as unconfirmed until validated |

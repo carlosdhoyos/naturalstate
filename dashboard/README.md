@@ -59,7 +59,7 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   4. **Evidence gate & estimators:** why species with zero or one error get no threshold, a gate-size switch (k = 1, 3, 5, 10), and why Firth moved the Plover.
   5. **Recorders:** the leave-one-recorder-out test behind the review flags, and a refit without the flagged recorders.
   6. **Sensitivity:** 14 variants of the whole procedure; changed cells are highlighted.
-  7. **Validation design:** validated vs predicted score distribution, and why it does not bias the curves.
+  7. **Validation design:** validated vs predicted score distribution, and when it does not bias the curves.
   8. **Wood & Kahl alignment:** each recommendation in the paper against what the analysis does.
 
   Tabs can be deep-linked, e.g. `#/thresholds:birds/curves`.

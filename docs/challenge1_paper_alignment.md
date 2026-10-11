@@ -34,7 +34,7 @@ We fit one curve per species and never read a confidence score as a probability 
 
 - We use the validations provided.
 - For three species they over-represent high scores. For example, 26% of validated Oriole clips score ≥ 0.9, against 3% of Oriole predictions (D-12, `outputs/sampling_by_band.csv`). That is what the recommended top-up would produce.
-- Selecting clips by score does not bias a model of correctness *given* the score, so the curves are unaffected.
+- Selecting clips by score does not bias a model of correctness *given* the score, provided that, within a score, clips were not chosen by their outcome or by factors the model leaves out (such as the recorder), so the curves are unaffected.
 - **Confirmation item C-1** (Q1 report, section 9): the actual protocol. The working assumption is random sampling within score strata. Whether clips were drawn with replacement is also to confirm; the duplicate pairs suggest they may have been (D-01).
 
 ### 3. The model — aligned
