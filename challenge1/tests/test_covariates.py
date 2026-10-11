@@ -66,19 +66,23 @@ def test_new_recorder_needs_a_higher_score_than_a_typical_one():
 
 
 def test_nightjar_covariate_results_are_pinned():
-    """D-13: recorder heterogeneity dominates; the recorder variance diverges (not a normal spread);
-    the evening term only helps in the pooled model, through the flagged recorders."""
+    """D-13 (revised): only converged, identified fits are ranked by AIC. The recorder random-intercept
+    fits do not converge and are not ranked; among identified models score + evening is best; adopting
+    it would label 3,715 Nightjar predictions (a sensitivity result; labels keep the pooled curve)."""
     cfg = rc.Config()
     pred, val = rc.load(cfg)
     val = rc.link_validations(pred, val, cfg)
     val, _ = rc.deduplicate(pred, val, cfg=cfg)
     d = val[val.commonName == "Abyssinian Nightjar"].copy()
     d.attrs["flagged"] = ["RBS75", "RBS79"]
-    t, tab = rc.covariate_models(d, cfg)
+    t, tab = rc.covariate_models(d, cfg, pred[pred.common_name == "Abyssinian Nightjar"])
     t = t.set_index("model")
     assert t.loc["score", "aic"] == pytest.approx(79.59, abs=0.01)
-    assert t.loc["score + evening", "delta_aic"] > 2 and t.loc["score + week", "delta_aic"] > 2
-    assert t.loc["score + (1 | recorder)", "aic"] < t.loc["score", "aic"] - 50
-    assert not t.loc["score + (1 | recorder)", "identified"]  # sigma diverges
+    assert not t.loc["score + (1 | recorder)", "identified"] and np.isnan(t.loc["score + (1 | recorder)", "aic"])
+    assert not t.loc["score + evening + (1 | recorder)", "valid"]  # not converged
+    assert t.loc["score + evening", "delta_aic"] == 0 and t.loc["score", "delta_aic"] == pytest.approx(14.61, abs=0.01)
+    assert t.loc["score + evening", "labelled_if_adopted"] == 3715
+    assert t.loc["score + evening", "threshold_night_if_adopted"] == pytest.approx(0.420780, abs=1e-6)
+    assert t.loc["score + evening", "threshold_evening_if_adopted"] == pytest.approx(0.727211, abs=1e-6)
     assert tab["other recorders, night & dawn"] == {"correct": 68, "incorrect": 0}
     assert tab["flagged recorders, evening"] == {"correct": 0, "incorrect": 26}

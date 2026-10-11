@@ -703,6 +703,7 @@ export function WoodKahl({ tokens, onOpen }: { tokens: ThemeTokens; onOpen: Open
           <span className="formula-arrow">→</span>
           <code className="formula">score* = (ln(p / (1 − p)) − β₀) / β</code>
         </div>
+        <p className="muted small">score* is on the scale of the predictor. With the logit score as predictor (the paper’s recommendation), the confidence threshold is the inverse logit of score*: 1 / (1 + e^−score*).</p>
         <Simulator t={tokens} sc={sc} setSc={setSc} />
         <div className="m-notes">
           <div>

@@ -7,7 +7,7 @@
  * (human verdict, else confidence ≥ species threshold), applied to the embedded predictions CSV,
  * to show that the rule the Tech team will implement reproduces the pipeline's counts exactly.
  */
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import results from '../../../challenge1/outputs/dashboard_results.json'
 import { axisStyle, baseLayout } from '../charts/build'
 import { fmtInt, fmtNum, fmtPct } from '../data/stats'
@@ -297,6 +297,15 @@ export function BirdsThresholds({ reg, tokens: t }: { reg: Map<string, Dataset>;
     setTabState(next)
     window.history.replaceState(null, '', `#/thresholds:birds/${next}`) // keep the URL shareable
   }
+  // follow later URL changes too (a pasted link or the back button while the page is open)
+  useEffect(() => {
+    const on = () => {
+      const [, page, want] = window.location.hash.split('/')
+      if (page === 'thresholds:birds' && TABS.some((x) => x.key === want)) setTabState(want as Tab)
+    }
+    window.addEventListener('hashchange', on)
+    return () => window.removeEventListener('hashchange', on)
+  }, [])
   const [sp, setSp] = useState(R.species.find((s) => s.status === 'accepted')?.species ?? R.species[0].species)
   const repro = useMemo(() => reproduce(reg.get('birdnet_predictions')), [reg])
   const ctx = { t, sp, setSp, repro }
@@ -391,7 +400,7 @@ const FLOW: FlowStep[] = [
     detail: (
       <>
         <p>
-          threshold = (ln(0.99/0.01) − β₀) / β₁. It is accepted only if the fit is valid, the curve increases with the score, and the point lies inside the range of validated scores. If 99% is reached only above the highest validated score, there is <b>no supported threshold</b> (Firefinch). If the curve is already above 99% at the lowest validated score, the threshold is that score — never an extrapolation below it.
+          t = (ln(0.99/0.01) − β₀) / β₁ is the 99% point on the logit scale; the confidence threshold is its inverse logit, 1 / (1 + e^−t). It is accepted only if the fit is valid, the curve increases with the score, and the point lies inside the range of validated scores. If 99% is reached only above the highest validated score, there is <b>no supported threshold</b> (Firefinch). If the curve is already above 99% at the lowest validated score, the threshold is that score — never an extrapolation below it.
         </p>
         <p>The exported threshold is rounded up to 6 decimals and labels use exactly that value.</p>
       </>
@@ -591,10 +600,10 @@ const CONFIRMATIONS: { id: string; item: string; assumed: string; ifNot: string 
 // ── the deployable package and what has been verified (same table as Q2 section 9 and the package README) ──
 
 const VERIFICATION: { part: string; status: 'verified' | 'written' | 'stub' | 'not run'; evidence: string }[] = [
-  { part: 'Decision rules, label rule, threshold-set artifact, CLI', status: 'verified', evidence: '32 package tests, including an end-to-end acceptance test on the take-home data. The CLI’s labelled file is byte-identical to the research pipeline’s, and so is its threshold set when run with --diagnostics (without it: same id and decisions).' },
+  { part: 'Decision rules, label rule, threshold-set artifact, CLI', status: 'verified', evidence: '45 package tests, including an end-to-end acceptance test on the take-home data. The CLI’s labelled file is byte-identical to the research pipeline’s, and so is its threshold set when run with --diagnostics (without it: same id and decisions).' },
   { part: 'Packaging (wheel, entry point, bundled schemas)', status: 'verified', evidence: 'The wheel was built and installed into a fresh Python 3.13 environment; the ns-observations run command gave byte-identical output, with the same threshold-set id.' },
   { part: 'Docker image', status: 'written', evidence: 'Not built: the Docker daemon was not running on the development machine. It installs the same package; check with: docker build -t ns-observations:1.0.0 challenge1/ns_observations' },
-  { part: 'PostgreSQL adapter (io_postgres.py, sql/schema.sql)', status: 'stub', evidence: 'The SQL and functions match the handover’s tables; calls are checked with a fake connection, never against a database. Before production: a staging database and integration tests.' },
+  { part: 'PostgreSQL adapter (io_postgres.py, sql/schema.sql)', status: 'stub', evidence: 'The SQL and functions match the handover’s tables, including configuration scoping, the label upsert with an append-only history, and the immutability triggers; calls are checked with a fake connection, but neither the SQL nor the triggers have run against a database. Before production: a staging database and integration tests.' },
   { part: 'R cross-check snippet (handover)', status: 'not run', evidence: 'R is not installed on the development machine. The expected value 0.6666381 was confirmed with statsmodels’ binomial GLM, the same estimator as R’s glm.' },
 ]
 
@@ -604,7 +613,7 @@ function DeployablePackage() {
       title="For the Tech team: the deployable package"
       sub={
         <>
-          <code>challenge1/ns_observations/</code> is an installable Python 3.13 package. <code>ns-observations calibrate</code> turns validations into a versioned, schema-checked threshold set; <code>ns-observations label</code> applies it to predictions, with no fitting. It ships with a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 32 tests. The research analysis behind this page imports the same decision rules, so the two cannot drift apart. Details: <code>challenge1/Q2_tech_handover.md</code>.
+          <code>challenge1/ns_observations/</code> is an installable Python 3.13 package. <code>ns-observations calibrate</code> turns validations into a versioned, schema-checked threshold set; <code>ns-observations label</code> applies it to predictions, with no fitting. It ships with a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 45 tests. The research analysis behind this page imports the same decision rules, so the two cannot drift apart. Details: <code>challenge1/Q2_tech_handover.md</code>.
         </>
       }
     >
@@ -1043,7 +1052,7 @@ function GateTab({ t }: Ctx) {
   }, [t, series])
   return (
     <>
-      <Section title="Why a species needs errors before it gets a threshold" sub="A 99% threshold is the score above which fewer than 1 in 100 predictions are wrong. Where that happens is learned from the wrong predictions near it — so a species with no, or almost no, validated errors cannot locate it, however good it looks.">
+      <Section title="Why the evidence policy asks for errors before a species gets a threshold" sub="The gate is a chosen evidence policy, not a requirement of logistic regression or of the brief. A 99% threshold is the score above which fewer than 1 in 100 predictions are wrong. Where that happens is learned from the wrong predictions near it — so a species with no, or almost no, validated errors cannot locate it, however good it looks.">
         <div className="table-wrap auto">
           <table className="data-table sum-table">
             <thead>
@@ -1268,7 +1277,7 @@ function RecordersTab({ t, sp, setSp }: Ctx) {
       {r.covariates.length > 0 && (
         <Section
           title="Does the curve change with recorder or time? (Wood & Kahl’s AIC test)"
-          sub="The paper suggests adding spatial or temporal covariates and comparing models with AIC. All recorders are in one grid, so the spatial unit is the recorder; it enters as a random intercept, because a plain recorder term runs to infinity for all-wrong recorders. Lower AIC is better; ΔAIC < 2 means no real difference."
+          sub="The paper suggests adding spatial or temporal covariates and comparing models with AIC. All recorders are in one grid, so the spatial unit is the recorder; it enters as a random intercept, because a plain recorder term runs to infinity for all-wrong recorders. Lower AIC is better; ΔAIC < 2 means no real difference. AIC is ranked only among identified models; fits that did not converge are shown as diagnostics, without an AIC."
         >
           <div className="table-wrap auto">
             <table className="data-table sum-table">
@@ -1331,7 +1340,7 @@ function RecordersTab({ t, sp, setSp }: Ctx) {
           )}
           {r.species.includes('Nightjar') && (
             <p className="small">
-              <b>Reading it:</b> recorder differences dominate — adding a recorder intercept lowers AIC by about 55 — but the recorder SD diverges, because RBS75 and RBS79 behave as if always wrong rather than slightly worse. The evening and week terms help only in the pooled model, and only because 26 of the 29 flagged-recorder clips are from the evening; with recorders in the model the evening term adds almost nothing (ΔAIC 0.6). Among the other recorders all 4 errors are evening clips and none of 68 night clips is wrong — a hint that dusk is when other species are mistaken for Nightjars, but 4 errors cannot settle it. No covariate model is both better and usable for unvalidated recorders, so labels keep the pooled curve, and recorder problems are handled by review flags and, on the platform, by a small validation sample for every new recorder (D-13).
+              <b>Reading it:</b> most observed Nightjar errors concentrate at two recorders whose validated clips are predominantly evening recordings (26 of their 29). Recorder and time effects are difficult to separate in this sample; an evening effect remains plausible. Among models that fit properly, score + evening is best (ΔAIC 14.6), but its evening term comes almost entirely from RBS75/RBS79 and cannot be estimated without them (all 4 remaining errors are evening clips). The recorder random-intercept fits did not converge, so they are inconclusive. The evening model meets the original adoption rule; labels keep the pooled curve because its transferability is unresolved (D-13). <b>Sensitivity:</b> adopting it would set thresholds of 0.4208 (night &amp; dawn) and 0.7272 (evening) and label 3,715 Nightjar predictions instead of 3,147.
             </p>
           )}
           {r.species.includes('Firefinch') && <p className="small">For the Firefinch no covariate improves the model by 2 AIC units or more, and every crossing stays above the highest validated score.</p>}
@@ -1347,7 +1356,7 @@ function RecordersTab({ t, sp, setSp }: Ctx) {
               Without the two flagged recorders only 4 Nightjar errors remain, below the gate — yet the threshold would barely move (0.686 vs 0.667 with k = 1). The location is robust; the evidence count is not. More validation away from RBS75/RBS79 would make the Nightjar threshold stand on its own.
             </li>
           )}
-          <li>The leave-one-recorder-out test and the AIC comparison above answer the same question two ways: one recorder at a time with exact p-values, and all recorders at once with a random intercept.</li>
+          <li>The leave-one-recorder-out test shows that RBS75/RBS79 disagree with the pooled curve; neither it nor the AIC comparison can separate a recorder effect from an evening effect, because the two overlap in this sample.</li>
         </ul>
       </Note>
     </>
@@ -1465,9 +1474,9 @@ const ALIGNMENT: { topic: string; paper: string; ours: string; status: Align }[]
   { topic: 'Validation sample', paper: 'A random selection of predictions spanning the full score range; for rare or poorly performing species, add a second random set from higher scores.', ours: 'Uses the provided validations. Their score distribution is consistent with a high-score top-up (Validation design tab); score-dependent sampling does not bias the conditional model.', status: 'aligned' },
   { topic: 'Model', paper: 'glm(outcome ~ score, family = "binomial") — ordinary logistic regression.', ours: 'Ordinary maximum likelihood, identical to R’s glm (tested against statsmodels to 1e-7).', status: 'aligned' },
   { topic: 'Logit-transformed score', paper: '“We suggest transforming confidence scores back into the original logit scale, because the highest scores tend to be compressed.”', ours: 'Predictor is ln(c / (1 − c)). The paper also divides by BirdNET’s sensitivity setting; that rescales β₁ but leaves the threshold in confidence units unchanged, so the unknown setting does not matter.', status: 'aligned' },
-  { topic: 'Threshold formula', paper: 'threshold = (ln(p / (1 − p)) − β₀) / β₁ for the desired p.', ours: 'Same formula with p = 0.99 (the brief); the paper’s examples use 0.90 and 0.95. At 0.99 errors near the threshold are rare, which is why the evidence gate matters.', status: 'aligned' },
+  { topic: 'Threshold formula', paper: 'threshold = (ln(p / (1 − p)) − β₀) / β₁ for the desired p.', ours: 'Same formula with p = 0.99 (the brief); with the logit score as predictor it gives the threshold on the logit scale, converted to a confidence by the inverse logit; the paper’s examples use 0.90 and 0.95. At 0.99 errors near the threshold are rare, which is why the evidence gate matters.', status: 'aligned' },
   { topic: 'Range of applicability', paper: '“Probabilistic score thresholds will be applicable to the range of conditions encompassed by data from which they were drawn.”', ours: 'Thresholds are accepted only inside the validated score range (no extrapolation); recorders inconsistent with the pooled curve are flagged.', status: 'extended' },
-  { topic: 'Covariates and AIC', paper: 'Test generalisability by adding spatial or temporal covariates (season, latitude, ecosystem) and compare models with AIC.', ours: 'Done (D-13): evening, week and a recorder random intercept, compared by AIC, plus a leave-one-recorder-out test. Recorder differences dominate but are not a normal spread; time effects are explained by the flagged recorders. Labels keep the pooled curve.', status: 'aligned' },
+  { topic: 'Covariates and AIC', paper: 'Test generalisability by adding spatial or temporal covariates (season, latitude, ecosystem) and compare models with AIC.', ours: 'Done (D-13): evening, week and a recorder random intercept compared by AIC (only converged, identified fits ranked), plus a leave-one-recorder-out test. Most errors sit at two recorders whose clips are mostly evening, so recorder and time effects cannot be separated; an evening effect remains plausible. The evening model met the original adoption rule; labels keep the pooled curve because its transferability is unresolved, and it is reported as a sensitivity analysis.', status: 'aligned' },
   { topic: 'Disclose error rates', paper: '“If all putative observations cannot be validated, it is very important to understand (and disclose) the estimated error rates.”', ours: 'Expected precision of the labelled set, model-free Wilson bounds above the threshold, bootstrap uncertainty, all reported per species.', status: 'aligned' },
   { topic: 'Accuracy increases with score', paper: '“We have yet to encounter a class in BirdNET for which prediction accuracy does not increase with confidence score.”', ours: 'A fitted curve that does not increase is treated as a failure to identify the relationship (status slope_not_positive), not as a real negative effect.', status: 'aligned' },
   { topic: 'Species with no or very few errors', paper: 'Not discussed.', ours: 'Evidence gate: ≥ 5 correct and ≥ 5 incorrect validated clips before a curve is used for labels; Firth only as a fallback for separated data. Human-confirmed clips kept as observations.', status: 'extended' },
@@ -1559,13 +1568,13 @@ const CONCLUSIONS: ReactNode[] = [
     <b>The answer to Q1:</b> 3,460 of 29,491 predictions are observations — 3,097 above the Nightjar’s 99% threshold (0.666639) and 363 confirmed directly by the ornithologist. Every row carries its label, the reason for it and, where the curve is identified, its probability of being correct.
   </>,
   <>
-    <b>Only one of four species can be thresholded at 99% with this validation set.</b> That is about the evidence, not BirdNET: a 99% threshold is located by the errors near it. The Oriole (0 errors in 150) and Plover (1 in 146) cannot locate one; the Firefinch’s curve never reaches 99% within its validated scores.
+    <b>Under the chosen evidence policy, only one of four species gets an automatic 99% threshold.</b> That is about the evidence, not BirdNET: a 99% threshold is located by the errors near it. The Oriole (0 errors in 150) has no estimable curve; the Plover (1 in 146) has an ordinary ML threshold (0.261) that the policy declines because it rests on one error and moves from 0.16 to 0.85 with the estimator; the Firefinch’s curve never reaches 99% within its validated scores.
   </>,
   <>
     <b>The Nightjar’s 99% is model-based.</b> Its location is robust to the estimator, de-duplication, the treatment of scores of 1 and removing the two problem recorders; direct validation supports about 95% (74/74 validated clips above the threshold correct, Wilson lower bound 95.1%).
   </>,
   <>
-    <b>Recorders matter more than time.</b> RBS75 and RBS79 behave as if their Nightjar predictions were always wrong: flagged, not removed, and every new recorder should pass a small acceptance check. The apparent evening effect is those recorders in disguise; dusk remains a hypothesis to test.
+    <b>Most Nightjar errors come from two recorders whose validated clips are mostly evening recordings,</b> so recorder and time effects cannot be separated here. RBS75/RBS79 are flagged, not removed; an evening effect remains plausible — the evening model met the original adoption rule but is reported as a sensitivity analysis (3,715 vs 3,147 labels) because its transferability is unresolved; every new recorder should pass a small acceptance check.
   </>,
   <>
     <b>Only the gate and the estimator move the answer,</b> and only for species with one error or none; data-handling choices change nothing. That is the reason for the evidence gate.

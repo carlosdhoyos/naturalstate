@@ -84,16 +84,23 @@ docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/Data Birds:/data" -v "$PWD/o
 
 | Part | Status | Evidence / how to check |
 |---|---|---|
-| Decision rules, label rule, threshold-set artifact, CLI | **Verified** | 32 package tests, including the end-to-end acceptance test on the take-home data. The CLI's labelled file is byte-identical to the research pipeline's, and so is its threshold set when run with `--diagnostics` (without it: same id and decisions) |
+| Decision rules, label rule, threshold-set artifact, CLI | **Verified** | 45 package tests, including the end-to-end acceptance test on the take-home data. The CLI's labelled file is byte-identical to the research pipeline's, and so is its threshold set when run with `--diagnostics` (without it: same id and decisions) |
 | Packaging (wheel, entry point, bundled schemas) | **Verified** | The wheel was built and installed into a fresh Python 3.13 environment outside the repo. `ns-observations run` gave byte-identical output there, with the same threshold-set id |
 | Docker image | **Written, not built** | The Docker daemon was not running on the development machine. The image installs the same package with `pip install ".[schema]"`. To check: `docker build -t ns-observations:1.0.0 challenge1/ns_observations`, then the `docker run` command in the package README |
-| PostgreSQL adapter (`io_postgres.py`, `sql/schema.sql`) | **Stub** | The SQL and functions match the handover's tables. Their calls are checked with a fake connection, but they have **never run against a database**. Before production: apply `schema.sql` to a staging database and add integration tests |
+| PostgreSQL adapter (`io_postgres.py`, `sql/schema.sql`) | **Stub** | The SQL and functions match the handover's tables, including configuration scoping, the label upsert with an append-only history, and the immutability triggers. Their calls are checked with a fake connection, but neither the SQL nor the triggers have **ever run against a database**. Before production: apply `schema.sql` to a staging database and add integration tests |
 | R cross-check snippet (section 9) | **Not run** | R is not installed on the development machine. The expected value, 0.6666381, was confirmed with statsmodels' binomial GLM, the same estimator as R's `glm` |
 
 ## Guarantees, and the tests that hold them
 
 - **Deterministic.** Identical inputs and policy give a byte-identical artifact, whatever the row order. The `threshold_set_id` identifies the decisions: it does not change with diagnostics, bootstrap settings or publication (`test_artifact.py`).
-- **The artifact is validated** against its schema on write and on read. The schema also enforces consistency: a species without an accepted status cannot carry a threshold (`test_artifact.py`).
+- **The artifact is checked on write and on read:**
+  - the schema, which also enforces consistency: a species without an accepted status cannot carry a threshold
+  - the id against its content
+  - every species result against what the procedure would produce from its stored curve, status and gate
+
+  A hand-edited threshold is refused (`test_artifact.py`). This guards against accidental edits; database triggers make published sets immutable.
+- **Scoped.** Each threshold set records its project and BirdNET configuration, which are part of its id.
+- **Inputs are validated.** `label()` rejects confidence outside [0, 1], non-finite scores, verdict outcomes other than 0/1/True/False, and ids that collide as text (`test_label.py`).
 - **Labels follow the published rule exactly,** including at the threshold boundary. Human verdicts override; conflicting verdicts are not applied; tied clips only mark their rows (`test_label.py`).
 - **Acceptance** (`test_acceptance.py`). On the take-home data the CLI reproduces the Tech handover's numbers:
   - 3,460 observations: 3,097 model + 363 validated

@@ -106,3 +106,30 @@ def test_review_flags_match_numeric_recorder_ids():
     ts = calibrate(v)
     out = label(pd.DataFrame({"prediction_id": [1, 2], "species": "s", "confidence": [0.9, 0.9], "recorder": [99, 1]}), ts)
     assert out.review_flag.tolist() == ["recorder_inconsistent_with_pooled_curve", ""]
+
+
+@pytest.mark.parametrize("bad_conf", [1.5, -0.1, float("nan"), float("inf")])
+def test_invalid_confidence_is_rejected(ts, bad_conf):
+    p = _preds(ts)
+    p.loc[0, "confidence"] = bad_conf
+    with pytest.raises(ValueError, match="confidence"):
+        label(p, ts)
+
+
+@pytest.mark.parametrize("bad_outcome", [1.9, 2, -1, "yes"])
+def test_invalid_verdict_outcome_is_rejected(ts, bad_outcome):
+    v = pd.DataFrame({"prediction_id": ["p1"], "outcome": [bad_outcome], "link": ["unique"]})
+    with pytest.raises(ValueError, match="outcome"):
+        label(_preds(ts), ts, v)
+
+
+def test_boolean_outcomes_are_accepted(ts):
+    v = pd.DataFrame({"prediction_id": ["p1", "p4"], "outcome": [False, True], "link": "unique"})
+    out = label(_preds(ts), ts, v)
+    assert out.observation_status.tolist()[0] == "validated_incorrect" and out.observation_status.tolist()[3] == "validated_correct"
+
+
+def test_ids_that_collide_as_text_are_rejected(ts):
+    p = _preds(ts).assign(prediction_id=[1, "1", 3, 4, 5, 6, 7])
+    with pytest.raises(ValueError, match="unique"):
+        label(p, ts)

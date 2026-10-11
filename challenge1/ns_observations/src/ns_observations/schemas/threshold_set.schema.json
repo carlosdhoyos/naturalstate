@@ -4,11 +4,18 @@
   "title": "Threshold set",
   "description": "Output of job A (calibrate): per-species 99% thresholds with the policy, code version and validation snapshot that produced them. Deterministic: identical inputs give an identical document and threshold_set_id.",
   "type": "object",
-  "required": ["threshold_set_id", "schema_version", "created_by", "code_version", "policy", "validation_snapshot", "species", "status"],
+  "required": ["threshold_set_id", "schema_version", "created_by", "code_version", "policy", "validation_snapshot", "species", "status", "scope"],
   "additionalProperties": false,
   "properties": {
     "threshold_set_id": {"type": "string", "pattern": "^ts-[0-9a-f]{16}$", "description": "ts- plus 16 hex characters of the SHA-256 of the decision content: the document without this id, status, per-species diagnostics and the bootstrap-only policy settings (n_boot, seed). Diagnostics and publication therefore do not change the id."},
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "1.1"},
+    "scope": {
+      "type": "object",
+      "description": "where the set applies; part of the id. Scores are not comparable across BirdNET configurations, so calibrate per project and configuration.",
+      "required": ["project_id", "birdnet_config"],
+      "additionalProperties": false,
+      "properties": {"project_id": {"type": "string", "minLength": 1}, "birdnet_config": {"type": "string", "minLength": 1}}
+    },
     "created_by": {"type": "string"},
     "code_version": {"type": "string", "description": "package version or git sha of the procedure"},
     "status": {"enum": ["draft", "published", "retired"]},

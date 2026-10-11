@@ -60,22 +60,54 @@ def _verdict_columns(predictions: pd.DataFrame, verdicts: pd.DataFrame | None) -
     agree = uniq.groupby("_pos").outcome.agg(lambda s: s.nunique() == 1)
     conflicts = int((~agree).sum())
     decided = uniq[uniq._pos.isin(agree[agree].index)].drop_duplicates("_pos")
-    for p_, o in zip(decided._pos, decided.outcome.astype(int)):
+    for p_, o in zip(decided._pos, _outcome01(decided.outcome).astype(int)):
         outcome[p_] = "correct" if o == 1 else "incorrect"
         link[p_] = "unique"
     return outcome, link, conflicts, unmatched
 
 
-def label(predictions: pd.DataFrame, threshold_set: ThresholdSet, verdicts: pd.DataFrame | None = None) -> pd.DataFrame:
+def _outcome01(s: pd.Series) -> pd.Series:
+    """Verdict outcomes as numbers: True/False -> 1/0; anything else numeric as given (validated later)."""
+    return pd.to_numeric(s.map(lambda v: 1 if v is True or v is np.True_ else 0 if v is False or v is np.False_ else v), errors="coerce")
+
+
+def check_inputs(predictions: pd.DataFrame, verdicts: pd.DataFrame | None) -> None:
+    """Reject malformed inputs instead of turning them into ecological observations."""
     for c in ("prediction_id", "species", "confidence", "recorder"):
         if c not in predictions:
             raise ValueError(f"predictions table is missing column '{c}'")
-    if predictions.prediction_id.duplicated().any():
-        raise ValueError("prediction_id must be unique")
+    ids = predictions.prediction_id
+    if ids.isna().any() or (ids.astype(str).str.strip() == "").any():
+        raise ValueError("prediction_id must be present and non-empty")
+    if ids.map(_key).duplicated().any():  # the same normalisation used for matching verdicts
+        raise ValueError("prediction_id must be unique (ids are compared as text, so 1 and '1' are the same id)")
+    if predictions.species.isna().any():
+        raise ValueError("species must be present")
+    conf = pd.to_numeric(predictions.confidence, errors="coerce")
+    if conf.isna().any() or not np.all(np.isfinite(conf)) or ((conf < 0) | (conf > 1)).any():
+        raise ValueError("confidence must be a finite number in [0, 1]")
+    if verdicts is None or not len(verdicts):
+        return
+    if "prediction_id" not in verdicts or verdicts.prediction_id.isna().any():
+        raise ValueError("verdicts need a prediction_id on every row")
+    links = verdicts["link"] if "link" in verdicts else pd.Series("unique", index=verdicts.index)
+    if not set(links.unique()) <= {"unique", "tied"}:
+        raise ValueError("verdict link must be 'unique' or 'tied'")
+    uniq = verdicts.loc[links == "unique"]
+    if len(uniq):
+        if "outcome" not in uniq:
+            raise ValueError("unique verdicts need an outcome")
+        o = _outcome01(uniq.outcome)
+        if not o.isin([0, 1]).all():
+            raise ValueError("unique verdict outcome must be exactly 0 or 1 (or True/False)")
+
+
+def label(predictions: pd.DataFrame, threshold_set: ThresholdSet, verdicts: pd.DataFrame | None = None) -> pd.DataFrame:
+    check_inputs(predictions, verdicts)
     pol = threshold_set.policy
     sp = threshold_set.species
     species = predictions.species
-    conf = predictions.confidence.to_numpy(float)
+    conf = pd.to_numeric(predictions.confidence).to_numpy(float)
 
     thr = species.map({k: v.threshold if v.has_threshold else np.nan for k, v in sp.items()}).astype(float)
     status = species.map({k: v.status for k, v in sp.items()}).fillna(INSUFFICIENT)  # unseen species: no validations

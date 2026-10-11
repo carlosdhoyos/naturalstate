@@ -131,10 +131,17 @@ def fit_random_intercept(X: np.ndarray, y: np.ndarray, groups: np.ndarray, colum
     res = minimize(nll, theta0, method="Nelder-Mead", options={"xatol": 1e-7, "fatol": 1e-9, "maxiter": 20000, "maxfev": 40000})
     res = minimize(nll, res.x, method="BFGS", options={"gtol": 1e-6})  # polish
     beta, sigma = res.x[:-1], float(np.exp(res.x[-1]))
+    # converged = the optimiser says so AND the gradient of the objective is ~0 (checked independently
+    # by central differences, since BFGS can stop with "precision loss" far from a stationary point)
+    h = 1e-5
+    grad = np.array([(nll(res.x + h * e) - nll(res.x - h * e)) / (2 * h) for e in np.eye(len(res.x))])
+    converged = bool(res.success and np.all(np.isfinite(grad)) and np.max(np.abs(grad)) < 1e-3)
     notes = [] if res.success else [f"optimiser: {res.message}"]
+    if not converged:
+        notes.append(f"not converged (max |gradient| = {np.max(np.abs(grad)):.2g})")
     if sigma < 1e-3:
         notes.append("sigma at the boundary (~0): no detectable recorder variation")
-    return CovFit(name, X.shape[1] + 1, -float(res.fun), beta, columns, sigma, bool(np.isfinite(res.fun)), notes)
+    return CovFit(name, X.shape[1] + 1, -float(res.fun), beta, columns, sigma, bool(np.isfinite(res.fun) and converged), notes)
 
 
 def conditional_threshold(fit: CovFit, offset: float = 0.0, q: float = 0.99) -> float | None:

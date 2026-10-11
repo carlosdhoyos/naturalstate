@@ -208,7 +208,7 @@ def set_level_threshold(fit: Fit | None, pred_conf: np.ndarray, vmin: float, cfg
     return operative(float(c[ok[-1]]), cfg.threshold_decimals)
 
 
-def covariate_models(d: pd.DataFrame, cfg: Config) -> tuple[pd.DataFrame, dict]:
+def covariate_models(d: pd.DataFrame, cfg: Config, pred_species: pd.DataFrame | None = None) -> tuple[pd.DataFrame, dict]:
     """D-13. Wood & Kahl's transferability test: does the curve change with space or time?
 
     Models, all with logit(score): score only; + evening (dusk, local time); + week of the season;
@@ -217,8 +217,12 @@ def covariate_models(d: pd.DataFrame, cfg: Config) -> tuple[pd.DataFrame, dict]:
     covariate model is better (ΔAIC >= 2), identified, and applicable to recorders not yet validated.
     Returns (model table, cross-tab of outcomes by review-flag group and time of day)."""
     clock = dict(cfg.clock_correction_h)
-    local_hour = (d.hour.astype(int) + d.recorder.map(clock).fillna(0).astype(int)) % 24
-    evening = local_hour.between(*cfg.evening_hours).to_numpy(float)
+
+    def is_evening(df: pd.DataFrame) -> np.ndarray:
+        local_hour = (df.hour.astype(int) + df.recorder.map(clock).fillna(0).astype(int)) % 24
+        return local_hour.between(*cfg.evening_hours).to_numpy(float)
+
+    evening = is_evening(d)
     week = ((pd.to_datetime(d.date) - pd.Timestamp(cfg.season_start)).dt.days / 7).to_numpy(float)
     x = logit_conf(d.confidence.to_numpy(), cfg.eps)
     y = d.outcome.to_numpy(float)
@@ -232,8 +236,14 @@ def covariate_models(d: pd.DataFrame, cfg: Config) -> tuple[pd.DataFrame, dict]:
     for n, base in (("score + (1 | recorder)", "score"), ("score + evening + (1 | recorder)", "score + evening")):
         c, a = designs[base]
         fits.append(fit_random_intercept(np.column_stack(a), y, d.recorder.to_numpy(), c, n))
-    best = min((f.aic for f in fits if f.valid), default=np.nan)
     rows = []
+    ident = {}
+    for f in fits:
+        big = [c for c, b in zip(f.columns, f.beta) if abs(b) > 15 and c != "intercept"]
+        ident[f.name] = f.valid and f.sigma < 10 and not big
+    # AIC is ranked only among identified models: a non-converged or boundary fit has no reliable
+    # likelihood for model selection (it stays in the table as a diagnostic, without a delta AIC)
+    best = min((f.aic for f in fits if ident[f.name]), default=np.nan)
     for f in fits:
         # a recorder SD this large means recorder effects behave like separation (a few recorders
         # systematically wrong), not like a normal spread: thresholds from it would be artefacts
@@ -244,23 +254,35 @@ def covariate_models(d: pd.DataFrame, cfg: Config) -> tuple[pd.DataFrame, dict]:
         identified = f.valid and f.sigma < 10 and not big
         notes = list(f.notes)
         if f.sigma >= 10:
-            notes.append(f"recorder SD diverges (sigma = {f.sigma:.0f}): recorder effects are not a normal spread; crossings not reported")
+            notes.append(f"recorder SD diverges (sigma = {f.sigma:.0f}): a boundary fit, not used for AIC ranking or crossings")
         if big and f.valid:
             notes.append(f"separation in {', '.join(big)}: coefficient not identified; crossings not reported")
         extra = [c for c in f.columns if c not in ("intercept", "score")]
         if identified and extra:
             at = {"evening": "evening = 0 (night & dawn)", "week": "week = 0 (first week)"}
             notes.append("crossing shown for " + " and ".join(at[c] for c in extra))
+        # sensitivity (D-13): what the evening model would do if adopted — time-dependent thresholds
+        sens_cols = {"threshold_night_if_adopted": np.nan, "threshold_evening_if_adopted": np.nan, "labelled_if_adopted": np.nan}
+        if identified and f.columns == ["intercept", "score", "evening"] and pred_species is not None:
+            b0, b1, be = f.beta
+            if b1 > 0:
+                tn = operative(float(sigmoid((np.log(cfg.target / (1 - cfg.target)) - b0) / b1)), cfg.threshold_decimals)
+                te = operative(float(sigmoid((np.log(cfg.target / (1 - cfg.target)) - b0 - be) / b1)), cfg.threshold_decimals)
+                ev_p = is_evening(pred_species).astype(bool)
+                conf_p = pred_species.confidence.to_numpy()
+                sens_cols = {"threshold_night_if_adopted": tn, "threshold_evening_if_adopted": te,
+                             "labelled_if_adopted": int(np.sum(np.where(ev_p, conf_p >= te, conf_p >= tn)))}
         ct = conditional_threshold(f) if identified else None
         mt = marginal_threshold(f) if identified and f.sigma > 0 else None
         rows.append({
-            "model": f.name, "k": f.k, "loglik": f.loglik, "aic": f.aic, "delta_aic": f.aic - best,
+            "model": f.name, "k": f.k, "loglik": f.loglik, "aic": f.aic if identified else np.nan, "delta_aic": f.aic - best if identified else np.nan,
             "coefficients": "; ".join(f"{c} {b:.3f}" for c, b in zip(f.columns, f.beta)), "recorder_sd": f.sigma,
             "valid": f.valid, "identified": identified,
             # where the curve crosses the target (not an accepted threshold: no range check here)
             "crossing_typical_recorder": None if ct is None else float(sigmoid(ct)),
             "crossing_new_recorder": None if mt is None else float(sigmoid(mt)),
             "notes": " | ".join(notes),
+            **sens_cols,
         })
     flagged = d.recorder.isin(d.attrs.get("flagged", []))
     if not flagged.any():  # the cross-tab exists to show what the flagged recorders contribute
@@ -484,7 +506,7 @@ def main(cfg: Config = Config()) -> dict:
         if pr.gate_passed:
             d_cov = d.copy()
             d_cov.attrs["flagged"] = flagged.get(sp, [])
-            cm, tab = covariate_models(d_cov, cfg)
+            cm, tab = covariate_models(d_cov, cfg, P)
             cm.insert(0, "species", sp)
             cov_tables.append(cm)
             r["_covariates"], r["_cov_crosstab"] = cm, tab
@@ -516,7 +538,7 @@ def main(cfg: Config = Config()) -> dict:
         if "_boot_recorder" in r:
             diag["bootstrap_recorder"] = {k: v for k, v in r["_boot_recorder"].items() if k not in ("thresholds", "counts")}
         entries[sp] = SpeciesThreshold.from_procedure(sp, procs[sp], rc_by_sp.get(sp, pd.DataFrame()), policy, species_code=codes.get(sp), diagnostics=diag)
-    ts = build_threshold_set(entries, policy, val)
+    ts = build_threshold_set(entries, policy, val, scope=io_csv.takehome_scope(val))
     ts.write(out_dir / "threshold_set.json")
     preds = io_csv.read_predictions(cfg.pred_csv)
     labels = label(preds.table, ts, io_csv.verdicts_from_validations(val))

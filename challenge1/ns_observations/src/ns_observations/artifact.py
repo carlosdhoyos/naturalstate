@@ -23,7 +23,10 @@ import pandas as pd
 from . import __version__
 from .policy import HAS_THRESHOLD, REVIEW_FLAG, Policy
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
+# Where a threshold set applies. Part of the id, so identical results for two projects or two BirdNET
+# configurations never share an id (scores are not comparable across configurations).
+DEFAULT_SCOPE = {"project_id": "unspecified", "birdnet_config": "unspecified"}
 
 
 def _clean(v):
@@ -101,6 +104,7 @@ class ThresholdSet:
     validation_snapshot: dict
     species: dict[str, SpeciesThreshold]
     status: str = "draft"  # draft -> published (after Biometrics sign-off) -> retired
+    scope: dict = field(default_factory=lambda: dict(DEFAULT_SCOPE))  # where it applies: project and BirdNET configuration
 
     # ── serialisation ──
     def to_dict(self) -> dict:
@@ -112,6 +116,9 @@ class ThresholdSet:
         return json.dumps(self.to_dict(), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
     def write(self, path: str | Path) -> Path:
+        d = self.to_dict()
+        validate_threshold_set(d)  # schema
+        verify_integrity(d)  # id and scientific invariants
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(self.to_json())
@@ -120,12 +127,13 @@ class ThresholdSet:
     @classmethod
     def from_dict(cls, d: dict) -> "ThresholdSet":
         validate_threshold_set(d)
+        verify_integrity(d)
         sp = {}
         for k, v in d["species"].items():
             v = dict(v)
             v["review_flags"] = [ReviewFlag(**f) for f in v.get("review_flags", [])]
             sp[k] = SpeciesThreshold(**v)
-        return cls(d["threshold_set_id"], d["schema_version"], d["created_by"], d["code_version"], d["policy"], d["validation_snapshot"], sp, d.get("status", "draft"))
+        return cls(d["threshold_set_id"], d["schema_version"], d["created_by"], d["code_version"], d["policy"], d["validation_snapshot"], sp, d.get("status", "draft"), d["scope"])
 
     @classmethod
     def read(cls, path: str | Path) -> "ThresholdSet":
@@ -163,13 +171,53 @@ def content_id(d: dict) -> str:
     return "ts-" + hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:16]
 
 
-def build_threshold_set(entries: dict[str, SpeciesThreshold], policy: Policy, validations: pd.DataFrame, code_version: str | None = None) -> ThresholdSet:
-    """Assemble the artifact; its id is content_id() of the result."""
+def verify_integrity(d: dict) -> None:
+    """Refuse an artifact whose id does not match its content, or whose per-species results are not
+    what the procedure would produce from its own stored curve, status and gate. This catches
+    accidental edits (e.g. a threshold changed by hand); it is not protection against deliberate
+    tampering (anyone can recompute a hash): published sets must be immutable in the database."""
+    if content_id(d) != d["threshold_set_id"]:
+        raise ValueError(f"threshold set integrity: id {d['threshold_set_id']} does not match its content ({content_id(d)})")
+    pol = d["policy"]
+    q, k, dec = pol["target"], pol["min_each_outcome"], pol["threshold_decimals"]
+    from .policy import operative
+
+    for name, s in d["species"].items():
+        def bad(msg):
+            raise ValueError(f"threshold set integrity, {name}: {msg}")
+        gate_ok = s["n_correct"] >= k and s["n_incorrect"] >= k
+        if (s["status"] == "insufficient_validation") == gate_ok:
+            bad("status disagrees with the evidence gate")
+        if s["curve_identified"] != (s["beta1"] is not None and s["beta1"] > 0):
+            bad("curve_identified disagrees with the stored slope")
+        if s["status"] in ("accepted", "accepted_whole_range", "not_reached") and not s["curve_identified"]:
+            bad(f"status {s['status']} needs an identified curve")
+        crossing = None
+        if s["curve_identified"]:
+            t = (np.log(q / (1 - q)) - s["beta0"]) / s["beta1"]
+            crossing = float(1 / (1 + np.exp(-t)))
+        if s["status"] == "accepted":
+            if s["threshold"] != operative(crossing, dec) or not (s["validated_min"] <= crossing <= s["validated_max"]):
+                bad("accepted threshold is not the curve's 99% point inside the validated range")
+        elif s["status"] == "accepted_whole_range":
+            if s["threshold"] != operative(s["validated_min"], dec) or crossing > s["validated_min"]:
+                bad("whole-range threshold must be the lowest validated score, with the curve above target there")
+        elif s["status"] == "not_reached":
+            if crossing <= s["validated_max"]:
+                bad("not_reached but the curve reaches the target inside the validated range")
+        elif s["status"] == "slope_not_positive" and (s["beta1"] is None or s["beta1"] > 0):
+            bad("slope_not_positive needs a stored slope <= 0")
+
+
+def build_threshold_set(entries: dict[str, SpeciesThreshold], policy: Policy, validations: pd.DataFrame, code_version: str | None = None, scope: dict | None = None) -> ThresholdSet:
+    """Assemble the artifact; its id is content_id() of the result (scope included)."""
     snapshot = {"sha256": validation_hash(validations), "n_clips": int(len(validations))}
     code_version = code_version or f"ns-observations {__version__}"
-    ts = ThresholdSet("", SCHEMA_VERSION, f"ns-observations {__version__}", code_version, policy.to_dict(), snapshot, entries)
+    scope = {**DEFAULT_SCOPE, **(scope or {})}
+    ts = ThresholdSet("", SCHEMA_VERSION, f"ns-observations {__version__}", code_version, policy.to_dict(), snapshot, entries, "draft", scope)
     ts.threshold_set_id = content_id(ts.to_dict())
     validate_threshold_set(ts.to_dict())
+    verify_integrity(ts.to_dict())
     return ts
 
 

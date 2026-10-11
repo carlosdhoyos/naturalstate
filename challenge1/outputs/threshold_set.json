@@ -12,7 +12,11 @@
     "target": 0.99,
     "threshold_decimals": 6
   },
-  "schema_version": "1.0",
+  "schema_version": "1.1",
+  "scope": {
+    "birdnet_config": "BirdNET v2.4",
+    "project_id": "naturalstate-takehome"
+  },
   "species": {
     "Abyssinian Nightjar": {
       "beta0": 3.1589982987070475,
@@ -153,7 +157,7 @@
     }
   },
   "status": "draft",
-  "threshold_set_id": "ts-72713aa1dcc77850",
+  "threshold_set_id": "ts-7bf12b61d2b9071c",
   "validation_snapshot": {
     "n_clips": 547,
     "sha256": "643e6574d4d5b06f31bda29c63c6cfcbaef7b266463002b18381ada7da64a9bb"

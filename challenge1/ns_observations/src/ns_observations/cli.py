@@ -45,6 +45,7 @@ def cmd_calibrate(a) -> ThresholdSet:
         diagnostics=a.diagnostics,
         prediction_scores={s: g.confidence.to_numpy() for s, g in t.groupby("species")},
         code_version=a.code_version,
+        scope={**io_csv.takehome_scope(val), **({"project_id": a.project_id} if a.project_id else {}), **({"birdnet_config": a.birdnet_config} if a.birdnet_config else {})},
     )
     ts.write(a.out)
     print(json.dumps({"threshold_set_id": ts.threshold_set_id, "out": str(a.out), "validations": len(val), "dropped_duplicates": len(dropped),
@@ -95,6 +96,8 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--seed", type=int)
         p.add_argument("--diagnostics", action="store_true", help="add recorder bootstrap and model-free checks")
         p.add_argument("--code-version", help="recorded in the artifact, e.g. a git sha")
+        p.add_argument("--project-id", help=f"scope: project (default {io_csv.TAKEHOME_PROJECT})")
+        p.add_argument("--birdnet-config", help="scope: BirdNET configuration (default from the validation file's vBirdNET)")
 
     c = sub.add_parser("calibrate", help="job A: validations -> threshold set (JSON)")
     inputs(c)

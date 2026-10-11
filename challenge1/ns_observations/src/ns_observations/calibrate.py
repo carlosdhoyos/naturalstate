@@ -219,13 +219,15 @@ def calibrate(
     diagnostics: bool = False,
     prediction_scores: dict[str, np.ndarray] | None = None,
     code_version: str | None = None,
+    scope: dict | None = None,
 ):
     """Run job A and return a ThresholdSet (see artifact.py).
 
     species: species to include; defaults to those in `validations`. Pass the species seen in the
     predictions so that a species without validations gets an explicit `no_validations` status.
     diagnostics: add the recorder bootstrap and the model-free check per species (slower).
-    prediction_scores: per species, prediction confidences, for bootstrap labelled counts."""
+    prediction_scores: per species, prediction confidences, for bootstrap labelled counts.
+    scope: {"project_id": ..., "birdnet_config": ...} — where the set applies; part of its id."""
     from .artifact import SpeciesThreshold, build_threshold_set
 
     check_validations(validations)
@@ -242,4 +244,4 @@ def calibrate(
                 b = bootstrap(d, None if prediction_scores is None else prediction_scores.get(sp), "recorder", policy)
                 diag["bootstrap_recorder"] = {k: v for k, v in b.items() if k not in ("thresholds", "counts")}
         entries[sp] = SpeciesThreshold.from_procedure(sp, pr, rc, policy, species_code=(species_codes or {}).get(sp), diagnostics=diag)
-    return build_threshold_set(entries, policy, validations, code_version)
+    return build_threshold_set(entries, policy, validations, code_version, scope)

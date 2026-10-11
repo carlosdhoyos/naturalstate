@@ -17,7 +17,7 @@ Each entry also has a **status**, which says what has been decided, what is impl
 5. **Label:** the human verdict for validated clips that link to exactly one prediction; otherwise confidence ≥ the species threshold (D-10).
 6. **Flag** recorders whose validated clips are inconsistent with the curve fitted without them (D-11).
 7. **Report** uncertainty from a recorder-level bootstrap, model-free checks, and sensitivity analyses (D-12).
-8. **Test transferability** with recorder and time covariates compared by AIC. Diagnostic only; labels keep the pooled curve (D-13).
+8. **Test transferability** with recorder and time covariates compared by AIC. The evening model meets the original adoption rule, but labels keep the pooled curve because recorder–time confounding leaves its transferability unresolved; the evening thresholds are reported as a sensitivity analysis (D-13).
 
 | Species | Validated (correct / incorrect) | Status | Threshold | Above threshold | Human-confirmed | Observations |
 |---|---|---|---:|---:|---:|---:|
@@ -155,7 +155,7 @@ Give every prediction a stable id, carry it into the validation export, and samp
   - Flag those recorders' Nightjar predictions for review. **Implemented:** the `review_flag` column marks all 2,277 Nightjar predictions at RBS75 and RBS79. The flag does not change the label. **Since D-11** the flagged recorders are no longer hard-coded: a leave-one-recorder-out test selects them, and it selects exactly these two.
   - **Measured:** only 9 of those predictions are labelled, all at RBS79, with scores from 0.689 to 0.968. All 29 validated clips at the two recorders scored at most 0.273, so the validation says nothing about high scores there. That is why they are flagged rather than removed.
   - **Measured (D-11):** without the two recorders, only 4 Nightjar errors remain, which is below the evidence gate. The ordinary threshold would hardly move, though: 0.686 instead of 0.667 (3,047 labels instead of 3,147).
-  - **Done (D-13):** covariate models compared with AIC, as Wood & Kahl suggest. A plain recorder term separates (the two recorders are all wrong; coefficient about −25, SE about 1.5 × 10⁴), so the recorder enters as a random intercept. Time of day is tested conditional on score, with and without the recorder.
+  - **Done (D-13):** covariate models compared with AIC, as Wood & Kahl suggest. A plain recorder term separates (the two recorders are all wrong; coefficient about −25, SE about 1.5 × 10⁴), and the recorder random-intercept fits do not converge, so they are reported as inconclusive. Recorder and evening effects overlap in this sample and cannot be separated; an evening effect remains plausible.
 
 ---
 
@@ -407,7 +407,7 @@ The rule was fixed before looking at which recorders it selects:
 
 ### "99%" is per prediction
 
-- The brief uses both phrases: "precision ≥ 0.99" (a set-level quantity) and "99% sure that that prediction is correct" (per prediction). Wood & Kahl define the threshold per prediction: the score at which pr(correct) reaches the target. We follow the paper. It is the more conservative reading, because every labelled prediction has fitted p ≥ 0.99, not only their average.
+- The brief uses both phrases: "precision ≥ 0.99" (a set-level quantity) and "99% sure that that prediction is correct" (per prediction). Wood & Kahl define the threshold per prediction: the score at which pr(correct) reaches the target. We follow the paper. It is the more conservative reading, because every automatic (model) observation has fitted p ≥ 0.99, not only their average. Human-confirmed observations follow the verdict instead: 44 have fitted p below 0.99, and 269 belong to species without a fitted curve.
 - **Set-level alternative, reported but not used:** take the lowest score at which the mean fitted probability of everything above it is ≥ 0.99. For the Nightjar that gives **0.4316 and 4,355 labels**, against 0.6666 and 3,147.
 
 ### Validation design
@@ -469,30 +469,25 @@ Wood & Kahl: "The generalizability of the logistic regression-based outcome–sc
 - **Why the recorder is the spatial unit.** All recorders are in one grid, so there is no other spatial covariate.
 - **Why a random intercept.** A fixed recorder term diverges for recorders whose clips are all wrong. A random intercept shrinks such recorders toward the others instead.
 - **How it is fitted.** The marginal likelihood integrates the intercept out per recorder with adaptive Gauss–Hermite quadrature (40 nodes). Tests check it against brute-force numerical integration (agreement to 10⁻⁶), against ordinary logistic regression as the recorder SD goes to 0, and against simulated parameters.
-- **When a model counts as identified:** its fit is valid, the recorder SD is below 10 on the logit scale, and no fixed-effect coefficient exceeds 15 in absolute value (separation). The 99% crossing is reported only for identified models. For a random-intercept model it is reported both for a typical recorder (u = 0) and for a **new** recorder, averaging over recorders.
+- **When a model counts as identified:** its fit converged (for random-intercept models: the optimiser reports success *and* the numerical gradient of the objective is ≈ 0), the recorder SD is below 10 on the logit scale, and no fixed-effect coefficient exceeds 15 in absolute value (separation). **AIC is ranked only among identified models**; the others stay in the table as diagnostics, without an AIC or ΔAIC. The 99% crossing is reported only for identified models.
 - **Adoption rule, fixed before the results:** a covariate model would replace the pooled curve for labels only if it is
   - better by ΔAIC ≥ 2,
   - identified, and
   - applicable to predictions from recorders that have not been validated.
 
-### Measured consequences (`covariate_models.csv`)
+### Measured consequences (`covariate_models.csv`; revised 2026-10-10 after a follow-up review)
+
+The first version of this entry ranked the two Nightjar random-intercept fits by AIC and read them as "recorder differences dominate (ΔAIC ≈ 55)" and "the time effects are the flagged recorders in disguise". A follow-up review showed those fits had **not converged**: the optimiser stopped with precision loss, the gradients are up to 1.8 × 10⁸, and the recorder SD is running off to infinity. Their likelihoods are not usable for model selection, so they no longer enter the ranking, and both claims are withdrawn.
 
 **Nightjar.**
 
-| Model | log-lik | AIC | ΔAIC | Recorder SD | 99% crossing |
-|---|---:|---:|---:|---:|---|
-| score | −37.80 | 79.6 | 55.1 | — | 0.6666 |
-| score + evening | −29.49 | 65.0 | 40.4 | — | 0.4208 (night & dawn) |
-| score + week | −32.77 | 71.5 | 47.0 | — | 0.3585 (first week) |
-| score + (1 \| recorder) | −9.55 | 25.1 | 0.6 | 25 (diverging) | not identified |
-| score + evening + (1 \| recorder) | −8.27 | 24.5 | 0.0 | 34 (diverging) | not identified |
-
-- **Recorder differences dominate.** The random intercept lowers AIC by about 55.
-- **But the recorder SD diverges.** RBS75 and RBS79 behave as if their Nightjar predictions were always wrong, not slightly worse. A normal spread of recorder effects can't represent that, so the model gives no usable threshold, for a typical recorder or a new one.
-- **The time effects are the flagged recorders in disguise.**
-  - 26 of the 29 validated clips at RBS75/RBS79 are from the evening.
-  - Once the recorder is in the model, the evening term adds almost nothing (ΔAIC 0.6).
-  - Among the other recorders, the week has no effect (adding it raises AIC by 1.7), and the evening term separates.
+| Model | log-lik | AIC | ΔAIC (identified models) | 99% crossing |
+|---|---:|---:|---:|---|
+| score (the pooled curve) | −37.80 | 79.6 | 14.6 | 0.6666 |
+| **score + evening** | −29.49 | 65.0 | **0.0** | 0.4208 at night & dawn, 0.7272 in the evening |
+| score + week | −32.77 | 71.5 | 6.5 | 0.3585 (first week) |
+| score + (1 \| recorder) | −9.55 | — | not ranked | not converged; recorder SD diverging (25) |
+| score + evening + (1 \| recorder) | −8.27 | — | not ranked | not converged; recorder SD diverging (34) |
 
 | Validated Nightjar clips | Correct | Incorrect |
 |---|---:|---:|
@@ -501,19 +496,36 @@ Wood & Kahl: "The generalizability of the logistic regression-based outcome–sc
 | other recorders, evening | 49 | 4 |
 | other recorders, night & dawn | 68 | 0 |
 
-- **A hypothesis, not a result.** Every Nightjar error away from the flagged recorders is an evening clip. Dusk may be when other species' calls are mistaken for the Nightjar. Four errors can't establish it.
+- **Most observed Nightjar errors concentrate at two recorders whose validated clips are predominantly evening recordings.** 29 of the 33 errors are at RBS75/RBS79, and 26 of those 29 clips are evening clips.
+- **Recorder and time effects are difficult to separate in this sample; an evening effect remains plausible.**
+  - The cross-tab shows that recorder and evening overlap.
+  - The recorder tests (D-11) show that RBS75/RBS79 disagree with the pooled curve.
+  - Neither separates a recorder effect from a time effect. Without the two recorders, the evening term cannot be estimated at all: all 4 remaining errors are evening clips, so the data separate.
+- **The week term is not supported** among the other recorders (adding it raises AIC by 1.7). That says nothing about an evening effect.
+- **The recorder random-intercept models are inconclusive,** not evidence either way.
 
 **Firefinch.**
 
-- No covariate improves the model by 2 AIC units or more.
-- The evening model separates (no correct evening clip).
+- No identified covariate model improves on score only by 2 AIC units or more.
+- The evening models separate (no correct evening clip).
 - Every identified crossing stays above the highest validated score (0.907), so "not reached" stands.
 
-### Decision
+### Decision: departing from the original adoption rule
 
-- **Labels keep the pooled curve.** No covariate model meets the adoption rule: the time models are better only through confounding with the flagged recorders, and the recorder models are neither identified nor applicable to new recorders.
-- **Recorder problems are handled** by the review flags here (D-11) and, on the platform, by a **recorder acceptance check**: validate a small random sample of each species' predictions at every new recorder before its predictions are labelled automatically. This is specified in the Tech handover.
-- **The dusk hypothesis is worth testing** with targeted validation of evening Nightjar clips at recorders other than RBS75/RBS79.
+- **The rule is met.** Score + evening meets the adoption rule this entry fixed before the results: it is better by ΔAIC ≥ 2 (14.6), identified, and computable for any recorder.
+- **We depart from the rule and keep the pooled curve as the primary result.** The reason: recorder–time confounding leaves the evening model's **transferability unresolved**.
+  - Its evening coefficient is estimated almost entirely from two recorders whose clips are both evening and all wrong.
+  - The term cannot be estimated without them.
+  - So we cannot tell whether the model would describe an evening effect at recorders that have not been validated, or the two recorders.
+  - "Applicable to unvalidated recorders" was meant as a substantive condition, not just a computable one. In this sample it cannot be shown to hold.
+- **This is a judgement made after seeing the result,** and it is recorded as such.
+- **The evening model is reported as a sensitivity analysis:**
+  - night & dawn threshold 0.420780
+  - evening threshold 0.727211
+  - **3,715** Nightjar predictions labelled, instead of 3,147 (+568)
+- **We do not claim that an evening effect is absent.**
+- **Recorder problems are handled** by the review flags (D-11) and, on the platform, by a **recorder acceptance check**: validate a small random sample of each species' predictions at every new recorder before automatic labelling.
+- **What would resolve it:** validating evening and night Nightjar clips at recorders other than RBS75/RBS79. That is the same validation that would test the dusk hypothesis.
 
 ---
 

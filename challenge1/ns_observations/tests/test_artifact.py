@@ -57,3 +57,32 @@ def test_id_ignores_diagnostics_bootstrap_settings_and_status(synthetic_validati
     d = plain.to_dict()
     d["status"] = "published"
     assert content_id(d) == plain.threshold_set_id
+
+
+def test_tampered_threshold_is_rejected_even_with_a_recomputed_id(synthetic_validations):
+    """An edited threshold fails the id check; recomputing the id then fails the invariant check."""
+    from ns_observations.artifact import content_id, verify_integrity
+
+    d = calibrate(synthetic_validations).to_dict()
+    d["species"]["good"]["threshold"] = 0.15
+    with pytest.raises(ValueError, match="does not match its content"):
+        ThresholdSet.from_dict(d)
+    d["threshold_set_id"] = content_id(d)
+    with pytest.raises(ValueError, match="accepted threshold"):
+        verify_integrity(d)
+
+
+def test_write_validates_and_verifies(tmp_path, synthetic_validations):
+    ts = calibrate(synthetic_validations)
+    ts.species["good"].threshold = 0.15  # edited in memory after calibration
+    with pytest.raises(ValueError):
+        ts.write(tmp_path / "x.json")
+    assert not (tmp_path / "x.json").exists()
+
+
+def test_scope_is_part_of_the_id(synthetic_validations):
+    a = calibrate(synthetic_validations, scope={"project_id": "A", "birdnet_config": "v2.4"})
+    b = calibrate(synthetic_validations, scope={"project_id": "B", "birdnet_config": "v2.4"})
+    c = calibrate(synthetic_validations, scope={"project_id": "A", "birdnet_config": "v2.5"})
+    assert len({a.threshold_set_id, b.threshold_set_id, c.threshold_set_id}) == 3
+    assert a.scope == {"project_id": "A", "birdnet_config": "v2.4"}

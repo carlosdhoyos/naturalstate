@@ -23,13 +23,15 @@ Natural State follows Wood & Kahl (2024). For each species, the ornithologist's 
 
   logit pr(correct) = β₀ + β₁ · ln(c / (1 − c))
 
-The threshold is the score at which the fitted probability reaches 99%:
+The threshold is the score at which the fitted probability reaches 99%. Solving the fitted line for 99% gives that point **on the logit scale**:
 
-  threshold = (ln(0.99 / 0.01) − β₀) / β₁
+  t = (ln(0.99 / 0.01) − β₀) / β₁
+
+The confidence threshold is its inverse logit: threshold = 1 / (1 + e^(−t)).
 
 I kept the paper's method as it is. The estimator is ordinary maximum likelihood, identical to R's `glm(binomial)`; I tested it against statsmodels to 10⁻⁷. The paper is silent on some situations that this dataset contains, and I added safeguards for those. Each safeguard leads to fewer automatic observations, never more. A point-by-point comparison with the paper is in [`docs/challenge1_paper_alignment.md`](../docs/challenge1_paper_alignment.md).
 
-**"99%" means per prediction.** The brief says both "precision ≥ 0.99" and "99% sure that that prediction is correct". The paper defines the threshold per prediction, and so do I: every labelled prediction has a fitted probability of at least 0.99. The set-level reading only needs the *average* of the labelled predictions to reach 0.99. For the Nightjar it would give 0.4316 and 4,355 labels instead of 3,147. I report it but don't use it (D-12).
+**"99%" means per prediction.** The brief says both "precision ≥ 0.99" and "99% sure that that prediction is correct". The paper defines the threshold per prediction, and so do I: every **automatic (model) observation** has a fitted probability of at least 0.99. Human-confirmed observations follow the ornithologist's verdict instead, whatever their score: 44 of them have a fitted probability below 0.99, and 269 belong to species without a fitted curve. The set-level reading only needs the *average* of the labelled predictions to reach 0.99. For the Nightjar it would give 0.4316 and 4,355 labels instead of 3,147. I report it but don't use it (D-12).
 
 ## 2. Data checks before any fitting
 
@@ -54,13 +56,13 @@ validated clips ──► link & de-duplicate ──► EVIDENCE GATE ──► 
   - **Why errors matter.** The 99% point lies where errors become rare, so its location is learned from the errors near it.
   - **With 0 errors (Oriole),** ordinary maximum likelihood has no finite answer. Even the penalised (Firth) fit is flat, and its level is set entirely by the penalty.
   - **With 1 error (Plover),** three defensible estimators put the threshold at 0.16, 0.26 or 0.85, which would mean 785, 536 or 100 labels. Remove that single clip and there is no threshold at all.
-  - **Why 5.** It is the smallest count at which no single clip decides the answer. The sensitivity analysis also runs k = 1, 3 and 10.
+  - **Why 5.** This is my chosen evidence policy, not a statistical requirement of logistic regression or of the brief. 5 is the smallest count at which no single clip decides the answer. The sensitivity analysis also runs k = 1, 3 and 10.
 - **Accept (D-05).** The threshold must come from a valid, increasing curve and lie inside the range of validated scores.
   - A threshold above that range would be an extrapolation. That is the Firefinch: its curve reaches 99% only at about 0.998, but its highest validated score, and its highest prediction, is 0.907.
   - If the curve were already above 99% at the lowest validated score, the threshold would be that score, never a point below it.
 - **Label (D-10).** If a validated clip links to exactly one prediction, the ornithologist's verdict is the label: confirmed means observation, rejected means not. Every other prediction is an observation when its confidence is at least the species threshold.
   - The exported threshold is rounded up to 6 decimals, and the labels use exactly that value.
-  - A Tech implementation of `confidence >= species_threshold` therefore reproduces them exactly. The dashboard re-applies the rule independently and checks this.
+  - A Tech implementation of `confidence >= species_threshold` therefore reproduces the **model** labels exactly. The final `observation` also applies the human verdicts. The dashboard re-applies both steps independently and checks the result.
 - **Flag (D-11).** Predictions from recorders whose validated clips clearly disagree with the curve are flagged for human review. The flag never changes a label.
 
 I arrived at the evidence gate after an independent review of a first version. That version made Firth's estimator primary for rare-error species, and gave the Plover 100 labels on the strength of one error. The review showed that Firth's penalty acts like a second error: it pulls the predicted probabilities down, and so pushes the threshold up. The decision log keeps both versions (D-05 to D-08, then D-09 to D-12), so the change and its reasons are visible.
@@ -123,11 +125,20 @@ The paper suggests adding spatial and temporal covariates and comparing models w
 
 For the Nightjar:
 
-- **Recorder differences dominate.** The recorder intercept lowers AIC by about 55. But they are not a normal spread: the recorder SD diverges, because RBS75 and RBS79 behave as if always wrong. So that model can't produce a threshold, for a typical recorder or a new one.
-- **The time effects are those two recorders in disguise.** 26 of their 29 validated clips are from the evening. With recorders in the model, the evening term adds almost nothing (ΔAIC 0.6). Among the other recorders, the week has no effect.
-- **A hypothesis worth testing.** All 4 remaining Nightjar errors are evening clips, and none of 68 night clips is wrong. Dusk may be when other species are mistaken for Nightjars. Four errors can't settle it.
+- **Most observed Nightjar errors concentrate at two recorders whose validated clips are predominantly evening recordings.** 29 of the 33 errors are at RBS75/RBS79, and 26 of their 29 clips are evening clips.
+- **Recorder and time effects are difficult to separate in this sample; an evening effect remains plausible.**
+  - Among the models that fit properly, score + evening is the best, by 14.6 AIC units over the pooled curve.
+  - But its evening coefficient comes almost entirely from those two recorders.
+  - Without them the evening term cannot be estimated: all 4 remaining errors are evening clips, and none of 68 night clips is wrong.
+  - The week term is not supported.
+  - The recorder random-intercept models did not converge, so they are inconclusive.
 
-No covariate model is both better and usable for recorders that haven't been validated, so the labels keep the pooled curve. Recorder problems are handled by the review flags, and on the platform by a recorder acceptance check (see the Tech handover).
+**The evening model meets the adoption rule I set before seeing the results** (better by ΔAIC ≥ 2, identified, computable for any recorder).
+
+- **I depart from that rule** and keep the pooled curve as the primary result, because recorder–time confounding leaves the evening model's transferability unresolved. I can't tell whether it describes an evening effect at recorders that haven't been validated, or just two recorders. This is a judgement made after seeing the result, recorded in D-13.
+- **As a sensitivity analysis,** adopting it would give a night & dawn threshold of 0.4208 and an evening threshold of 0.7272, labelling **3,715** Nightjar predictions instead of 3,147 (+568).
+- **Recorder problems are handled** by the review flags, and on the platform by a recorder acceptance check (see the Tech handover).
+- **What would resolve it:** validating evening and night Nightjar clips at other recorders.
 
 ## 7. Limitations
 
@@ -142,7 +153,7 @@ No covariate model is both better and usable for recorders that haven't been val
 | Species | What to validate | Why |
 |---|---|---|
 | African Black-headed Oriole | A further random sample across scores and recorders, a few hundred clips | Either errors appear and the curve becomes estimable, or the share correct climbs high enough to support a threshold. 381 correct in a row would give a model-free 99% lower bound |
-| Three-banded Plover | Random clips across scores from recorders other than RBS75 | One error can't locate a threshold, and RBS75 dominates both the predictions and the validation |
+| Three-banded Plover | Random clips across scores from recorders other than RBS75 | With one error, the threshold moves from 0.16 to 0.85 depending on the estimator. RBS75 dominates both the predictions and the validation |
 | Abyssinian Nightjar | Random clips from recorders other than RBS75/RBS79, including evening clips | So the threshold stands without the two flagged recorders, and to test the dusk hypothesis |
 | Red-billed Firefinch | All 8 predictions scoring ≥ 0.5, and 21 ≥ 0.3 | Few enough to review by hand. This species is better served by review than by a threshold |
 | Every new recorder | A small random sample per species before automatic labelling | To catch RBS75/RBS79-type failures early (recorder acceptance check) |
@@ -206,11 +217,15 @@ The dashboard's **Methodology** page reviews five related papers. None of them r
 ### Conclusions
 
 1. **The answer to Q1.** 3,460 of the 29,491 predictions are observations: 3,097 above the Nightjar's 99% threshold (0.666639), and 363 confirmed directly by the ornithologist. Every row carries its label, the reason for it, and where applicable its probability of being correct.
-2. **Only one of the four species can be thresholded at 99% with this validation set.** That is a statement about the evidence, not about BirdNET. A 99% threshold is located by the errors near it.
-   - The Oriole (0 errors in 150 clips) and the Plover (1 in 146) cannot locate one.
+2. **Under the chosen evidence policy, only one of the four species gets an automatic 99% threshold.** That is a statement about the evidence, not about BirdNET. A 99% threshold is located by the errors near it.
+   - The Oriole (0 errors in 150 clips) has no estimable curve.
+   - The Plover (1 error in 146) has an ordinary ML threshold (0.261). The policy declines it because it rests on one error, and the threshold moves from 0.16 to 0.85 with the estimator.
    - The Firefinch's curve never reaches 99% within the scores that were validated.
 3. **The Nightjar's 99% is a model-based figure.** Its location is robust to the estimator, de-duplication, the treatment of scores of exactly 1, and the removal of the two problem recorders. But direct validation supports about 95%: all 74 validated clips above the threshold are correct, and the Wilson lower bound is 95.1%.
-4. **Recorders matter more than time.** RBS75 and RBS79 behave as if their Nightjar predictions were always wrong. They are flagged rather than removed. Every new recorder should pass a small acceptance check before its predictions are labelled automatically. The apparent evening effect is those two recorders in disguise, though dusk remains a hypothesis worth testing.
+4. **Most Nightjar errors come from two recorders whose validated clips are mostly evening recordings, so recorder and time effects can't be separated here.**
+   - RBS75 and RBS79 are flagged rather than removed.
+   - An evening effect remains plausible. The evening model met the original adoption rule, but it is reported as a sensitivity analysis (3,715 vs 3,147 labels) because its transferability is unresolved.
+   - Every new recorder should pass a small acceptance check before automatic labelling.
 5. **The decisions that move the answer are the gate and the estimator, and only for species with one error or fewer.** Data-handling choices change nothing. That sensitivity is the reason for the evidence gate.
 6. **The way forward is more validation, designed as Wood & Kahl recommend** (section 8): random within score bands, never targeted at errors, and spread across recorders.
 7. **The procedure is ready to automate.** The `ns_observations` package (Q2) runs the same decision rules as this analysis and reproduces these numbers exactly.

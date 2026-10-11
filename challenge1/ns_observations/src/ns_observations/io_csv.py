@@ -98,6 +98,15 @@ def deduplicate(val: pd.DataFrame, reduce_ambiguous: bool = False) -> tuple[pd.D
     return val[~drop].drop(columns="_keep_n").sort_index(), val[drop].drop(columns="_keep_n").copy()
 
 
+TAKEHOME_PROJECT = "naturalstate-takehome"
+
+
+def takehome_scope(validations: pd.DataFrame, project_id: str = TAKEHOME_PROJECT) -> dict:
+    """Scope for the take-home exports: the BirdNET version comes from the validation file."""
+    versions = sorted(validations["vBirdNET"].astype(str).unique()) if "vBirdNET" in validations else ["unknown"]
+    return {"project_id": project_id, "birdnet_config": "BirdNET " + "+".join(versions)}
+
+
 def load_validations(path: str | Path, predictions: Predictions) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Read, link and de-duplicate. Returns (validations ready for calibrate, dropped duplicates)."""
     val = link_validations(predictions.table, read_validations(path))

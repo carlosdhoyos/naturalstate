@@ -56,7 +56,7 @@ We fit one curve per species and never read a confidence score as a probability 
 
 > threshold = (ln(p / (1 − p)) − β₀) / β₁
 
-- Same formula, with p = 0.99 as the brief requires. The paper's examples use 0.90 and 0.95.
+- Same formula, with p = 0.99 as the brief requires. Because the predictor is the logit score, the formula gives the threshold **on the logit scale**; the confidence threshold is its inverse logit, 1 / (1 + e^(−t)). The paper's examples use 0.90 and 0.95.
 - At 0.99, errors near the threshold are rare by construction, so locating the threshold needs errors in the validation set. That is the reason for the evidence gate (point 10).
 - The exported threshold is rounded up to 6 decimals, and labels use exactly that value.
 
@@ -78,11 +78,11 @@ We apply this to the **score** dimension as well:
 
 **Nightjar findings:**
 
-- Recorder differences dominate: ΔAIC ≈ 55.
-- But they are not a normal spread. The recorder SD diverges, because RBS75 and RBS79 behave as if always wrong.
-- The time effects are explained by those two recorders.
+- Most errors concentrate at two recorders whose validated clips are predominantly evening recordings.
+- Recorder and time effects can't be separated in this sample, and an evening effect remains plausible.
+- Score + evening is the best model that fits properly (ΔAIC 14.6). The recorder random-intercept fits did not converge and are inconclusive.
 
-**Decision.** No covariate model is both better and usable for unvalidated recorders, so labels keep the pooled curve. Recorder problems are handled by review flags, and on the platform by a recorder acceptance check.
+**Decision.** The evening model meets the original adoption rule, but labels keep the pooled curve, because recorder–time confounding leaves its transferability unresolved. This departure from the rule is documented in D-13. The evening thresholds are reported as a sensitivity analysis: 0.4208 at night, 0.7272 in the evening, 3,715 labels vs 3,147. Recorder problems are handled by review flags, and on the platform by a recorder acceptance check.
 
 ### 8. Disclose error rates — aligned
 

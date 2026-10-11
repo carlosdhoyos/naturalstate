@@ -36,16 +36,18 @@ class FakeConn:
 
 def test_reads_return_frames_with_the_expected_columns():
     conn = FakeConn(rows=[("abc", 0.5, 1, "R1", "id1")], cols=["species", "confidence", "outcome", "recorder", "prediction_id"])
-    df = pg.read_validations(conn, "proj")
+    df = pg.read_validations(conn, "proj", "BirdNET v2.4")
     assert list(df.columns) == ["species", "confidence", "outcome", "recorder", "prediction_id"]
-    assert conn.log[0][1] == {"project_id": "proj"}
+    assert conn.log[0][1] == {"project_id": "proj", "birdnet_config": "BirdNET v2.4"}  # scoped to one configuration
+    assert "r.config_id" in conn.log[0][0] and "HAVING count(DISTINCT v.outcome) = 1" in conn.log[0][0]
 
 
 def test_write_threshold_set_inserts_the_set_then_each_species(synthetic_validations):
-    ts = calibrate(synthetic_validations)
+    ts = calibrate(synthetic_validations, scope={"project_id": "proj", "birdnet_config": "cfg"})
     conn = FakeConn()
-    pg.write_threshold_set(conn, ts, "proj")
+    pg.write_threshold_set(conn, ts)
     assert conn.log[0][0] == pg.INSERT_THRESHOLD_SET and conn.log[0][1]["threshold_set_id"] == ts.threshold_set_id
+    assert (conn.log[0][1]["project_id"], conn.log[0][1]["birdnet_config"]) == ("proj", "cfg")
     assert [p["species_code"] for _, p in conn.log[1:]] == sorted(ts.species)
     assert conn.commits == 1
 
@@ -55,6 +57,9 @@ def test_write_labels_maps_empty_strings_to_null(synthetic_validations):
     preds = pd.DataFrame({"prediction_id": ["a", "b"], "species": ["good", "rare"], "confidence": [0.99, 0.99], "recorder": ["R1", "R1"]})
     conn = FakeConn()
     pg.write_labels(conn, label(preds, ts))
-    rows = [p for _, p in conn.log]
+    sqls = [q for q, _ in conn.log]
+    assert sqls == [pg.UPSERT_LABEL, pg.INSERT_LABEL_HISTORY] * 2  # current label upserted + history appended
+    assert "DO UPDATE" in pg.UPSERT_LABEL  # a later verdict replaces an earlier label
+    rows = [p for _, p in conn.log][::2]
     assert rows[0]["observation"] is True and rows[0]["observation_source"] == "model"
     assert rows[1]["observation_source"] is None and rows[1]["p_correct"] is None
