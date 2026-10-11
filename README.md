@@ -7,6 +7,18 @@ Two challenges:
 
 This page leads with the answers. It then gives the main findings and decisions, how to reproduce and what has been verified, and finally the supporting code.
 
+**Start here.** Two self-contained HTML files, each opened by double-clicking. No server, install or network is needed.
+
+- **Summary presentation** ([`ns_takehome_deck.html`](ns_takehome_deck.html)): 27 slides covering both challenges.
+  - What it covers: the answers, the method, the main findings, the four report sections (a)–(d), the Tech handovers and the open questions.
+  - Navigation: → / ← move between slides, **D** opens the method detail and sources behind each slide, and **O** shows all slides.
+  - Its charts are drawn from the same results as the reports.
+- **Data Explorer** ([`dashboard/standalone/index.html`](dashboard/standalone/index.html)): the interactive dashboard, with every flag and source row.
+  - The results pages for both challenges.
+  - The Vegetation QA/QC dashboard (the Q2 reference).
+  - A "How it works" page per challenge.
+  - All 17 input CSVs, to explore.
+
 ## 1. The answers
 
 | Challenge | Question | Answer |
@@ -42,17 +54,17 @@ The decisions that shape these results are in [`docs/challenge1_data_decisions.m
 - **Provenance:** the dataset's provenance needs confirming.
   - The whole dataset, NS's prescribed points included, sits about 705 m below the terrain at its coordinates.
   - 20 identified taxa have no Kenyan GBIF record.
-- **Taxon names:** names need curation. Raw richness is 132 taxa and resolved richness 115; 23 names are probably misspelled.
+- **Taxon names:** names need curation. There are 132 taxon labels as recorded and 115 taxa after NS's curation; 23 names are probably misspelled.
 - **Forms:** the deployed forms differ from the form files (the geohash is taken from the measured midpoint; the replicate label is in lower case). No record was edited.
 - **Transects:** several are offset, too short or bent.
 - **Provisional ids:** a late upload let two devices claim the same provisional species ids. Here they were the same plants, so it is a process risk that did not change the data.
 
 The decisions behind these findings are in [`docs/challenge2_decisions.md`](docs/challenge2_decisions.md):
 
-- **Canonical survey (V-01):** at most one survey per plot and replicate counts. A duplicated KEY and rejected or hasIssues submissions never count.
-- **Raw vs resolved taxonomy (V-02, V-03):** only NS's own curation is applied, and names are never corrected.
-- **Effort statistics (V-10):** coverage first, then bias-corrected Chao2 with intervals and incidence Hill numbers, per replicate.
-- **Analytical eligibility (V-12):** effort metrics are `ok`, `provisional` (conditional on records a rule found incomplete) or `suppressed` (nothing to read). The project figure inherits the status of its plots.
+- **Selected survey (V-01; *canonical* in the data):** at most one survey counts per plot and monitoring round. A duplicated KEY and rejected or hasIssues submissions never count.
+- **Recorded labels vs taxa after NS curation (V-02, V-03; *raw* vs *resolved* in the data):** only NS's own curation is applied, and names are never corrected.
+- **Effort statistics (V-10):** sample coverage first (not the share of species found), then the estimated total taxa (bias-corrected Chao2) with intervals, and incidence Hill numbers, per replicate.
+- **Analytical eligibility (V-12):** effort metrics are `ok`, `provisional` (some species records may be missing) or metrics unavailable (`suppressed` in the data: records missing or not analysable). The project figure inherits the status of its plots.
 - **Deployment guarantees (V-13):**
   - an input contract checked before any analysis;
   - staged publication that a `--verify` command can check;
@@ -82,7 +94,7 @@ Both runs are offline and deterministic: the same inputs give the same outputs a
 
 | Verified | Not verified, or specified only |
 |---|---|
-| **Tests:** 38 + 50 (birds) and 165 (vegetation), all passing. | **iNEXT cross-check not run:** the custom Chao2 intervals and coverage were not compared with iNEXT (R unavailable here). This should be done before the numbers are used operationally. |
+| **Tests:** 38 + 50 (birds) and 165 (vegetation), all passing. | **iNEXT cross-check not run:** the custom Chao2 intervals and sample coverage were not compared with iNEXT (R unavailable here). This should be done before the numbers are used operationally. |
 | **Bird estimators** checked against statsmodels, an analytic Firth result and direct optimisation. | **Atomic publication not built:** one atomic switch over versioned run folders is specified only. Today's publication is staged and checkable, but not atomic across files (Challenge 2 Q2 §7). |
 | **Vegetation:** 35 rules mutation-tested; the whole workflow tested on invalid inputs; a crash during publication is detected and repaired. | **Multi-round dashboard not browser-checked:** the marts are kept per replicate and tested, but the data has one round, so the dashboard's multi-round display has not been seen in a browser. |
 | **Vegetation container** (`vegqa:1.0.0`) built and run: same run id, and its tables and dashboard JSON are byte-identical to a local run. | **Specified only, for the Tech team:** flag-review storage, structured curation fields, scheduling and database persistence. |
@@ -90,6 +102,7 @@ Both runs are offline and deterministic: the same inputs give the same outputs a
 
 ## 4. Supporting implementation and appendices
 
+- **Summary presentation** ([`ns_takehome_deck.html`](ns_takehome_deck.html)): the results of both challenges in 27 slides, with the method detail behind each slide (press **D**).
 - **Data Explorer** ([`dashboard/standalone/index.html`](dashboard/standalone/index.html)): one self-contained file you can download and double-click. It explores all 17 input CSVs and holds the results pages for both challenges:
   - Birds → Thresholds & observations;
   - Vegetation → QA/QC dashboard;

@@ -3,7 +3,7 @@
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
 **Interactive version:** the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`, Vegetation → QA/QC dashboard): every flag with its source row, the map with per-plot transect panels, the curation queue and the effort views.
-**Prepared by:** Carlos Hoyos · run `qa-2d9fb1f6eb5d5def` · reproducible with `python challenge2/src/run_challenge2.py`
+**Prepared by:** Carlos Hoyos · run `qa-f5bc7da8f18dcce8` · reproducible with `python challenge2/src/run_challenge2.py`
 
 ---
 
@@ -22,10 +22,10 @@
 - **Five problems, in order:**
   1. **Shrubland:** none of its 6 primary points was registered (J01).
   2. **Provenance:** altitudes are about 705 m below the terrain, including NS's own prescribed points (E14), and 20 identified taxa have no Kenyan GBIF record (F10).
-  3. **Taxon names:** 132 raw taxa become 115 after NS's curation. 23 names are probably misspelled, and 23 unknowns (15% of records) are unresolved.
+  3. **Taxon names:** 132 recorded taxon labels become 115 taxa after NS's curation. 23 names are probably misspelled, and 23 unknowns (15% of records) are unresolved.
   4. **Missing species records:** 10 quadrats say "additional species present" but have no species rows (C04), and one additional-species row has no taxon (C08). The effort metrics of the 8 plots involved are provisional.
   5. **Transect location or shape:** 6 transects have an error-level flag (Plots 05, 14, 15, 19, 22, 27).
-- **Headline numbers** (resolved taxa, provisional because of item 4): 115 taxa observed; Chao2 145 (95% CI 128–185); sample coverage 0.946 across the 30 plots.
+- **Headline numbers** (taxa after NS curation, provisional because of item 4): 115 taxa observed; an estimated 145 in total (Chao2, 95% CI 128–185); sample coverage 0.946 across the 30 plots, which is not the share of species found.
 - **Flags:** 697 in total (24 errors, 222 warnings, 451 info). 241 of them are 10 project-wide findings repeated on every plot or submission.
 
 ## What to do next
@@ -80,7 +80,7 @@ They are not free of record-level problems: 10 quadrats declare additional speci
    - The curation table introduces one new typo ("Hibiscuc") and keeps others (F13).
    - Several provisional ids are one species (F08): "Ipomea dichroa" is 4 ids.
    - 23 unknowns remain unresolved, and they make up 15% of the records (F07).
-   - Raw richness is 132 taxa. After Natural State's own curation it is 115; collapsing names GBIF matches to the same species gives 114 (Polygalaerioptera = Polygala erioptera).
+   - As recorded there are 132 taxon labels. After Natural State's own curation there are 115 taxa; collapsing names GBIF matches to the same species gives 114 (Polygalaerioptera = Polygala erioptera).
 4. **Species may have been lost in 10 quadrats.** They are marked "additional species present" but have no species rows (C04). One further additional-species row has no taxon (C08).
 5. **Some transects are not where the registration says** (E03, D01–D04):
    - Plot 05's quadrats lie 20 m to one side of the registered line, beyond GPS error.
@@ -117,10 +117,16 @@ A further 22 combinations could not be checked. Every check that passed is liste
   - **error**: violates a documented requirement or prevents reliable interpretation;
   - **warning**: plausible, but needs review;
   - **info**: context.
-- **Raw vs resolved taxa:**
-  - **Raw** is the taxon as recorded.
-  - **Resolved** follows Natural State's curation table (`species_extra_ids`): merges and exclusions are applied, spellings are never changed (V-02).
-- **Canonical survey:** at most one per plot and replicate, the latest submission that is not rejected or marked "has issues"; here, for the two plots surveyed twice, the accepted submission counts and the rejected one is kept for the repeatability estimate (V-01).
+- **Recorded labels vs taxa after NS curation** (in tables and files: *raw* vs *resolved*):
+  - **Recorded labels** are the taxa as entered in the field: list species and provisional slots.
+  - **Taxa after NS curation** follow Natural State's curation table (`species_extra_ids`): merges and exclusions are applied, and spellings are never changed (V-02).
+- **Selected survey** (in tables and files: *canonical*): the one survey that counts for each plot and monitoring round (replicate). It is the latest submission that is not rejected or marked "has issues". Here, for the two plots surveyed twice, the accepted submission counts and the rejected one is kept for the repeatability estimate (V-01).
+- **Effort metrics status:**
+  - **ok**.
+  - **provisional**: shown, but some species records may be missing.
+  - **metrics unavailable** (in files: *suppressed*): records are missing or none can be analysed.
+- **Estimated total taxa (Chao2)**: the number of taxa expected if sampling continued, estimated from how many taxa were seen in only one or two quadrats.
+- **Sample coverage**: the estimated share of a plot's species occurrences that belong to taxa already recorded, i.e. how close more sampling is to adding nothing new. It is **not** the percentage of species found.
 - **GPS-aware tests:** distances are compared with the reported GPS accuracy, so ordinary GPS noise is not flagged (V-04). The z values are **screening scores, not calibrated significance tests**: ODK reports a ~68% horizontal radius, and how errors combine depends on assumptions about direction and correlation.
 - **Further reading:** decisions V-01 to V-13, differences from the earlier exploration, and new findings are in [`docs/challenge2_decisions.md`](../docs/challenge2_decisions.md). Every flag, with its source row, is in [`outputs/qa_flags.csv`](outputs/qa_flags.csv).
 
@@ -163,7 +169,7 @@ The survey is the herbaceous survey entity of the Lewa baseline replicate as a w
 - **Duplicate surveys and review state** (B01, B02, V-01).
   - Plots 18 and 21 have two submissions each, both from 26 May.
   - They are genuine repeat visits, not copies: photos about 5 h later, 25–26 min against 53–68 min, and different species.
-  - Natural State rejected the device-02 repeats, so the device-01 surveys are canonical.
+  - Natural State rejected the device-02 repeats, so the device-01 surveys are the selected ones.
 - **Late uploads and the provisional-id risk** (B06, B10, F09, K03; figure below).
   - Device-01 finished Plots 18 and 21 by 11:51 EAT on 26 May but uploaded them only at 20:38–20:48 EAT.
   - Meanwhile devices 02 and 03 surveyed Plots 29, 18, 21 and 11. Their lists showed 99 active provisional species (100 for device-02's second repeat), against 102 already used.
@@ -178,17 +184,17 @@ The survey is the herbaceous survey entity of the Lewa baseline replicate as a w
   - In 23 of 32 surveys the stored "quadrats with species" differs from the recomputed value; Plot 14 stores 11 where the true count is 20.
   - In all 23 the stored value equals exactly what the form expression computes as written: it refers to `selected_herb_species_uuids` relative to the quadrat, but the field sits inside the `herb_species` group, so list species are never counted.
   - **Fix:** use `herb_species/selected_herb_species_uuids` in the form.
-- **Durations** (B05). The median of all 32 submissions is 62 min (63 min for the 30 canonical surveys). Four surveys fall outside 0.5–2.5 × the median:
+- **Durations** (B05). The median of all 32 submissions is 62 min (63 min for the 30 selected surveys). Four surveys fall outside 0.5–2.5 × the median:
   - the first two surveys (Plot 08: 236 min; Plot 12: 165 min), probably learning days;
   - the two 25–26 min repeat visits.
 
-  Two canonical surveys are short and also species-poor: Plot 46 (33 min, 8 taxa) and Plot 24 (38 min, 11 taxa, 14 all-unknown quadrats). They deserve a look, although they stay inside the rule's threshold.
+  Two selected surveys are short and also species-poor: Plot 46 (33 min, 8 taxa) and Plot 24 (38 min, 11 taxa, 14 all-unknown quadrats). They deserve a look, although they stay inside the rule's threshold.
 - **Registrations** (B05, E12).
   - Plot 16's registration form was open for 17 h, from 26 May 17:35 to 27 May 10:36 EAT, so its points and photos may come from two visits.
   - The non-viable Plot 23 was confirmed 157 m from its prescribed point, consistent with "on private property".
   - The confirmation geopoint is missing for the three device-02 surveys and 16 registrations (`could_not_check`).
 - **Time zone** (B12). All timestamps are labelled +02:00, but Lewa is on +03:00 (EAT). The instants are correct; wall-clock times read off the label are 1 h behind (V-07; C-8).
-- **Recorders and app users** (G03). Grace recorded 25 of the 30 canonical surveys and Sam 5. Four of the six team members never recorded. Recorder effects on identification cannot be separated from plot effects. Device-03 submitted under the `field-team-1` app user, which device-01 also uses: a shared account weakens traceability.
+- **Recorders and app users** (G03). Grace recorded 25 of the 30 selected surveys and Sam 5. Four of the six team members never recorded. Recorder effects on identification cannot be separated from plot effects. Device-03 submitted under the `field-team-1` app user, which device-01 also uses: a shared account weakens traceability.
 - **Labels and form design** (C14, X01, K01, K04).
   - Surveys store replicate `lw_baseline`; the form file computes `LW_baseline`; the centroid list says `baseline`.
   - The SOP asks for `Genus_species`, but the form and all 45 typed names use spaces.
@@ -267,13 +273,13 @@ The survey is the herbaceous survey entity of the Lewa baseline replicate as a w
 
 ### Quadrat positions and timing
 
-Each registered transect is drawn at true scale in section (d), Figure d2. The figure shows the A–M–B line, the 5 m belt, the prescribed point and the 25 m limit, with the canonical quadrats coloured by their worst position flag.
+Each registered transect is drawn at true scale in section (d), Figure d2. The figure shows the A–M–B line, the 5 m belt, the prescribed point and the 25 m limit, with the quadrats of the selected surveys coloured by their worst position flag.
 
 - **Whole transects offset or rotated** (E03).
   - Plot 05's quadrats sit 19.9 m to one side of the registered line (z = 3.5): error.
   - Plots 13 and 14 were walked 34° and 31° from their registered line: warning.
   - Plots 01, 07, 08, 20, 27 and 30 are offset 5–10 m, which is still within GPS error: info.
-- **Coverage** (E05). The quadrats of Plots 15 and 07 cover only 62% and 67% of the registered transect, mostly the B half.
+- **Transect coverage** (E05). The quadrats of Plots 15 and 07 cover only 62% and 67% of the registered transect, mostly the B half.
 - **Single quadrats** (E02, E04, E06).
   - 18 quadrats lie more than 25 m from their registered segment; the furthest are Plot 01 q18 (44 m) and Plot 30 q20 (42 m).
   - 29 quadrats lie well off their own survey's line.
@@ -284,12 +290,12 @@ Each registered transect is drawn at true scale in section (d), Figure d2. The f
 
 ### Species records
 
-- **Possibly lost species** (C04). In 10 quadrats additional species are declared present but no rows exist: Plots 46 (×3), 10, 14, 15, 19, 30, and the rejected Plot 21 and canonical Plot 29.
+- **Possibly lost species** (C04). In 10 quadrats additional species are declared present but no rows exist: Plots 46 (×3), 10, 14, 15, 19, 30, the rejected repeat survey of Plot 21, and Plot 29.
 - **Empty occurrence** (C08). Plot 28, quadrat 6 has a "reuse missing species" row with no species selected.
-- **Same taxon twice in a quadrat** (F05). Seven raw duplicates, in Plots 11, 12 (×3), 18 (×2, one rejected) and 22.
+- **Same taxon twice in a quadrat** (F05). Seven duplicates as recorded, in Plots 11, 12 (×3), 18 (×2, one rejected) and 22.
 - **Identification burden** (F11).
-  - 132 of 600 canonical quadrats (22%) were flagged "all unknown / unidentifiable"; Plots 03 and 24 have 14 each.
-  - Unresolved unknowns are 15% of canonical records; in Plot 03 they are 58%.
+  - 132 of the 600 quadrats in selected surveys (22%) were flagged "all unknown / unidentifiable"; Plots 03 and 24 have 14 each.
+  - Unresolved unknowns are 15% of the records in selected surveys; in Plot 03 they are 58%.
 - **Quadrats without herbs** (G02). There are 7. They are valid zeros and count as sampled quadrats (V-06).
 
 ### Taxonomy
@@ -307,15 +313,15 @@ Each registered transect is drawn at true scale in section (d), Figure d2. The f
 
 ### Plots at a glance
 
-Colour is the worst severity per plot and rule group, and the number is the flag count. This figure counts every submission and includes the project-wide findings, so its numbers are higher than in the dashboard's Plots view, which shows canonical surveys only and leaves the project-wide findings out.
+Colour is the worst severity per plot and rule group, and the number is the flag count. This figure counts every submission and includes the project-wide findings, so its numbers are higher than in the dashboard's Plots view, which shows selected surveys only and leaves the project-wide findings out.
 
 ![Flags per plot](outputs/figures/flags_heatmap.png)
 
 <details>
-<summary><b>All registered plots</b> (offset = midpoint to prescribed point; coverage = sample coverage of the resolved species list)</summary>
+<summary><b>All registered plots</b> (offset = midpoint to prescribed point; coverage = sample coverage of the species list after NS curation)</summary>
 
 <!-- table:plots -->
-| plot | status | viable | offset m | A-B m | off N-S deg | taxa raw / resolved | all-unknown quadrats | coverage | Hill q1 / q2 | E/W/I | failed rules |
+| plot | status | viable | offset m | A-B m | off N-S deg | taxa recorded / after curation | all-unknown quadrats | sample coverage | Hill q1 / q2 | E/W/I | failed rules |
 |---|---|---|---:|---:|---:|---|---:|---:|---|---|---|
 | Plot_01 | primary | yes | 11.4 | 63.2 | 49 | 31 / 31 | 3 | 0.839 | 21.4 / 16.3 | 0/7/8 | B05 B12 C07 C14 C17 D03 D05 E02 E03 E06 E13 J04 |
 | Plot_02 | primary | yes | 13.3 | 53.8 | 77 | 18 / 18 | 7 | 0.888 | 14.6 / 12.4 | 0/3/8 | B12 C07 C14 D04 D05 E07 E13 F11 G02 J04 |
@@ -369,25 +375,25 @@ Colour is the worst severity per plot and rule group, and the number is the flag
 - **Savanna** is essentially complete: 29 of 30 primary points, plus 1 backup for the non-viable Plot 23.
 - **Shrubland was not started:** 0 of 6 primary points and none of its 5 backups. Whether it is still planned for this replicate is confirmation item C-6. Until it is sampled, project-level richness describes the savanna stratum only.
 - **Field effort:**
-  - 600 canonical quadrats over 9 field days.
+  - 600 quadrats in selected surveys over 9 field days.
   - A median of 190 person-minutes per plot: 63 min × a team of 3, ranging from 33 to 236 min.
   - Every survey lists the same three-person team.
 
 ### Is 20 quadrats enough per plot?
 
-Sample coverage estimates how much of a plot's herbaceous community, weighted by frequency, the 20 quadrats captured (Chao & Jost 2012):
+Sample coverage estimates how much of a plot's herbaceous community, weighted by frequency, the 20 quadrats captured (Chao & Jost 2012). It is not the percentage of species found: rare species weigh little in it.
 
-| Measure (resolved taxa) | Value |
+| Measure (taxa after NS curation) | Value |
 |---|---|
-| Median coverage | **0.89** (range 0.69–0.98) |
+| Median sample coverage | **0.89** (range 0.69–0.98) |
 | Plots below 0.8 | 3 (Plots 05, 15, 28) |
 | Expected new taxa in a 21st quadrat (extrapolated, Chao et al. 2014) | 0.43 (median) |
-| Observed / estimated richness (bias-corrected Chao2) | 0.76 (median; range 0.36–0.98) |
+| Observed / estimated total taxa (bias-corrected Chao2) | 0.76 (median; range 0.36–0.98) |
 
 **Conditional on the recorded and curated incidence data**, these estimates suggest good coverage of the frequent taxa in a typical plot, with substantial uncertainty about rare taxa, and none at all about unsampled habitats. Three cautions apply:
 
 - **Estimates, not truth.** Chao2 estimates unseen richness under statistical assumptions. It does not establish true richness, especially when identifications, missing records (C04) and geometry are themselves uncertain.
-- **Coverage is not quality.** Coverage can be high while taxa are misidentified, species are missed consistently, or the layout departs from the SOP.
+- **Sample coverage is not quality.** It can be high while taxa are misidentified, species are missed consistently, or the layout departs from the SOP.
 - **Spatial dependence.** Quadrats are paired and systematically spaced along one transect, so they are not independent samples. The intervals assume more independence than the design gives and should be read as optimistic.
 
 The effort metrics of 8 plots are marked **provisional**. Plots 10, 14, 15, 19, 29, 30 and 46 have quadrats that declare additional species without rows (C04), and Plot 28 has an additional-species row with no taxon (C08).
@@ -407,15 +413,15 @@ The two scales are not comparable.
 
 The project figures inherit the qualification of their plots. Because 8 of the 30 plots are provisional (C04, C08), the project row is provisional too. The last column repeats the estimate on the 22 plots whose own metrics are ok.
 
-- **Resolved layer:** 101 taxa and Chao2 129 (113–167) on the 22 ok plots, against 115 and 145 (128–185) on all 30.
+- **Taxa after NS curation:** 101 taxa and an estimated total of 129 (Chao2, 113–167) on the 22 ok plots, against 115 and 145 (128–185) on all 30.
 - **What this is:** a sensitivity comparison. Dropping the 8 plots changes which plots are sampled as well as removing the incomplete records, so the two estimates differ for both reasons.
 - **What it is not:** an estimate of the bias from the missing records. A similar Chao2 does not show that the missing records matter little. The species in the empty additional-species rows cannot be recovered from the data.
 
 <!-- table:effort_project -->
-| replicate | layer | plots | taxa observed | in 1 plot | in 2 plots | Chao2 (95% CI) | observed / Chao2 | coverage | Hill q1 / q2 | status | ok plots only: plots, taxa, Chao2 (95% CI) |
+| replicate | taxa | plots | taxa observed | in 1 plot | in 2 plots | estimated total, Chao2 (95% CI) | observed / estimated | sample coverage | Hill q1 / q2 | status | ok plots only: plots, taxa, Chao2 (95% CI) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| lw_baseline | raw | 30 | 132 | 51 | 20 | 191 (161–252) | 0.692 | 0.924 | 79 / 59 | provisional: 8 of 30 plots provisional (C04 C08) | 22, 117, 177 (146–243) |
-| lw_baseline | resolved | 30 | 115 | 36 | 19 | 145 (128–185) | 0.791 | 0.946 | 72 / 56 | provisional: 8 of 30 plots provisional (C04 C08) | 22, 101, 129 (113–167) |
+| lw_baseline | recorded labels | 30 | 132 | 51 | 20 | 191 (161–252) | 0.692 | 0.924 | 79 / 59 | provisional: 8 of 30 plots provisional (C04 C08) | 22, 117, 177 (146–243) |
+| lw_baseline | after NS curation | 30 | 115 | 36 | 19 | 145 (128–185) | 0.791 | 0.946 | 72 / 56 | provisional: 8 of 30 plots provisional (C04 C08) | 22, 101, 129 (113–167) |
 <!-- /table -->
 
 ### How repeatable is a survey?
@@ -450,12 +456,12 @@ So the numbers indicate the size of the noise; they do not measure it. They are 
 | lw_baseline | resolved, unresolved unknowns only | 23 |
 <!-- /table -->
 
-The rejected repeat surveys add no taxa. Curation removes 17 raw keys: merges, re-registered species, list species typed as "missing", and woody exclusions. Matching names to GBIF species removes one more (Polygalaerioptera = Polygala erioptera). These definitions are a **sensitivity analysis, not upper and lower bounds**: unresolved unknowns can hide both splitting errors (one species under several ids) and merging errors (several species under one), so true richness may lie outside this range. The resolved layer keeps NS's names.
+The rejected repeat surveys add no taxa. Curation removes 17 recorded labels: merges, re-registered species, list species typed as "missing", and woody exclusions. Matching names to GBIF species removes one more (Polygalaerioptera = Polygala erioptera). These definitions are a **sensitivity analysis, not upper and lower bounds**: unresolved unknowns can hide both splitting errors (one species under several ids) and merging errors (several species under one), so true richness may lie outside this range. The resolved layer keeps NS's names.
 
-Richness and diversity should be computed on the **resolved** layer, with the 23 unresolved unknowns reported as a separate count. Two more steps are needed before the numbers are final:
+Richness and diversity should be computed on the **taxa after NS curation** (the *resolved* layer), with the 23 unresolved unknowns reported as a separate count. Two more steps are needed before the numbers are final:
 
 - spelling and range confirmation of the names flagged in F03, F10 and F13;
-- a decision on Melosperma bracteatum (41 canonical records with no species-level match).
+- a decision on Melosperma bracteatum (41 records in selected surveys with no species-level match).
 
 Because the data are presence/absence per quadrat, diversity should use incidence-based Hill numbers (frequencies across quadrats or plots), not abundances.
 
@@ -482,7 +488,7 @@ The section has three parts:
 
 - the registered A–M–B line, and the 5 m belt along A–B (the line the quadrat position checks use);
 - the 25 m limit around the prescribed point;
-- the canonical quadrats, coloured by their worst position flag.
+- the quadrats of the selected surveys, coloured by their worst position flag.
 
 The registered midpoint's coordinates are at the top right, and the plot's location and shape warnings or errors at the bottom left.
 
@@ -529,7 +535,7 @@ The registered midpoint's coordinates are at the top right, and the plot's locat
 
 - every registered transect as a line A → M → B, with length, bearing, offset, GPS accuracies and location flags;
 - all 51 prescribed points with their plan status;
-- every canonical quadrat with its position along and across the transect and its flags.
+- every quadrat of a selected survey, with its position along and across the transect and its flags.
 
 Altitudes are left out on purpose until the offset is explained (E14, C-7). `outputs/plots.csv` and `outputs/quadrats.csv` hold the same coordinates as tables. The interactive **Map** view of the dashboard shows the same layers, on a light or satellite basemap when online, with a per-plot panel.
 

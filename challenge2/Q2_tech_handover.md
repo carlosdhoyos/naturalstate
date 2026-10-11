@@ -22,7 +22,7 @@
 
 | # | Step | Done when | Details |
 |---|---|---|---|
-| 1 | Run the container as a platform job on the three raw-table folders, triggered by new submissions, review-state changes, entity updates and nightly | On the take-home data, the run writes the run id below, and a separate check, `run_challenge2.py --out <dir> --verify`, passes. Run id: `qa-2d9fb1f6eb5d5def` | §7, `challenge2/README.md` |
+| 1 | Run the container as a platform job on the three raw-table folders, triggered by new submissions, review-state changes, entity updates and nightly | On the take-home data, the run writes the run id below, and a separate check, `run_challenge2.py --out <dir> --verify`, passes. Run id: `qa-f5bc7da8f18dcce8` | §7, `challenge2/README.md` |
 | 2 | Load the outputs into the warehouse: `qa_runs`, `qa_results` and the marts | Row counts equal `run_manifest.json` → `rows` | §1, §6 (DDL) |
 | 3 | Build the nine dashboard views from the marts | Each view reproduces the reference page on the take-home data (for example 697 flags, 24 of them errors, and 8 of 30 plots with provisional effort metrics) | §6 |
 | 4 | Add flag reviews: an append-only `flag_reviews` table keyed by `flag_id` + `evidence_hash` | A review survives a rerun, and the flag reopens when its evidence or rule changes | §6 |
@@ -224,6 +224,16 @@ Show coverage first. Chao2 intervals are wide with 20 quadrats (V-10). Wherever 
 
 A working reference of every view is the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`). It embeds `outputs/dashboard_results.json`, which `vegqa/dashboard.py` writes on every run, and never recomputes a rule, so the page shows exactly what the job publishes. Every view reads the marts and `qa_results`.
 
+**Words on screen vs names in the data.** The dashboard uses plain words for readers outside the team; the tables, files and code keep the technical names. Use the plain words in any view built from this specification:
+
+| On screen | In the data and code |
+|---|---|
+| Selected survey (one per plot and monitoring round) | `canonical`, `canonical_survey` |
+| Labels as recorded → taxa after NS curation | `raw` → `resolved` (layers, `raw_key`, `resolved_key`) |
+| Metrics unavailable | `metrics_status = suppressed` |
+| Estimated total taxa (Chao2) | `chao2`, `chao2_lo95`, `chao2_hi95` |
+| Sample coverage (with "not the % of species found") | `coverage` |
+
 - **Source records:** clicking a flag's source shows the original record from the embedded export, with its full key to copy (for ODK Central) and a link to the full table.
 - **Shared filters**, in one row above the views: replicate, stratum, device, recorder and date range. They apply to every view built from flags, submissions or plots.
   - **Overview:** the headline counts (plots surveyed, quadrats, flags) follow the filters.
@@ -318,7 +328,7 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-2d9fb1f6eb5d5def`) |
+| All rules implemented and run on the provided data | Done (run `qa-f5bc7da8f18dcce8`) |
 | Acceptance, mutation, robustness and unit tests | 165 passing |
 | GBIF cache | 99 names, retrieved 2026-10-11 (presence-only re-fetch) |
 | Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |

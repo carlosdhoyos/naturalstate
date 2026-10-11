@@ -72,13 +72,13 @@ def plots() -> str:
     df = pd.DataFrame({
         "plot": p.plot_name.map(_short), "status": p.sample_status, "viable": p.viable,
         "offset m": p.midpoint_offset_m, "A-B m": p.transect_length_m, "off N-S deg": p.deviation_ns_deg.astype("Int64"),
-        "taxa raw / resolved": p.richness_raw.astype("Int64").astype(str) + " / " + p.richness_resolved.astype("Int64").astype(str),
-        "all-unknown quadrats": p.quadrats_all_unknown.astype("Int64"), "coverage": p.plot_name.map(cov),
+        "taxa recorded / after curation": p.richness_raw.astype("Int64").astype(str) + " / " + p.richness_resolved.astype("Int64").astype(str),
+        "all-unknown quadrats": p.quadrats_all_unknown.astype("Int64"), "sample coverage": p.plot_name.map(cov),
         "Hill q1 / q2": p.plot_name.map(lambda n: f"{h1[n]:.1f} / {h2[n]:.1f}" if n in h1 else ""),
         "E/W/I": p.n_error.fillna(0).astype(int).astype(str) + "/" + p.n_warning.fillna(0).astype(int).astype(str) + "/" + p.n_info.fillna(0).astype(int).astype(str),
         "failed rules": p.failed_rules.fillna(""),
     }).replace("<NA> / <NA>", "")
-    return _md(df, {c: "r" for c in ("offset m", "A-B m", "off N-S deg", "all-unknown quadrats", "coverage")})
+    return _md(df, {c: "r" for c in ("offset m", "A-B m", "off N-S deg", "all-unknown quadrats", "sample coverage")})
 
 
 def transect_locations() -> str:
@@ -108,9 +108,9 @@ def effort_plan() -> str:
 def effort_project() -> str:
     e = pd.read_csv(OUT / "effort_project.csv")
     fmt = lambda v: "n/a" if pd.isna(v) else f"{v:.0f}"
-    df = pd.DataFrame({"replicate": e.replicate, "layer": e.layer, "plots": e.units, "taxa observed": e.S_obs, "in 1 plot": e.Q1_uniques, "in 2 plots": e.Q2_duplicates,
-                       "Chao2 (95% CI)": [f"{fmt(c)} ({fmt(lo)}–{fmt(hi)})" for c, lo, hi in zip(e.chao2, e.chao2_lo95, e.chao2_hi95)],
-                       "observed / Chao2": e.completeness, "coverage": e.coverage, "Hill q1 / q2": [f"{a:.0f} / {b:.0f}" for a, b in zip(e.hill_q1, e.hill_q2)],
+    df = pd.DataFrame({"replicate": e.replicate, "taxa": e.layer.map({"raw": "recorded labels", "resolved": "after NS curation"}).fillna(e.layer), "plots": e.units, "taxa observed": e.S_obs, "in 1 plot": e.Q1_uniques, "in 2 plots": e.Q2_duplicates,
+                       "estimated total, Chao2 (95% CI)": [f"{fmt(c)} ({fmt(lo)}–{fmt(hi)})" for c, lo, hi in zip(e.chao2, e.chao2_lo95, e.chao2_hi95)],
+                       "observed / estimated": e.completeness, "sample coverage": e.coverage, "Hill q1 / q2": [f"{a:.0f} / {b:.0f}" for a, b in zip(e.hill_q1, e.hill_q2)],
                        "status": e.metrics_status,
                        "ok plots only: plots, taxa, Chao2 (95% CI)": [f"{n}, {fmt(o)}, {fmt(c)} ({fmt(lo)}–{fmt(hi)})" for n, o, c, lo, hi in
                                                                       zip(e.units_ok_plots, e.S_obs_ok_plots, e.chao2_ok_plots, e.chao2_lo95_ok_plots, e.chao2_hi95_ok_plots)]})
