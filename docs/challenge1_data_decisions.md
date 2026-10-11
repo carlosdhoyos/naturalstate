@@ -418,7 +418,7 @@ The rule was fixed before looking at which recorders it selects:
   - Nightjar: 36% vs 18%.
   - The Firefinch validation mirrors its predictions.
 - **This matches Wood & Kahl's advice** to add a second random sample from higher scores when random samples are dominated by low ones.
-- **What it affects:** sampling by score does not bias a model of correctness *given* the score, provided that, within a score, clips were not chosen by their outcome or by factors the model leaves out (such as the recorder), so the curves are unaffected. It does bias any raw precision pooled over all validated clips, so none is reported without a model or a score band.
+- **What it affects:** sampling by score does not bias a model of correctness *given* the score, provided that, within a score, clips were not chosen by their outcome or by factors the model leaves out (such as the recorder), so the curves are valid under that sampling assumption (C-1). It does bias any raw precision pooled over all validated clips, so none is reported without a model or a score band.
 - **Confirmation item C-1** (Q1 report, section 9): the protocol itself is undocumented. The working assumption is random sampling within score strata, possibly with replacement (D-01).
 
 ### Uncertainty

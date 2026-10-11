@@ -570,7 +570,7 @@ function ResultsTab({ repro }: Ctx) {
       <Note label="Reading the results">
         <ul>
           <li>
-            <b>Only the Nightjar gets a threshold.</b> Its curve rests on 33 errors and 117 correct clips; every one of the 74 validated clips at or above 0.6666 is correct (Wilson 95% lower bound 95%). The 99% itself comes from the logistic shape, which the validation supports directly only to about 95%.
+            <b>Only the Nightjar gets a threshold.</b> Its curve rests on 33 errors and 117 correct clips; every one of the 74 validated clips at or above 0.6666 is correct (Wilson 95% lower bound 95%). The 99% itself comes from the logistic shape, which the validation supports directly only to about 95%, a binomial reference that assumes independent, representative clips.
           </li>
           <li>
             <b>The Oriole and Plover are not “bad” species — they are under-tested for this question.</b> Nearly every validated clip was correct (150/150 and 145/146), but a 99% threshold is located by errors, and there are none (Oriole) or one (Plover). Their 132 + 137 human-confirmed clips are kept as observations.
@@ -1460,7 +1460,7 @@ function SamplingTab({ t, sp, setSp }: Ctx) {
             This matches Wood &amp; Kahl’s own advice: when random samples are dominated by low scores, add “a second set of randomly selected validation samples from a higher range of scores … providing additional resolution in the range of scores where false positives transition to true positives.”
           </li>
           <li>
-            Choosing clips <i>by score</i> does not bias a model of correctness <i>given</i> the score, provided that, within a score, clips were not chosen by their outcome or by factors the model leaves out (such as the recorder); then the curves and thresholds are unaffected. It does bias any raw precision computed over all validated clips, which is why this page never reports one without the model or a score band.
+            Choosing clips <i>by score</i> does not bias a model of correctness <i>given</i> the score, provided that, within a score, clips were not chosen by their outcome or by factors the model leaves out (such as the recorder); the curves and thresholds are valid under that sampling assumption (C-1). It does bias any raw precision computed over all validated clips, which is why this page never reports one without the model or a score band.
           </li>
           <li>
             <b>Confirmation item C-1:</b> the sampling protocol is not documented in the data. The working assumption is random sampling within score bands with a high-score top-up, possibly with replacement (see the duplicate pairs, D-01).
@@ -1577,7 +1577,7 @@ const CONCLUSIONS: ReactNode[] = [
     <b>Under the chosen evidence policy, only one of four species gets an automatic 99% threshold.</b> That is about the evidence, not BirdNET: a 99% threshold is located by the errors near it. The Oriole (0 errors in 150) has no estimable curve; the Plover (1 in 146) has an ordinary ML threshold (0.261) that the policy declines because it rests on one error and moves from 0.16 to 0.85 with the estimator; the Firefinch’s curve never reaches 99% within its validated scores.
   </>,
   <>
-    <b>The Nightjar’s 99% is model-based.</b> Its location is robust to the estimator, de-duplication, the treatment of scores of 1 and removing the two problem recorders; direct validation supports about 95% (74/74 validated clips above the threshold correct, Wilson lower bound 95.1%).
+    <b>The Nightjar’s 99% is model-based.</b> Its location is robust to the estimator, de-duplication, the treatment of scores of 1 and removing the two problem recorders; direct validation supports about 95% (74/74 validated clips above the threshold correct, Wilson lower bound 95.1%: a binomial reference that assumes independent, representative clips).
   </>,
   <>
     <b>Most Nightjar errors come from two recorders whose validated clips are mostly evening recordings,</b> so recorder and time effects cannot be separated here. RBS75/RBS79 are flagged, not removed; an evening effect remains plausible — the evening model met the original adoption rule but is reported as a sensitivity analysis (3,715 vs 3,147 labels) because its transferability is unresolved; every new recorder should pass a small acceptance check.
