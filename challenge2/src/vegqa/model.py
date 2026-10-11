@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from .geo import LocalProjection, angle_at, bearing_deg, deviation_from_ns, dist, robust_line, segment_frame
+from .load import by_key
 
 
 def projection(d) -> LocalProjection:
@@ -14,22 +15,29 @@ def projection(d) -> LocalProjection:
     return LocalProjection(c._lat.mean(), c._lon.mean())
 
 
-def canonical_survey_keys(d) -> tuple[set, pd.DataFrame]:
-    """V-01. One canonical submission per plot (and replicate): not rejected > latest end time.
-    Returns the canonical KEYs and a table explaining each choice."""
+EXCLUDED_REVIEW_STATES = ("rejected", "hasIssues")
+
+
+def canonical_survey_keys(d, excluded=EXCLUDED_REVIEW_STATES) -> tuple[set, pd.DataFrame]:
+    """V-01. At most one canonical submission per plot and replicate: among submissions whose ODK review
+    state is not excluded (rejected, hasIssues), the latest by end time. A plot whose submissions are all
+    excluded has NO canonical survey (J03 reports it): an excluded submission never counts towards
+    richness or effort. Returns the canonical KEYs and a table explaining each choice."""
     s = d.survey.copy()
-    s["_rank_rejected"] = (s.ReviewState == "rejected").astype(int)
-    s = s.sort_values(["plot_uuid", "replicate", "_rank_rejected", "_end"], ascending=[True, True, True, False])
-    s["canonical"] = ~s.duplicated(["plot_uuid", "replicate"], keep="first")
+    s["_excluded"] = s.ReviewState.isin(excluded)
+    s = s.sort_values(["plot_uuid", "replicate", "_excluded", "_end"], ascending=[True, True, True, False])
+    first = ~s.duplicated(["plot_uuid", "replicate"], keep="first")
+    s["canonical"] = first & ~s._excluded
     s["n_submissions"] = s.groupby(["plot_uuid", "replicate"]).KEY.transform("size")
-    why = np.where(s.n_submissions == 1, "only submission", np.where(s.canonical, "kept: not rejected / latest", "not canonical: rejected or older"))
-    s["canonical_reason"] = why
+    s["canonical_reason"] = np.where(s._excluded, "excluded: review state " + s.ReviewState,
+                                     np.where(~s.canonical, "not canonical: an eligible submission ends later",
+                                              np.where(s.n_submissions == 1, "only submission", "kept: latest eligible submission")))
     return set(s.loc[s.canonical, "KEY"]), s[["KEY", "plot_name", "replicate", "ReviewState", "_device", "canonical", "n_submissions", "canonical_reason"]]
 
 
 def registration_geometry(d, proj: LocalProjection) -> pd.DataFrame:
     """Per registration: prescribed point, A/M/B in metres, distances, angle, bearing, accuracies."""
-    c = d.ent["centroids"].set_index("__id")
+    c = by_key(d.ent["centroids"], "__id")
     rows = []
     for _, r in d.registration.iterrows():
         row = {"KEY": r.KEY, "plot_uuid": r.plot_uuid, "plot_name": r.plot_name, "viable": r.viable, "sample_status": r.sample_status}
@@ -58,8 +66,8 @@ def registration_geometry(d, proj: LocalProjection) -> pd.DataFrame:
 def quadrat_positions(d, proj: LocalProjection, geom: pd.DataFrame) -> pd.DataFrame:
     """Each quadrat's along-line position and signed lateral offset relative to its plot's registered
     A->B segment, plus its residual from the survey's own robust line."""
-    g = geom.set_index("plot_uuid")
-    s = d.survey.set_index("KEY")
+    g = by_key(geom, "plot_uuid")
+    s = by_key(d.survey, "KEY")
     q = d.quadrat.copy()
     q["plot_uuid"] = q.PARENT_KEY.map(s._centroid_uuid)  # registration geometry is keyed by centroid
     q["plot_name"] = q.PARENT_KEY.map(s.plot_name)
@@ -93,4 +101,4 @@ def positions(ctx) -> pd.DataFrame:
 
 def registration_for(ctx) -> pd.DataFrame:
     """Registration rows indexed by centroid uuid (one registration per plot in this data; A02 checks it)."""
-    return ctx.cached("reg_by_plot", lambda: ctx.data.registration.drop_duplicates("plot_uuid").set_index("plot_uuid"))
+    return ctx.cached("reg_by_plot", lambda: by_key(ctx.data.registration.drop_duplicates("plot_uuid"), "plot_uuid"))

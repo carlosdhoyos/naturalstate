@@ -27,7 +27,7 @@ raw (ODK tables, entity lists, form XLSX)        untouched; load id + content ha
          └─ resolved   occurrence taxon via species_extra_ids (merge chains, exclusions); canonical-survey flag
              ├─ qa_results    rule_id, status, severity, entity, plot, survey, source_table, source_key, observed, expected, message, run_id
              ├─ marts         survey_overview, submissions, plots, quadrats, occurrences, effort_*
-             └─ flag_reviews  (dashboard writes) rule_id + entity_key -> decision, by, at, note   [append-only]
+             └─ flag_reviews  (dashboard writes) flag_id + evidence_hash -> decision, by, at, note   [append-only]
 ```
 
 ## 2. Inputs and how they join
@@ -60,11 +60,10 @@ raw (ODK tables, entity lists, form XLSX)        untouched; load id + content ha
   - Add interpreted values as new columns (prefixed `_` in the reference implementation): `_start`, `_end` and `_submitted` (UTC), `_lat`, `_lon`, `_acc`, `_species` (token list), `_photo_time`.
   - A value that cannot be interpreted becomes null in the new column, and a rule turns that into a flag.
 - **Photo capture time** comes from the image file name. ODK names images by epoch milliseconds, e.g. `1779868793110.jpg`.
-- **Canonical survey (V-01):** for each plot × replicate, take the first by
-  1. `ReviewState != rejected`,
-  2. then the latest `_end`.
+- **Canonical survey (V-01):** for each plot × replicate, at most one: among submissions whose ODK review state is not excluded (`rejected`, `hasIssues`; configurable as `canonical_excluded_review_states`), the latest by `_end`. A plot whose submissions are all excluded has **no** canonical survey, and J03 reports it.
 
-  Keep every submission, with `canonical` true/false. Only canonical surveys count for richness and effort.
+  Keep every submission, with `canonical` true/false and the reason. Only canonical surveys count for richness and effort.
+- **Never assume what a rule checks.** Every lookup by key keeps the first row of a duplicated key (`load.by_key`), so duplicates reach A02 instead of crashing an earlier step. Repeat visits are paired, and plots summarised, within one replicate. A survey with no quadrats, or with no taxa, gets an explicit effort row (`note`), with undefined ratios rather than 100% or infinity. `tests/test_robustness.py` runs the whole workflow on such inputs.
 - **Occurrences:** one row per list species picked in a quadrat (`source = list`), plus one row per additional-species row (`source = extra`). The slot is chosen by `species_entry_mode`: `new_*` → `target_extra_name`; `reuse_unknown` → `select_reuse_unknown`; `reuse_missing` → `select_reuse_missing`.
 - **Resolved taxon (V-02):**
   1. Map the slot to `herb_NNN` using its `group_type` and `unknown_index`.
@@ -160,7 +159,12 @@ Show coverage first. Chao2 intervals are wide with 20 quadrats (V-10).
 
 ## 6. The dashboard
 
-A working reference of every view is the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`). It embeds `outputs/dashboard_results.json`, which `vegqa/dashboard.py` writes on every run, and never recomputes a rule, so the page shows exactly what the job publishes. Every view reads the marts and `qa_results`. Every flag links to its source row through `source_table` + `source_key`. Shared filters, in one row: replicate, stratum, plot, device, recorder, date range, severity, rule group, and canonical only (on by default).
+A working reference of every view is the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`). It embeds `outputs/dashboard_results.json`, which `vegqa/dashboard.py` writes on every run, and never recomputes a rule, so the page shows exactly what the job publishes. Every view reads the marts and `qa_results`.
+
+- **Source records:** clicking a flag's source shows the original record from the embedded export, with its full key to copy (for ODK Central) and a link to the full table.
+- **Shared filters**, in one row above the views: replicate, stratum, device, recorder and date range. They apply to every view built from flags, submissions or plots. The Rules and Effort views cover the whole run.
+- **View filters:** each view adds its own (severity, rule group, rule, plot, text, canonical only).
+- **"Passed everywhere":** lists only rules with no failure **and** no could-not-check result.
 
 | View | Shows | Source |
 |---|---|---|
@@ -174,25 +178,33 @@ A working reference of every view is the **QA/QC dashboard** page of the Data Ex
 | **Rules** | The catalogue with fail / pass / not-checked counts and its thresholds, so reviewers see what *was* checked | `rule_summary` |
 | **Field feedback** | "Check tonight": the day's submissions with errors and warnings the team can still fix in the field (missing rows, empty occurrences, position outliers, late uploads), plus process reminders (upload, refresh lists) | `qa_results` filtered by date |
 
-**Flag reviews.** Reviewers mark a flag as `acknowledged`, `accepted as is`, `fixed upstream` or `false positive`, with a note. Store this in `flag_reviews`, keyed by (`rule_id`, `entity_key`):
+**Flag reviews (specified; not implemented in the reference page).** Reviewers mark a flag as `acknowledged`, `accepted as is`, `fixed upstream` or `false positive`, with a note. Every result row already carries the keys this needs:
+
+- `project_id`: the survey entity the run covers (here `savmon|lw|herbs|ho`).
+- `flag_id`: a hash of (project, rule, entity type, entity key). It is stable across runs, so a decision re-attaches to the same flag in every later run.
+- `evidence_hash`: a hash of (observed, expected). A decision applies only while the evidence is unchanged; when the hash changes, the flag shows as reopened.
+
+Store decisions in `flag_reviews`:
 
 - append-only, so the history is kept;
-- re-attached to new runs by key;
 - a flag whose entity no longer fails shows as "resolved by data".
 
 Data are never edited from the dashboard.
 
 ```sql
 create table qa_results (
-  run_id text not null, rule_id text not null, status text not null check (status in ('fail','pass','could_not_check')),
+  run_id text not null, project_id text not null, flag_id text not null, evidence_hash text not null,
+  rule_id text not null, status text not null check (status in ('fail','pass','could_not_check')),
   severity text not null check (severity in ('error','warning','info')), entity_type text not null, entity_key text not null,
   plot_name text, survey_key text, source_table text, source_key text, observed text, expected text, message text,
   primary key (run_id, rule_id, entity_type, entity_key));
 create table qa_runs (run_id text primary key, started_at timestamptz not null, code_version text, catalogue_version text,
   input_hashes jsonb not null, status_counts jsonb);
-create table flag_reviews (id bigserial primary key, rule_id text not null, entity_key text not null,
+create table flag_reviews (id bigserial primary key, project_id text not null, flag_id text not null, evidence_hash text not null,
+  rule_id text not null, entity_type text not null, entity_key text not null,          -- denormalised for reading
   decision text not null check (decision in ('acknowledged','accepted_as_is','fixed_upstream','false_positive')),
   note text, reviewed_by text not null, reviewed_at timestamptz not null default now());  -- append-only: no updates or deletes
+-- a flag's current decision: the latest review with the same flag_id AND evidence_hash; otherwise the flag is open
 ```
 
 ## 7. Running it on the platform
@@ -215,7 +227,7 @@ create table flag_reviews (id bigserial primary key, rule_id text not null, enti
 
 ## 8. Acceptance tests and verification status
 
-`challenge2/tests` (136 tests, run with `pytest`) holds the acceptance and mutation suites to port:
+`challenge2/tests` (149 tests, run with `pytest`) holds the acceptance and mutation suites to port:
 
 | Area | What the tests pin |
 |---|---|
@@ -223,14 +235,15 @@ create table flag_reviews (id bigserial primary key, rule_id text not null, enti
 | Passed checks | The 12 checks that passed must still report `pass` |
 | Differences | Deliberate differences from the exploration (`docs/challenge2_decisions.md`) |
 | New findings | N1–N13 |
+| Robustness | The whole workflow (rules, marts, effort, figures, dashboard export) runs on invalid inputs and reports them: duplicate keys in every table, a survey with no quadrats, a survey with no vegetation, rejected-only and hasIssues plots, a fractional quadrat number, a second replicate (`test_robustness.py`) |
 | Mutations | 35 rules must create a new failing entity on a copy of the data with one injected error, compared with an unmutated baseline (`test_mutations.py`); J04 must pass at a cell centre |
 | Properties | Determinism (identical results and `run_id` on rerun); inputs never modified (file hashes before and after); raw columns identical to the export; row counts; one canonical survey per plot; every result field is text; catalogue = code |
 | Unit tests | Projection, bearings, segment frame, robust line, Chao2 / coverage / rarefaction formulas, curation parsing |
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-c2dda0aff86a057a`) |
-| Acceptance, mutation and unit tests | 136 passing |
+| All rules implemented and run on the provided data | Done (run `qa-4622d26cbc136a65`) |
+| Acceptance, mutation, robustness and unit tests | 149 passing |
 | GBIF cache | 99 names, retrieved 2026-10-10 |
 | Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |
 | Container job | **Built and run** (`docker build -t vegqa:1.0.0 challenge2`). On the take-home data its outputs are byte-identical to a local run: same run id, all tables and the dashboard JSON |
@@ -278,7 +291,7 @@ These are flagged by the K rules, but a QA dashboard cannot fix them:
 | `dashboard/src/components/VegetationQA.tsx` | Reference dashboard page (React + Plotly) |
 | `challenge2/reference/gbif_cache.json` | Cached GBIF reference |
 | `challenge2/reference/elevation_cache.json` | Cached SRTM elevations |
-| `challenge2/tests/` | Acceptance, mutation and unit tests |
+| `challenge2/tests/` | Acceptance, mutation, robustness and unit tests |
 | `challenge2/Dockerfile` | Job image: the pipeline on mounted inputs, outputs to `/out` |
 | `docs/challenge2_decisions.md` | Decisions V-01 to V-11, differences, new findings, independent review, confirmation items |
 

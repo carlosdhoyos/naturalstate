@@ -10,6 +10,7 @@ version: "1.0"
 
 thresholds:
   quadrats_per_survey: 20                 # form repeat_count; Herbaceous SOP sec. 3.1
+  canonical_excluded_review_states: [rejected, hasIssues]   # V-01: these never count towards metrics (confirmation item C-1)
   midpoint_max_offset_m: 25               # Registration SOP step 5
   midpoint_watch_offset_m: 20             # judgement: report plots within 5 m of the limit (info)
   transect_length_m: 50                   # Registration SOP figure 1

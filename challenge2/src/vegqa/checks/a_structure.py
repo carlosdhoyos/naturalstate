@@ -6,6 +6,7 @@ import pandas as pd
 
 from ..engine import rows, rule
 from ..forms import form_version
+from ..load import by_key
 
 SURVEY_INSTANCE_SUFFIX = "_herbs"  # herbaceous form instance_name = concat(plot_name, '_herbs')
 
@@ -50,12 +51,15 @@ def twenty_quadrats(ctx):
 @rule("A04")
 def quadrat_numbers(ctx):
     d, n = ctx.data, ctx.th["quadrats_per_survey"]
-    nums = d.quadrat.groupby("PARENT_KEY")._quadrat_number.apply(lambda s: sorted(s.dropna().astype(int).tolist()))
     for r in rows(d.survey):
-        got = nums.get(r.KEY, [])
-        ok = got == list(range(1, n + 1))
+        raw = d.quadrat.loc[d.quadrat.PARENT_KEY == r.KEY, "quadrat_number"].tolist()
+        vals = pd.to_numeric(pd.Series(raw, dtype=object).replace("", None), errors="coerce")
+        # values must be whole numbers BEFORE the sequence is compared (1.5 must not pass as 1)
+        whole = bool(len(vals)) and vals.notna().all() and (vals % 1 == 0).all()
+        ok = whole and sorted(vals.astype(int).tolist()) == list(range(1, n + 1))
         ctx.add("pass" if ok else "fail", "survey", r.KEY, plot_name=r.plot_name, survey_key=r.KEY, source_table="quadrat_repeat",
-                observed="1..20" if ok else str(got), expected="1..20, each once")
+                observed=f"1..{n}" if ok else str(sorted(raw, key=lambda v: (pd.to_numeric(v, errors="coerce"), v))),
+                expected=f"whole numbers 1..{n}, each once", message="" if ok or whole else "non-integer or missing quadrat number")
 
 
 def _ref(ctx, ok_set, value, entity_type, key, what, table, plot="", survey=""):
@@ -99,7 +103,7 @@ def references(ctx):
 
 @rule("A06")
 def list_species_herbaceous(ctx):
-    sp = ctx.data.ent["species"].set_index("__id")
+    sp = by_key(ctx.data.ent["species"], "__id")
     for r in rows(ctx.occ[ctx.occ.source == "list"]):
         if not r.ref_resolves:
             ctx.add("could_not_check", "occurrence", r.occurrence_id, plot_name=r.plot_name, survey_key=r.survey_key, message="species not found")

@@ -9,14 +9,14 @@ uuid:e63b6ad6-7893-4cca-a1db-00fbde18a2aa,SavMon_LW_Plot_02,lw_baseline,,demo-de
 uuid:430e85a3-44ce-45f4-9974-c6a61569e78b,SavMon_LW_Plot_07,lw_baseline,,demo-device-01,True,1,only submission
 uuid:9fd08bb2-7c3f-49f5-8ad8-dd6f45da94da,SavMon_LW_Plot_01,lw_baseline,,demo-device-01,True,1,only submission
 uuid:ebe93f04-c927-4af3-9668-21b6540c01ea,SavMon_LW_Plot_13,lw_baseline,,demo-device-01,True,1,only submission
-uuid:49d73df9-2d36-4a1e-aa29-6f94f23a7513,SavMon_LW_Plot_21,lw_baseline,,demo-device-01,True,2,kept: not rejected / latest
-uuid:c6cc7231-7af6-4bc5-b281-565c53f21763,SavMon_LW_Plot_21,lw_baseline,rejected,demo-device-02,False,2,not canonical: rejected or older
+uuid:49d73df9-2d36-4a1e-aa29-6f94f23a7513,SavMon_LW_Plot_21,lw_baseline,,demo-device-01,True,2,kept: latest eligible submission
+uuid:c6cc7231-7af6-4bc5-b281-565c53f21763,SavMon_LW_Plot_21,lw_baseline,rejected,demo-device-02,False,2,excluded: review state rejected
 uuid:54452130-d92e-4996-a0d7-9401811b9ed7,SavMon_LW_Plot_15,lw_baseline,,demo-device-01,True,1,only submission
 uuid:b940a5e4-f4ed-4120-ba4e-70f858b86dfd,SavMon_LW_Plot_17,lw_baseline,,demo-device-01,True,1,only submission
 uuid:c17516f9-53dd-4fda-b4e6-e257068198b9,SavMon_LW_Plot_30,lw_baseline,,demo-device-02,True,1,only submission
 uuid:c4ea3469-7e1c-474a-9ce6-fc1926e590e2,SavMon_LW_Plot_28,lw_baseline,,demo-device-01,True,1,only submission
-uuid:cf362fbc-991a-4db1-8d49-6c1d29fd49c8,SavMon_LW_Plot_18,lw_baseline,,demo-device-01,True,2,kept: not rejected / latest
-uuid:81e3bc36-700f-465d-a1aa-48ebed04a78c,SavMon_LW_Plot_18,lw_baseline,rejected,demo-device-02,False,2,not canonical: rejected or older
+uuid:cf362fbc-991a-4db1-8d49-6c1d29fd49c8,SavMon_LW_Plot_18,lw_baseline,,demo-device-01,True,2,kept: latest eligible submission
+uuid:81e3bc36-700f-465d-a1aa-48ebed04a78c,SavMon_LW_Plot_18,lw_baseline,rejected,demo-device-02,False,2,excluded: review state rejected
 uuid:8e5f5c9d-d697-4358-b766-db4a41f28c3e,SavMon_LW_Plot_25,lw_baseline,,demo-device-01,True,1,only submission
 uuid:b816a9b4-f338-432a-83d7-1cf354583f0f,SavMon_LW_Plot_20,lw_baseline,,demo-device-01,True,1,only submission
 uuid:599e04cf-832f-4535-8305-967918d12026,SavMon_LW_Plot_16,lw_baseline,,demo-device-01,True,1,only submission

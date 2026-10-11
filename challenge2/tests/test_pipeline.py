@@ -175,3 +175,11 @@ def test_same_results_wherever_the_data_are_mounted(b, tmp_path):
         set_forms_dir(FORMS)  # later tests read the repository copy again
     assert moved["run_id"] == b["run_id"]
     pd.testing.assert_frame_equal(moved["results"], b["results"])
+
+
+def test_review_keys(b):
+    """flag_id is one identity per (project, rule, entity type, entity key); evidence_hash follows the evidence."""
+    r = b["results"]
+    assert r.flag_id.is_unique and r.flag_id.str.len().eq(16).all()
+    assert (r.project_id == "savmon|lw|herbs|ho").all()
+    assert r.groupby(["observed", "expected"]).evidence_hash.nunique().eq(1).all()

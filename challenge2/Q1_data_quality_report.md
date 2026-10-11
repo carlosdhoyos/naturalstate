@@ -3,7 +3,7 @@
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
 **Interactive version:** the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`, Vegetation → QA/QC dashboard): every flag with its source row, the map with per-plot transect panels, the curation queue and the effort views.
-**Prepared by:** Carlos Hoyos · run `qa-c2dda0aff86a057a` · reproducible with `python challenge2/src/run_challenge2.py`
+**Prepared by:** Carlos Hoyos · run `qa-4622d26cbc136a65` · reproducible with `python challenge2/src/run_challenge2.py`
 
 ---
 
@@ -21,12 +21,12 @@ The problems that matter for richness and diversity sit elsewhere: in **what was
 **Issues that affect richness and diversity, in order of importance:**
 
 1. **The shrubland stratum was not sampled.** None of its 6 primary points was registered (J01), so the project cannot report herbaceous richness for shrubland. In the savanna stratum, 29 of 30 primary points were surveyed, plus 1 backup.
-2. **The data do not fit Lewa's terrain or flora.** Confirm where the data were collected (C-7).
-   - The whole dataset sits about **705 m below the terrain** at its coordinates (E14). Field GPS altitudes are 930–1,090 m, while SRTM gives 1,640–1,750 m at the same points. **Natural State's own prescribed points (the centroid list) show the same offset (−703 m)**, so this is not a field error: the coordinates and the altitudes come from different places.
+2. **The data's provenance needs confirming.** The altitudes and the flora do not fit Lewa (C-7).
+   - The whole dataset sits about **705 m below the terrain** at its coordinates (E14). Field GPS altitudes are 930–1,090 m, while SRTM gives 1,640–1,750 m at the same points. **Natural State's own prescribed points (the centroid list) show the same offset (−703 m)**, so this is not a field error.
    - **20 of the 90 identified taxa GBIF could check have no GBIF record in Kenya** (92 identified in all), but hundreds in southern Africa (F10): Pogonarthria fleckii, Pechuel-loeschea leubnitziae, Erlangea misera, Aristida scabrivalvis, and others.
    - The transport list offers "Mokoro", an Okavango dugout canoe.
 
-   Together these are consistent with demonstration data relocated from a southern-African site near 1,000 m, such as the Okavango. Missing GBIF records alone would be weak evidence; the pattern is not.
+   Together these are a reason to question the dataset's provenance, not proof of it. They do not establish that the coordinates and altitudes come from different places, nor where the data originate. One hypothesis for Natural State to confirm is demonstration data relocated from a southern-African site near 1,000 m; there may be other explanations (for example altitudes referenced to a different datum, or test data).
 3. **Taxonomy needs curation before diversity metrics are computed.**
    - 23 taxon names are probably misspelled (F03), checked against the GBIF backbone: "Crotolaria", "Ipomea", "Oldenladia", "Duosperma cretanum", "Polygalaerioptera", among others.
    - The curation table introduces one new typo ("Hibiscuc") and keeps others (F13).
@@ -70,9 +70,9 @@ A further 22 combinations could not be checked. Every check that passed is liste
 - **Raw vs resolved taxa:**
   - **Raw** is the taxon as recorded.
   - **Resolved** follows Natural State's curation table (`species_extra_ids`): merges and exclusions are applied, spellings are never changed (V-02).
-- **Canonical survey:** for the two plots surveyed twice, the accepted submission counts. The rejected one is kept for the repeatability estimate (V-01).
+- **Canonical survey:** at most one per plot and replicate, the latest submission that is not rejected or marked "has issues"; here, for the two plots surveyed twice, the accepted submission counts and the rejected one is kept for the repeatability estimate (V-01).
 - **GPS-aware tests:** distances are compared with the reported GPS accuracy, so ordinary GPS noise is not flagged (V-04).
-- **Further reading:** decisions V-01 to V-11, differences from the earlier exploration, and new findings are in [`docs/challenge2_decisions.md`](../docs/challenge2_decisions.md). Every flag, with its source row, is in [`outputs/qa_flags.csv`](outputs/qa_flags.csv).
+- **Further reading:** decisions V-01 to V-12, differences from the earlier exploration, and new findings are in [`docs/challenge2_decisions.md`](../docs/challenge2_decisions.md). Every flag, with its source row, is in [`outputs/qa_flags.csv`](outputs/qa_flags.csv).
 
 ---
 
@@ -408,7 +408,7 @@ The full log is in [`docs/challenge2_decisions.md`](../docs/challenge2_decisions
 
 | Decision | In brief |
 |---|---|
-| V-01 | Canonical survey: not rejected, then latest; the others are kept and flagged |
+| V-01 | Canonical survey: at most one per plot and replicate, the latest not rejected or "has issues"; the others are kept and flagged |
 | V-02 | Two taxonomy layers: raw as recorded, resolved via NS's curation; spellings never changed |
 | V-03 | Woody taxa excluded only in the resolved herbaceous layer |
 | V-04 | GPS-aware geometry tests (z against combined reported accuracy) |
@@ -418,6 +418,7 @@ The full log is in [`docs/challenge2_decisions.md`](../docs/challenge2_decisions
 | V-08 | GBIF matches cached in the repo, so the run is offline and deterministic |
 | V-09 | Relative thresholds where the SOP gives none, all editable in `rules.yaml` |
 | V-10 | Coverage first; bias-corrected Chao2 with its interval; Hill numbers for diversity |
+| V-12 | The workflow never assumes what a rule checks (duplicates, empty surveys, replicates) |
 | V-11 | Walking order is not assumed by any position check |
 
 **Confirmation items for Natural State:**

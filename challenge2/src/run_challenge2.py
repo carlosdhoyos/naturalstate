@@ -50,6 +50,24 @@ def file_hashes(exports: Path = EXPORTS, entities: Path = ENTITIES, forms: Path 
     return out
 
 
+def project_id(d) -> str:
+    """The survey entity the run covers (here savmon|lw|herbs|ho): the project scope of every flag."""
+    sv = d.ent["surveys"]
+    return "|".join(sorted(set(sv.loc[sv["__id"].isin(set(d.survey.survey_uuid)), "label"]))) or "unknown"
+
+
+def add_review_keys(results: pd.DataFrame, project: str) -> pd.DataFrame:
+    """flag_id: a stable identity for review decisions, from (project, rule, entity type, entity key), so a
+    decision re-attaches to the same flag in every later run. evidence_hash: from (observed, expected), so
+    a decision is reopened when the evidence behind the flag changes."""
+    h = lambda *parts: hashlib.sha256("\x1f".join(parts).encode()).hexdigest()
+    out = results.copy()
+    out.insert(1, "project_id", project)
+    out.insert(2, "flag_id", [h(project, r, t, k)[:16] for r, t, k in zip(out.rule_id, out.entity_type, out.entity_key)])
+    out["evidence_hash"] = [h(o, e)[:12] for o, e in zip(out.observed, out.expected)]
+    return out
+
+
 def code_version() -> str:
     """Content hash of the pipeline code (not the git commit, so committing outputs does not change the run id)."""
     src = Path(__file__).resolve().parent
@@ -79,12 +97,13 @@ def build(exports: Path = EXPORTS, entities: Path = ENTITIES, forms: Path = FORM
     `entities` at the platform's tables (same file names as the ODK exports) to run on new data."""
     set_forms_dir(forms)
     d = load(exports, entities)
-    canonical, canon_table = canonical_survey_keys(d)
-    occ = build_occurrences(d, canonical)
     catalogue = engine.load_catalogue()
+    canonical, canon_table = canonical_survey_keys(d, tuple(catalogue["thresholds"]["canonical_excluded_review_states"]))
+    occ = build_occurrences(d, canonical)
     ctx = engine.Ctx(d, occ, canonical, projection(d), catalogue["thresholds"], catalogue)
     results = engine.run_all(ctx)
     results = results.sort_values(["rule_id", "entity_type", "entity_key", "observed"], kind="mergesort").reset_index(drop=True)
+    results = add_review_keys(results, project_id(d))
     hashes = file_hashes(exports, entities, forms)
     rid = engine.run_id(hashes, catalogue, code_version())
     results.insert(0, "run_id", rid)

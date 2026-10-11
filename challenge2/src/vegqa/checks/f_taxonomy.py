@@ -16,6 +16,7 @@ import pandas as pd
 from ..engine import rows, rule
 from ..gbif import load_cache
 from ..taxonomy import curation_actions, norm_name, slot_number
+from ..load import by_key
 
 NEW_MODES = ("new_unknown", "new_missing")
 BINOMIAL = re.compile(r"^[A-Z][a-z-]+ [a-z-]+( [a-z-]+)*$")
@@ -48,9 +49,9 @@ def _extra(ctx) -> pd.DataFrame:
     """Additional-species rows with survey key, plot, quadrat number, slot number, and the survey's review state."""
     def build():
         d = ctx.data
-        q = d.quadrat.set_index("KEY")
-        s = d.survey.set_index("KEY")
-        se = d.ent["species_extra"].set_index("__id")
+        q = by_key(d.quadrat, "KEY")
+        s = by_key(d.survey, "KEY")
+        se = by_key(d.ent["species_extra"], "__id")
         e = d.extra.copy()
         e["survey"] = e.PARENT_KEY.map(q.PARENT_KEY)
         e["qn"] = e.PARENT_KEY.map(q._quadrat_number)
@@ -225,7 +226,7 @@ def curation_actions_applied(ctx):
 
 @rule("F09")
 def entity_writers(ctx):
-    se = ctx.data.ent["species_extra"].set_index("__id")
+    se = by_key(ctx.data.ent["species_extra"], "__id")
     e = _extra(ctx)
     new = e[e.entry_mode.isin(NEW_MODES)]
     for slot, g in new.groupby("slot"):
@@ -306,10 +307,10 @@ def unknown_woody_named(ctx):
 def curation_table(ctx):
     d = ctx.data
     cur = curation_actions(d.ent["species_extra_ids"])
-    si = d.ent["species_extra_ids"].set_index("species_number")
+    si = by_key(d.ent["species_extra_ids"], "species_number")
     se = d.ent["species_extra"].copy()
     se["num"] = [slot_number(g, i) for g, i in zip(se.group_type, se.unknown_index)]
-    active = se[se.choice_status == "active"].set_index("num")
+    active = by_key(se[se.choice_status == "active"], "num")
     used = set(_extra(ctx).num) - {""}
     curated_names = [n for n in cur.species_name if n.lower() != "unknown"]
     for num, c in cur.iterrows():
@@ -349,11 +350,15 @@ def curation_table(ctx):
 def unknown_index_chain(ctx):
     """assigned_unknown_index = base_active_herb_count + count_prior_new_in_submission + 1, the target slot's
     unknown_index must equal it, and across accepted submissions the indices form one unbroken sequence."""
-    se = ctx.data.ent["species_extra"].set_index("__id")
+    se = by_key(ctx.data.ent["species_extra"], "__id")
     e = _extra(ctx)
     new = e[e.entry_mode.isin(NEW_MODES)].copy()
     new["prior_recomputed"] = new.groupby("survey").cumcount()
     for r in rows(new):
+        if pd.isna(r.base):
+            ctx.add("could_not_check", "additional_species", r.KEY, source_table="additional_species_repeat", source_key=r.KEY,
+                    message="no parent survey or no base_active_herb_count (see A01)")
+            continue
         p = []
         if r._count_prior_new_in_submission != r.prior_recomputed:
             p.append(f"count_prior_new_in_submission {r.count_prior_new_in_submission} != {r.prior_recomputed}")

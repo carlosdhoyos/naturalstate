@@ -15,6 +15,7 @@ import pandas as pd
 
 from ..engine import rows, rule
 from ..model import geometry
+from ..load import by_key
 
 TEMPORARY_REASONS = re.compile(r"rain|wet|flood|weather|dark|late|time|animal|elephant|buffalo|lion|rhino|tired|vehicle|car\b", re.I)
 
@@ -111,7 +112,7 @@ def point_accuracy(ctx):
 @rule("D07")
 def vegplot_geometry(ctx):
     d = ctx.data
-    vp = d.ent["vegplots"].set_index("plot_uuid")
+    vp = by_key(d.ent["vegplots"], "plot_uuid")
     for _, r in d.registration.iterrows():
         if r.viable != "yes":
             continue
@@ -195,7 +196,7 @@ def nonviable_justification(ctx):
 def registration_survey_link(ctx):
     d = ctx.data
     herbs = set(d.ent["surveys"].loc[d.ent["surveys"].target_group == "herbs", "__id"])
-    vp = d.ent["vegplots"].set_index("plot_uuid")
+    vp = by_key(d.ent["vegplots"], "plot_uuid")
     for _, r in d.registration.iterrows():
         p = []
         if not herbs & set(r._survey_uuids):

@@ -2822,3 +2822,21 @@ ol.conclusions {
   display: grid;
   gap: 6px;
 }
+.qa-shared {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.qa-record {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+}
+.qa-record-table {
+  max-height: 360px;
+  overflow: auto;
+}
+.qa-record-table td:first-child {
+  white-space: nowrap;
+  width: 1%;
+}

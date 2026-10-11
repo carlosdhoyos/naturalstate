@@ -14,6 +14,7 @@ import pandas as pd
 
 from .engine import rows as rows_
 from .model import geometry, positions
+from .load import by_key
 
 SEVERITIES = ["error", "warning", "info"]
 
@@ -44,7 +45,7 @@ def _richness(occ: pd.DataFrame, key: str):
 
 def submissions(ctx, results) -> pd.DataFrame:
     s = ctx.data.survey
-    team = ctx.data.ent["project_team"].set_index("__id").label
+    team = by_key(ctx.data.ent["project_team"], "__id").label
     df = pd.DataFrame({
         "survey_key": s.KEY, "plot_name": s.plot_name, "replicate": s.replicate, "canonical": s.KEY.isin(ctx.canonical),
         "review_state": s.ReviewState.replace("", "not reviewed"), "device": s._device, "recorder": s.recorder_uuid.map(team),
@@ -61,9 +62,10 @@ def submissions(ctx, results) -> pd.DataFrame:
 def plots(ctx, results) -> pd.DataFrame:
     d = ctx.data
     c = d.ent["centroids"]
-    g = geometry(ctx).set_index("plot_uuid")
-    reg = d.registration.set_index("plot_uuid")
-    canon = d.survey[d.survey.KEY.isin(ctx.canonical)].set_index("_centroid_uuid")
+    g = by_key(geometry(ctx), "plot_uuid")
+    reg = by_key(d.registration, "plot_uuid")
+    canon = d.survey[d.survey.KEY.isin(ctx.canonical)]  # one per plot AND replicate
+    team = by_key(d.ent["project_team"], "__id").label
     q = d.quadrat
     rows = []
     for r in rows_(c):
@@ -80,15 +82,16 @@ def plots(ctx, results) -> pd.DataFrame:
                 row.update(midpoint_lat=rr._midpoint_lat, midpoint_lon=rr._midpoint_lon, midpoint_offset_m=round(gg.midpoint_offset_m, 1),
                            transect_length_m=round(gg.ab_m, 1), half_a_m=round(gg.am_m, 1), half_b_m=round(gg.mb_m, 1),
                            angle_amb_deg=round(gg.angle_amb_deg, 0), bearing_deg=round(gg.bearing_deg, 0), deviation_ns_deg=round(gg.deviation_ns_deg, 0))
-        row["surveyed"] = pu in canon.index
-        if row["surveyed"]:
-            s = canon.loc[pu]
+        surveys = canon[canon._centroid_uuid == pu].sort_values("replicate")
+        if surveys.empty:
+            rows.append({**row, "replicate": "", "surveyed": False})
+        for s in rows_(surveys):  # one row per replicate: monitoring rounds are never merged
             raw, res, ident = _richness(ctx.occ, s.KEY)
             qq = q[q.PARENT_KEY == s.KEY]
-            row.update(canonical_survey_key=s.KEY, survey_date=(s._start + pd.Timedelta(hours=3)).date(), recorder=d.ent["project_team"].set_index("__id").label.get(s.recorder_uuid, ""),
-                       n_submissions=int((d.survey._centroid_uuid == pu).sum()), quadrats=len(qq), quadrats_no_herbs=int((qq.herbs_present == "no").sum()),
-                       quadrats_all_unknown=int((qq.all_unknown == "yes").sum()), richness_raw=raw, richness_resolved=res, richness_resolved_identified=ident)
-        rows.append(row)
+            rows.append({**row, "replicate": s.replicate, "surveyed": True, "canonical_survey_key": s.KEY, "survey_date": (s._start + pd.Timedelta(hours=3)).date(),
+                         "recorder": team.get(s.recorder_uuid, ""), "n_submissions": int(((d.survey._centroid_uuid == pu) & (d.survey.replicate == s.replicate)).sum()),
+                         "quadrats": len(qq), "quadrats_no_herbs": int((qq.herbs_present == "no").sum()), "quadrats_all_unknown": int((qq.all_unknown == "yes").sum()),
+                         "richness_raw": raw, "richness_resolved": res, "richness_resolved_identified": ident})
     df = pd.DataFrame(rows)
     return df.merge(flag_counts(results, "plot_name", "plot"), on="plot_name", how="left")
 
@@ -99,7 +102,7 @@ def quadrats(ctx, results) -> pd.DataFrame:
     n_extra = q.KEY.map(ctx.data.extra.groupby("PARENT_KEY").size()).fillna(0).astype(int)
     df = pd.DataFrame({
         "quadrat_key": q.KEY, "survey_key": q.PARENT_KEY, "plot_name": q.plot_name, "canonical": q.PARENT_KEY.isin(ctx.canonical),
-        "quadrat_number": q._quadrat_number.astype("Int64"), "herbs_present": q.herbs_present, "all_unknown": q.all_unknown,
+        "quadrat_number": q._quadrat_number.astype("Int64") if (q._quadrat_number.dropna() % 1 == 0).all() else q._quadrat_number, "herbs_present": q.herbs_present, "all_unknown": q.all_unknown,
         "n_list_species": n_list, "n_additional_rows": n_extra, "lat": q._lat, "lon": q._lon, "altitude_m": q._alt, "accuracy_m": q._acc,
         "along_registered_m": q.along_m.round(1), "lateral_registered_m": q.lateral_m.round(1), "residual_own_line_m": q.own_line_resid_m.round(1),
         "photo": q.image, "photo_time_utc": q._photo_time, "comment": q.comment,
@@ -116,6 +119,7 @@ def occurrences(ctx, results) -> pd.DataFrame:
 
 def survey_overview(ctx, results, subs, plots_df) -> pd.DataFrame:
     d = ctx.data
+    pts = plots_df.sort_values("surveyed", ascending=False).drop_duplicates("plot_uuid")  # one row per prescribed point
     sv = d.ent["surveys"]
     herbs = sv[sv.target_group == "herbs"].iloc[0]
     canon = subs[subs.canonical]
@@ -126,8 +130,8 @@ def survey_overview(ctx, results, subs, plots_df) -> pd.DataFrame:
         "survey_entity": herbs.label, "survey_uuid": herbs["__id"], "replicate": ", ".join(sorted(d.survey.replicate.unique())),
         "first_day": (d.survey._start.min() + pd.Timedelta(hours=3)).date(), "last_day": (d.survey._end.max() + pd.Timedelta(hours=3)).date(),
         "field_days": int((d.survey._start + pd.Timedelta(hours=3)).dt.date.nunique()),
-        "primary_points_planned": int((plots_df.sample_status == "primary").sum()), "backup_points": int((plots_df.sample_status == "backup").sum()),
-        "plots_registered": int(plots_df.registered.sum()), "plots_viable": int((plots_df.viable == "yes").sum()), "plots_surveyed": int(plots_df.surveyed.sum()),
+        "primary_points_planned": int((pts.sample_status == "primary").sum()), "backup_points": int((pts.sample_status == "backup").sum()),
+        "plots_registered": int(pts.registered.sum()), "plots_viable": int((pts.viable == "yes").sum()), "plots_surveyed": int(pts.surveyed.sum()),
         "submissions": len(subs), "submissions_rejected": int((subs.review_state == "rejected").sum()), "canonical_surveys": len(canon),
         "quadrats_canonical": int(canon.n_quadrats.sum()), "occurrences_canonical": len(occ),
         "taxa_raw": occ.raw_key.replace("", np.nan).dropna().nunique(), "taxa_resolved": res.resolved_key.nunique(),

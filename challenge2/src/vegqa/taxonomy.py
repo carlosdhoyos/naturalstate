@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 from .load import Data
+from .load import by_key
 
 
 def norm_name(s: str) -> str:
@@ -40,16 +41,16 @@ def curation_actions(si: pd.DataFrame) -> pd.DataFrame:
     c["merge_into"] = c.notes.str.extract(r"duplicate of\s+((?:herb|wood)_\d{3})", flags=re.I)[0].fillna("")
     c["exclude"] = c.notes.str.contains(r"exclud", case=False, regex=True)
     c["unresolved"] = c.species_name.str.strip().str.lower().eq("unknown")
-    return c.set_index("species_number")
+    return by_key(c, "species_number")
 
 
 def build_occurrences(d: Data, canonical_keys: set[str] | None = None) -> pd.DataFrame:
     """One row per recorded occurrence, with raw and resolved taxon. `canonical_keys`: submission KEYs
     used for metrics (others are kept, marked canonical=False)."""
-    s = d.survey.set_index("KEY")
+    s = by_key(d.survey, "KEY")
     q = d.quadrat
-    sp = d.ent["species"].set_index("__id")
-    se = d.ent["species_extra"].set_index("__id")
+    sp = by_key(d.ent["species"], "__id")
+    se = by_key(d.ent["species_extra"], "__id")
     cur = curation_actions(d.ent["species_extra_ids"])
 
     rows = []
@@ -75,7 +76,7 @@ def build_occurrences(d: Data, canonical_keys: set[str] | None = None) -> pd.Dat
             "slot_number": num, "ref_resolves": known,
         })
     o = pd.DataFrame(rows)
-    qk = q.set_index("KEY")
+    qk = by_key(q, "KEY")
     o.loc[o.source == "extra", "survey_key"] = o.loc[o.source == "extra", "quadrat_key"].map(qk.PARENT_KEY)
     o["quadrat_number"] = o.quadrat_key.map(qk._quadrat_number)
     o["plot_name"] = o.survey_key.map(s.plot_name)

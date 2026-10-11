@@ -397,7 +397,7 @@ export default function App() {
           {reg && current === EDA && <BirdsEDA reg={reg} tokens={tokens} />}
           {reg && current === THRESHOLDS && <BirdsThresholds reg={reg} tokens={tokens} />}
           {reg && current === SUMMARY('vegetation') && <VegetationSummary reg={reg} tokens={tokens} onOpen={openView} />}
-          {reg && current === VEGQA && <VegetationQA tokens={tokens} />}
+          {reg && current === VEGQA && <VegetationQA tokens={tokens} reg={reg} onOpen={(id) => openView(id, { tab: 'table' })} />}
           {ds && view && (
             <>
               <div className="ds-head">

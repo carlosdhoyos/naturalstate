@@ -30,7 +30,7 @@ This folder holds a reproducible QA/QC pipeline for the ODK herbaceous vegetatio
 python -m venv challenge2/.venv && challenge2/.venv/bin/pip install -r challenge2/requirements.txt
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py         # writes outputs/ and outputs/figures/ (about 3 s)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.report_tables)    # refreshes the report's tables from outputs/
-(cd challenge2/tests && ../.venv/bin/python -m pytest -q)            # 136 tests (acceptance, mutation, unit)
+(cd challenge2/tests && ../.venv/bin/python -m pytest -q)            # 149 tests (acceptance, mutation, robustness, unit)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.gbif)             # optional: fetch GBIF data for new names (network)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.dem)              # optional: fetch terrain elevations for new points (network)
 (cd dashboard && npm install && npm run build)                        # rebuild the dashboard page with the new outputs
@@ -53,9 +53,10 @@ docker run --rm \
 - the deliberate differences from it;
 - the new findings N1–N13;
 - that each of 35 rules creates a new failure on a copy of the data with one injected error (mutation tests);
+- that the whole workflow survives invalid inputs (duplicate keys, empty surveys, rejected-only plots, fractional quadrat numbers, a second replicate) and reports them;
 - determinism, and that the inputs are never modified.
 
 **Related documents:**
 
-- [`docs/challenge2_decisions.md`](../docs/challenge2_decisions.md): decisions V-01 to V-11, differences from the exploration, new findings, the independent review and what changed, confirmation items C-1 to C-12.
+- [`docs/challenge2_decisions.md`](../docs/challenge2_decisions.md): decisions V-01 to V-12, differences from the exploration, new findings, the independent review and what changed, confirmation items C-1 to C-12.
 - [`outputs/`](outputs/): `qa_flags.csv` (every failure), `rule_summary.csv`, the joined tables, the effort tables, `figures/`, and `run_manifest.json` (run id and input hashes).

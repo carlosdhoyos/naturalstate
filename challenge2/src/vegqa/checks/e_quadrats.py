@@ -12,6 +12,12 @@ import pandas as pd
 
 from ..engine import rows, rule
 from ..model import geometry, positions
+from ..load import by_key
+
+
+def _qn(v) -> str:
+    """A quadrat number for messages, whatever its value (A04 judges validity)."""
+    return "?" if pd.isna(v) else (str(int(v)) if float(v).is_integer() else str(v))
 
 
 def gps_status(z, th, strong, weak):
@@ -37,7 +43,7 @@ def _sadd(ctx, status, s, observed, expected, message="", severity=None):
 
 def _line_acc(ctx) -> pd.Series:
     """RMS accuracy of the registered endpoints, per centroid uuid (the error of the registered line)."""
-    g = geometry(ctx).set_index("plot_uuid")
+    g = by_key(geometry(ctx), "plot_uuid")
     return np.sqrt((g.endpoint_a_acc ** 2 + g.endpoint_b_acc ** 2) / 2)
 
 
@@ -55,7 +61,7 @@ def _survey_offsets(ctx) -> pd.DataFrame:
             off = float(lat[(lat >= lo) & (lat <= hi)].mean())  # trimmed mean of the signed lateral offsets
             sd = float(np.hypot(la.get(sub.plot_uuid.iloc[0], np.nan), sub._acc.median()))
             out.append({"KEY": key, "offset_m": off, "z": abs(off) / sd, "sd": sd, "median_abs_lateral": float(lat.abs().median())})
-        return pd.DataFrame(out).set_index("KEY")
+        return by_key(pd.DataFrame(out), "KEY")
     return ctx.cached("survey_offsets", build)
 
 
@@ -73,7 +79,7 @@ def quadrat_accuracy(ctx):
 def quadrat_in_belt(ctx):
     th = ctx.th
     lo, hi = th["quadrat_lateral_min_m"], th["quadrat_lateral_max_m"]
-    g = geometry(ctx).set_index("plot_uuid")
+    g = by_key(geometry(ctx), "plot_uuid")
     la = _line_acc(ctx)
     offs = _survey_offsets(ctx)
     for r in rows(positions(ctx)):
@@ -96,7 +102,7 @@ def transect_offset(ctx):
     th = ctx.th
     offs = _survey_offsets(ctx)
     q = positions(ctx)
-    g = geometry(ctx).set_index("plot_uuid")
+    g = by_key(geometry(ctx), "plot_uuid")
     for s in rows(ctx.data.survey):
         if s.KEY not in offs.index or pd.isna(offs.z[s.KEY]):
             _sadd(ctx, "could_not_check", s, "", "", "no registered segment or too few positions")
@@ -140,7 +146,7 @@ def coverage(ctx):
     th = ctx.th
     share, L0 = th["coverage_min_share"], th["transect_length_m"]
     q = positions(ctx)
-    g = geometry(ctx).set_index("plot_uuid")
+    g = by_key(geometry(ctx), "plot_uuid")
     for s in rows(ctx.data.survey):
         sub = q[q.PARENT_KEY == s.KEY]
         if s._centroid_uuid not in g.index or sub.along_m.isna().all():
@@ -163,7 +169,7 @@ def duplicate_coordinates(ctx):
     dup = dup.reindex(q.index, fill_value=False)
     for r, isdup in zip(rows(positions(ctx)), dup):
         if isdup:
-            others = q[(q.PARENT_KEY == r.PARENT_KEY) & (q.lat == r.lat) & (q.lon == r.lon) & (q.KEY != r.KEY)]._quadrat_number.astype(int).tolist()
+            others = q[(q.PARENT_KEY == r.PARENT_KEY) & (q.lat == r.lat) & (q.lon == r.lon) & (q.KEY != r.KEY)]._quadrat_number.map(_qn).tolist()
             _qadd(ctx, "fail", r, f"same coordinates as quadrat(s) {others}", "a fresh GPS fix per quadrat")
         else:
             _qadd(ctx, "pass", r, "unique", "a fresh GPS fix per quadrat")
@@ -193,7 +199,7 @@ def altitude_outlier(ctx):
 
 @rule("E08")
 def photo_in_window(ctx):
-    s = ctx.data.survey.set_index("KEY")
+    s = by_key(ctx.data.survey, "KEY")
     for r in rows(positions(ctx)):
         t = r._photo_time
         if pd.isna(t):
@@ -212,7 +218,7 @@ def photo_order(ctx):
         for r in rows(sub):
             if prev is not None and pd.notna(r._photo_time) and pd.notna(prev._photo_time):
                 back = (r._photo_time - prev._photo_time).total_seconds()
-                _qadd(ctx, "fail" if back < 0 else "pass", r, f"photo {back / 60:+.1f} min after quadrat {int(prev._quadrat_number)}'s",
+                _qadd(ctx, "fail" if back < 0 else "pass", r, f"photo {back / 60:+.1f} min after quadrat {_qn(prev._quadrat_number)}'s",
                       "photos in quadrat order", "taken before the previous quadrat's photo" if back < 0 else "")
             prev = r
 
@@ -226,7 +232,7 @@ def quadrat_gap(ctx):
         for r in rows(sub):
             if prev is not None and pd.notna(r._photo_time) and pd.notna(prev._photo_time):
                 gap = (r._photo_time - prev._photo_time).total_seconds()
-                _qadd(ctx, "fail" if gap < lim else "pass", r, f"{gap:.0f} s after the previous photo (quadrat {int(prev._quadrat_number)})", f">= {lim} s")
+                _qadd(ctx, "fail" if gap < lim else "pass", r, f"{gap:.0f} s after the previous photo (quadrat {_qn(prev._quadrat_number)})", f">= {lim} s")
             prev = r
 
 
@@ -248,7 +254,7 @@ def duplicate_photos(ctx):
 @rule("E12")
 def confirmation_location(ctx):
     d, proj, lim = ctx.data, ctx.proj, ctx.th["background_point_max_m"]
-    g = geometry(ctx).set_index("plot_uuid")
+    g = by_key(geometry(ctx), "plot_uuid")
     items = [("survey", r.KEY, r.plot_name, r._centroid_uuid, r._bg_lat, r._bg_lon, r.KEY) for r in rows(d.survey)]
     items += [("registration", r.KEY, r.plot_name, r.plot_uuid, r._bg_lat, r._bg_lon, "") for r in rows(d.registration)]
     for form, key, plot, pu, lat, lon, skey in items:
@@ -334,4 +340,4 @@ def altitude_vs_terrain(ctx):
         ctx.add("fail" if bad else "pass", "project", "altitude vs terrain", source_table="reference/elevation_cache.json",
                 observed=f"field GPS minus terrain: median {offset:+.0f} m over {len(field)} submissions; NS's prescribed points (centroid altitudes) minus terrain: median {dmed:+.0f} m over {len(design)} points",
                 expected=f"within {tol} m",
-                message="the whole dataset, NS's own design list included, sits hundreds of metres below the terrain at its coordinates: not a field error; coordinates and altitudes may come from different places (confirmation item C-7)" if bad else "")
+                message="the whole dataset, NS's own design list included, sits hundreds of metres below the terrain at its coordinates: not a field error; the dataset's provenance needs confirming (confirmation item C-7)" if bad else "")

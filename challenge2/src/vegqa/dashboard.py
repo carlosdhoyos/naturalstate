@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from .model import geometry, positions
+from .load import by_key
 
 SEV_ORDER = {"info": 1, "warning": 2, "error": 3}
 
@@ -43,7 +44,7 @@ def table(df: pd.DataFrame, cols: list[str] | None = None) -> dict:
 
 def _timeline(ctx) -> pd.DataFrame:
     d = ctx.data
-    team = d.ent["project_team"].set_index("__id").label
+    team = by_key(d.ent["project_team"], "__id").label
     s = pd.DataFrame({"key": d.survey.KEY, "form": "survey", "plot_name": d.survey.plot_name, "device": d.survey._device,
                       "recorder": d.survey.recorder_uuid.map(team), "start": d.survey._start, "end": d.survey._end, "submitted": d.survey._submitted,
                       "review": d.survey.ReviewState.replace("", "not reviewed"), "canonical": d.survey.KEY.isin(ctx.canonical),
@@ -57,7 +58,7 @@ def _timeline(ctx) -> pd.DataFrame:
 
 def _transects(ctx) -> pd.DataFrame:
     g = geometry(ctx)
-    r = ctx.data.registration.set_index("plot_uuid")
+    r = by_key(ctx.data.registration, "plot_uuid")
     out = g[g.has_geometry][["plot_uuid", "plot_name", "cx", "cy", "endpoint_a_x", "endpoint_a_y", "midpoint_x", "midpoint_y", "endpoint_b_x", "endpoint_b_y",
                              "endpoint_a_acc", "midpoint_acc", "endpoint_b_acc", "midpoint_offset_m", "ab_m", "angle_amb_deg", "bearing_deg"]].copy()
     for p in ("endpoint_a", "midpoint", "endpoint_b"):
@@ -94,13 +95,13 @@ def _taxa(ctx) -> pd.DataFrame:
 
 def export(ctx, tables: dict, results: pd.DataFrame, summary: pd.DataFrame, run_id: str, path: Path) -> Path:
     flags = results[results.status == "fail"].copy()
-    s = ctx.data.survey.set_index("KEY")
-    r = ctx.data.registration.set_index("KEY")
+    s = by_key(ctx.data.survey, "KEY")
+    r = by_key(ctx.data.registration, "KEY")
     day = pd.concat([(s._start + pd.Timedelta(hours=3)).dt.strftime("%Y-%m-%d"), (r._start + pd.Timedelta(hours=3)).dt.strftime("%Y-%m-%d")])
     dev = pd.concat([s._device, r._device])
     # flags on additional-species rows carry the row's KEY: resolve it to its survey through the quadrat
-    q_parent = ctx.data.quadrat.set_index("KEY").PARENT_KEY
-    x_survey = ctx.data.extra.set_index("KEY").PARENT_KEY.map(q_parent)
+    q_parent = by_key(ctx.data.quadrat, "KEY").PARENT_KEY
+    x_survey = by_key(ctx.data.extra, "KEY").PARENT_KEY.map(q_parent)
     sk = flags.survey_key.where(flags.survey_key != "", flags.source_key.map(x_survey).fillna(flags.source_key))
     flags["day"] = sk.map(day).fillna("")
     flags["device"] = sk.map(dev).fillna("")
@@ -109,6 +110,14 @@ def export(ctx, tables: dict, results: pd.DataFrame, summary: pd.DataFrame, run_
     flags["title"] = flags.rule_id.map(lambda x: cat[x]["title"])
     flags["metric_impact"] = flags.rule_id.map(lambda x: cat[x]["metric_impact"])
     flags["canonical"] = ~sk.isin(set(ctx.data.survey.KEY) - set(ctx.canonical))
+    # attributes for the dashboard's shared filters (empty where a flag has no such attribute)
+    team = by_key(ctx.data.ent["project_team"], "__id").label
+    rep = pd.concat([s.replicate, r["survey_begin-replicate"]])
+    rec = pd.concat([s.recorder_uuid, r.recorder_uuid]).map(team)
+    strat = by_key(ctx.data.ent["centroids"], "choice_name").stratum_label
+    flags["replicate"] = sk.map(rep).fillna("")
+    flags["recorder"] = sk.map(rec).fillna("")
+    flags["stratum"] = flags.plot_name.map(strat).fillna("")
     out = {
         "generated_by": "challenge2/src/run_challenge2.py",
         "run_id": run_id,
@@ -118,8 +127,8 @@ def export(ctx, tables: dict, results: pd.DataFrame, summary: pd.DataFrame, run_
         "fail_by_severity": flags.severity.value_counts().to_dict(),
         "overview": tables["survey_overview"].iloc[0].map(_clean).to_dict(),
         "rules": table(summary.fillna(0)),
-        "flags": table(flags, ["rule_id", "group", "title", "severity", "metric_impact", "entity_type", "entity_key", "plot_name", "survey_key", "source_table",
-                               "source_key", "observed", "expected", "message", "day", "device", "canonical"]),
+        "flags": table(flags, ["flag_id", "evidence_hash", "rule_id", "group", "title", "severity", "metric_impact", "entity_type", "entity_key", "plot_name", "survey_key",
+                               "source_table", "source_key", "observed", "expected", "message", "day", "device", "recorder", "replicate", "stratum", "canonical"]),
         "submissions": table(tables["submissions"]),
         "timeline": table(_timeline(ctx)),
         "plots": table(tables["plots"]),

@@ -11,13 +11,14 @@ import pandas as pd
 from ..engine import rows, rule
 from ..forms import fields
 from ..geo import geohash
+from ..load import by_key
 
 NEW_MODES = ("new_unknown", "new_missing")
 CANONICAL_FORBIDDEN = re.compile(r"[,;()]")  # form constraint not(regex(., '[,;()]'))
 
 
 def _q(ctx, status, r, observed, expected, message="", severity=None):
-    ctx.add(status, "quadrat", r.KEY, plot_name=ctx.cached("plot_by_survey", lambda: ctx.data.survey.set_index("KEY").plot_name).get(r.PARENT_KEY, ""),
+    ctx.add(status, "quadrat", r.KEY, plot_name=ctx.cached("plot_by_survey", lambda: by_key(ctx.data.survey, "KEY").plot_name).get(r.PARENT_KEY, ""),
             survey_key=r.PARENT_KEY, source_table="quadrat_repeat", source_key=r.KEY, observed=observed, expected=expected, message=message, severity=severity)
 
 
@@ -90,7 +91,7 @@ def label_lists(ctx):
     the rows' validated names; all = both joined with <br/>."""
     sp = ctx.data.ent["species"]
     order = {u: i for i, u in enumerate(sp["__id"])}
-    label = sp.set_index("__id").label
+    label = by_key(sp, "__id").label
     e = ctx.data.extra.sort_values(["PARENT_KEY", "_observation_index"])
     add_lists = e[e.validated_name != ""].groupby("PARENT_KEY").validated_name.apply(lambda v: "<br/>".join(v))
     for r in rows(ctx.data.quadrat):
@@ -132,7 +133,7 @@ def additional_without_species(ctx):
 
 
 def _plot_of_quadrat(ctx, qkey):
-    m = ctx.cached("plot_by_quadrat", lambda: ctx.data.quadrat.set_index("KEY").PARENT_KEY.map(ctx.data.survey.set_index("KEY").plot_name))
+    m = ctx.cached("plot_by_quadrat", lambda: by_key(ctx.data.quadrat, "KEY").PARENT_KEY.map(by_key(ctx.data.survey, "KEY").plot_name))
     return m.get(qkey, "")
 
 
@@ -171,7 +172,7 @@ def confirmed(ctx):
 
 @rule("C12")
 def survey_required(ctx):
-    tr = ctx.data.ent["transport"].set_index("__id")
+    tr = by_key(ctx.data.ent["transport"], "__id")
     req = {"start": "start_time", "end": "end_time", "transport": "transport_uuid", "team": "team_uuids", "recorder": "recorder_uuid",
            "survey": "survey_uuid", "plot": "plot_uuid", "confirm": "confirm"}
     for r in rows(ctx.data.survey):
@@ -202,10 +203,10 @@ def quadrat_required(ctx):
 @rule("C14")
 def survey_calculations(ctx):
     d = ctx.data
-    sv = d.ent["surveys"].set_index("__id")
-    vp = d.ent["vegplots"].set_index("__id")
-    team = d.ent["project_team"].set_index("__id")
-    tr = d.ent["transport"].set_index("__id")
+    sv = by_key(d.ent["surveys"], "__id")
+    vp = by_key(d.ent["vegplots"], "__id")
+    team = by_key(d.ent["project_team"], "__id")
+    tr = by_key(d.ent["transport"], "__id")
     for r in rows(d.survey):
         e = sv.loc[r.survey_uuid] if r.survey_uuid in sv.index else None
         year = r.start_time[:4]
@@ -239,8 +240,8 @@ def survey_calculations(ctx):
 
 def _index_list(ctx, survey_key, mode):
     e = ctx.cached("extra_with_survey", lambda: ctx.data.extra.assign(
-        survey=ctx.data.extra.PARENT_KEY.map(ctx.data.quadrat.set_index("KEY").PARENT_KEY),
-        qn=ctx.data.extra.PARENT_KEY.map(ctx.data.quadrat.set_index("KEY")._quadrat_number)).sort_values(["survey", "qn", "_observation_index"]))
+        survey=ctx.data.extra.PARENT_KEY.map(by_key(ctx.data.quadrat, "KEY").PARENT_KEY),
+        qn=ctx.data.extra.PARENT_KEY.map(by_key(ctx.data.quadrat, "KEY")._quadrat_number)).sort_values(["survey", "qn", "_observation_index"]))
     sub = e[(e.survey == survey_key) & (e.entry_mode == mode)]
     return "|".join(sub.assigned_unknown_index)
 
@@ -256,8 +257,8 @@ def all_unknown_needs_additional(ctx):
 @rule("C16")
 def registration_rules(ctx):
     d = ctx.data
-    sp = d.ent["species"].set_index("__id")
-    sv = d.ent["surveys"].set_index("__id")
+    sp = by_key(d.ent["species"], "__id")
+    sv = by_key(d.ent["surveys"], "__id")
     pts = ("endpoint_a", "midpoint", "endpoint_b")
     for _, r in d.registration.iterrows():
         p = []
@@ -349,7 +350,7 @@ def lookup_calculations_match_entities(ctx):
             if stored_col is None or key_col is None or e is None or ecol not in e.columns:
                 skipped.append(calc)
                 continue
-            checks.append((calc, ent, stored_col, key_col, e.set_index("__id")[ecol]))
+            checks.append((calc, ent, stored_col, key_col, by_key(e, "__id")[ecol]))
         # the geohash pattern: is every stored geohash the geohash of the measured midpoint?
         mid_share = None
         if table == "registration" and _col(list(raw.columns), "geohash"):

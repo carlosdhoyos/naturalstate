@@ -1,6 +1,6 @@
 {
- "run_id": "qa-c2dda0aff86a057a",
- "code_version": "code-8946ff89466c",
+ "run_id": "qa-4622d26cbc136a65",
+ "code_version": "code-c23740ae211f",
  "catalogue_version": "1.0",
  "inputs": {
   "exports/herbaceous_veg_survey-additional_species_repeat.csv": "58ddbaa9abe939a3",
@@ -22,7 +22,7 @@
   "forms/register_vegetation_plots.xlsx": "faf9af4467a689fa",
   "reference/gbif_cache.json": "92098e101a7e658e",
   "reference/elevation_cache.json": "0c2126f52ad44407",
-  "rules/rules.yaml": "65ba80a623d5c848"
+  "rules/rules.yaml": "9292fffdf63b9ed5"
  },
  "rows": {
   "qa_results": 24829,

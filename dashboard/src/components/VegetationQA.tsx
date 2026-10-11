@@ -11,6 +11,7 @@ import R from '../../../challenge2/outputs/dashboard_results.json'
 import { axisStyle, baseLayout } from '../charts/build'
 import { fmtInt, fmtPct } from '../data/stats'
 import { SERIES, type ThemeTokens } from '../lib/palette'
+import type { Dataset } from '../data/types'
 import { Plot } from './Plot'
 import { Segmented, Stat, Toggle } from './ui'
 
@@ -63,7 +64,7 @@ const GROUPS: Record<string, string> = {
 const fx = (v: unknown, d = 2): string => (typeof v === 'number' && Number.isFinite(v) ? v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—')
 /** Project-wide findings that hit every plot alike (layout, walking order, time-zone label, altitude offset, geohash centres, deployed-form differences): left out of per-plot colouring so plots stay comparable. */
 const SYSTEMIC = new Set(['D05', 'E13', 'B12', 'C14', 'C17', 'E14', 'J04'])
-const plotFlags = (plot: string) => FLAGS.filter((f) => f.plot_name === plot && f.canonical && !SYSTEMIC.has(f.rule_id))
+const plotFlags = (flags: Row[], plot: string) => flags.filter((f) => f.plot_name === plot && f.canonical && !SYSTEMIC.has(f.rule_id))
 const short = (p: string | null | undefined) => (p ? String(p).replace('SavMon_LW_', '') : '')
 const ruleTitle = Object.fromEntries(RULES.map((r) => [r.rule_id, r.title as string]))
 
@@ -92,9 +93,142 @@ export interface FlagFilter {
   group?: string
 }
 
-export function VegetationQA({ tokens: t }: { tokens: ThemeTokens }) {
+/** Shared filters: they apply to every view built from flags, submissions or plots (Overview, All flags,
+ * Submissions, Map, Plots, Taxonomy queue, Field feedback). An active filter keeps only items that HAVE the
+ * attribute and match it, so project-level flags without a device or date are hidden while it is on. */
+interface Shared {
+  replicate: string
+  stratum: string
+  device: string
+  recorder: string
+  from: string
+  to: string
+}
+const NO_FILTER: Shared = { replicate: '', stratum: '', device: '', recorder: '', from: '', to: '' }
+export interface View {
+  F: Row[]
+  S: Row[]
+  TL: Row[]
+  P: Row[]
+}
+const localDay = (iso: unknown) => (iso ? new Date(new Date(String(iso)).getTime() + 3 * 3.6e6).toISOString().slice(0, 10) : '') // EAT = UTC + 3 h
+const strataOf = Object.fromEntries(PLOTS.map((p) => [p.plot_name, p.stratum]))
+
+function applyShared(g: Shared): View {
+  const inDays = (day: string) => (!g.from || (day && day >= g.from)) && (!g.to || (day && day <= g.to))
+  const F = FLAGS.filter((f) => (!g.replicate || f.replicate === g.replicate) && (!g.stratum || f.stratum === g.stratum) && (!g.device || f.device === g.device) && (!g.recorder || f.recorder === g.recorder) && inDays(f.day))
+  const S = SUBS.filter((r) => (!g.replicate || r.replicate === g.replicate) && (!g.stratum || strataOf[r.plot_name] === g.stratum) && (!g.device || r.device === g.device) && (!g.recorder || r.recorder === g.recorder) && inDays(localDay(r.start_utc)))
+  const TL = TIMELINE.filter((r) => (!g.stratum || strataOf[r.plot_name] === g.stratum) && (!g.device || r.device === g.device) && (!g.recorder || r.recorder === g.recorder) && inDays(localDay(r.start)))
+  const P = PLOTS.filter((p) => (!g.stratum || p.stratum === g.stratum) && (!g.replicate || p.replicate === g.replicate))
+  return { F, S, TL, P }
+}
+
+function SharedFilters({ g, setG }: { g: Shared; setG: (g: Shared) => void }) {
+  const opts = (vals: unknown[]) => [...new Set(vals.filter(Boolean).map(String))].sort()
+  const sel = (key: keyof Shared, label: string, values: string[]) => (
+    <select className="select" value={g[key]} onChange={(e) => setG({ ...g, [key]: e.target.value })} aria-label={label}>
+      <option value="">All {label}</option>
+      {values.map((v) => (
+        <option key={v} value={v}>
+          {v.replace('demo-device-', 'device ')}
+        </option>
+      ))}
+    </select>
+  )
+  const days = opts(FLAGS.map((f) => f.day))
+  const active = Object.values(g).some(Boolean)
+  return (
+    <div className="qa-filters qa-shared">
+      <span className="small muted">Filters for all views:</span>
+      {sel('replicate', 'replicates', opts(SUBS.map((r) => r.replicate)))}
+      {sel('stratum', 'strata', opts(PLOTS.map((p) => p.stratum)))}
+      {sel('device', 'devices', opts(TIMELINE.map((r) => r.device)))}
+      {sel('recorder', 'recorders', opts(TIMELINE.map((r) => r.recorder)))}
+      {sel('from', 'days (from)', days)}
+      {sel('to', 'days (to)', days)}
+      {active && (
+        <button type="button" className="btn ghost sm" onClick={() => setG(NO_FILTER)}>
+          Clear filters
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** Where each flag's source table lives in the embedded data, and its key column. */
+const SOURCE_DATASET: Record<string, [string, string]> = {
+  survey: ['herbaceous_veg_survey', 'KEY'],
+  quadrat_repeat: ['herbaceous_veg_survey-quadrat_repeat', 'KEY'],
+  additional_species_repeat: ['herbaceous_veg_survey-additional_species_repeat', 'KEY'],
+  registration: ['register_vegetation_plots', 'KEY'],
+  centroids: ['centroids', '__id'],
+  vegplots: ['vegplots', '__id'],
+  species: ['species', '__id'],
+  species_extra: ['species_extra', '__id'],
+  species_extra_ids: ['species_extra_ids', 'species_number'],
+}
+export interface RecordRef {
+  table: string
+  key: string
+  flag?: Row
+}
+
+/** The original record behind a flag, exactly as exported (from the CSVs embedded in this page). */
+function RecordPanel({ rec, reg, onOpen, onClose }: { rec: RecordRef; reg: Map<string, Dataset>; onOpen: (id: string) => void; onClose: () => void }) {
+  const src = SOURCE_DATASET[rec.table]
+  const ds = src ? reg.get(src[0]) : undefined
+  const row = ds?.rows.find((r) => String(r[src![1]]) === rec.key || (src![1] === 'KEY' && String(r[src![1]]) === rec.key))
+  const cols = ds ? ds.columns.filter((c) => !c.derived) : []
+  return (
+    <section className="sum-section qa-record">
+      <div className="sum-section-head">
+        <div>
+          <h2>Source record</h2>
+          <p className="muted small">
+            <code>{rec.table}</code> · <code>{rec.key}</code>
+            {rec.flag ? ` · flag ${rec.flag.flag_id} (${rec.flag.rule_id})` : ''}
+          </p>
+        </div>
+        <div className="qa-filters">
+          {ds && (
+            <button type="button" className="btn ghost sm" onClick={() => onOpen(ds.id)}>
+              Open the {ds.title} table
+            </button>
+          )}
+          <button type="button" className="btn ghost sm" onClick={() => navigator.clipboard?.writeText(rec.key)}>
+            Copy key
+          </button>
+          <button type="button" className="btn ghost sm" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+      {!src && <p className="muted">This flag refers to {rec.table === 'form' ? 'the form definition' : rec.table.startsWith('reference/') ? 'a cached reference file' : 'a derived or project-level item'}, not a data record.</p>}
+      {src && !row && <p className="muted">Record not found in the embedded {src[0]}.csv (the dashboard embeds the take-home files).</p>}
+      {row && (
+        <div className="table-wrap auto qa-record-table">
+          <table className="data-table compact">
+            <tbody>
+              {cols.map((c) => (
+                <tr key={c.name}>
+                  <td className="muted small">{c.name}</td>
+                  <td className="small">{row[c.name] == null ? '' : c.type === 'datetime' && typeof row[c.name] === 'number' ? new Date(row[c.name] as number).toISOString() : String(row[c.name])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+export function VegetationQA({ tokens: t, reg, onOpen }: { tokens: ThemeTokens; reg: Map<string, Dataset>; onOpen: (id: string) => void }) {
   const [tab, setTabState] = useState<Tab>(() => tabFromHash(window.location.hash) ?? 'overview')
   const [ff, setFf] = useState<FlagFilter>({})
+  const [g, setG] = useState<Shared>(NO_FILTER)
+  const [rec, setRec] = useState<RecordRef | null>(null)
+  const d = useMemo(() => applyShared(g), [g])
   const setTab = (next: Tab) => {
     setTabState(next)
     window.history.replaceState(null, '', `#/qa:vegetation/${next}`)
@@ -111,7 +245,7 @@ export function VegetationQA({ tokens: t }: { tokens: ThemeTokens }) {
     setFf(f)
     setTab('flags')
   }
-  const ctx = { t, showFlags }
+  const ctx = { t, showFlags, d, openRecord: (r: RecordRef) => setRec(r) }
   return (
     <div className="summary">
       <div className="task-card">
@@ -129,6 +263,12 @@ export function VegetationQA({ tokens: t }: { tokens: ThemeTokens }) {
           </button>
         ))}
       </div>
+      {tab !== 'rules' && tab !== 'effort' ? (
+        <SharedFilters g={g} setG={setG} />
+      ) : (
+        <p className="small muted">This view covers the whole run; the shared filters apply to the other views.</p>
+      )}
+      {rec && <RecordPanel rec={rec} reg={reg} onOpen={onOpen} onClose={() => setRec(null)} />}
       {tab === 'overview' && <OverviewTab {...ctx} />}
       {tab === 'flags' && <FlagsTab {...ctx} initial={ff} />}
       {tab === 'submissions' && <SubmissionsTab {...ctx} />}
@@ -145,6 +285,8 @@ export function VegetationQA({ tokens: t }: { tokens: ThemeTokens }) {
 interface Ctx {
   t: ThemeTokens
   showFlags: (f: FlagFilter) => void
+  d: View
+  openRecord: (r: RecordRef) => void
 }
 
 // ── shared bits ──────────────────────────────────────────────────────────────
@@ -268,7 +410,7 @@ const worstOf = (rows: Row[]): Sev | null => {
 
 const HEADLINES: { title: string; text: string; rules: string[] }[] = [
   { title: 'Shrubland stratum not sampled', text: '0 of 6 primary points registered: no richness for shrubland.', rules: ['J01'] },
-  { title: 'The data do not fit Lewa’s terrain or flora', text: 'The whole dataset, NS’s own prescribed points included, sits ~705 m below the SRTM terrain at its coordinates; 20 of the 90 identified taxa GBIF could check have no Kenyan record; the transport list offers "Mokoro". Confirm where the data come from (C-7).', rules: ['E14', 'F10'] },
+  { title: 'The data’s provenance needs confirming', text: 'The whole dataset, NS’s own prescribed points included, sits ~705 m below the SRTM terrain at its coordinates; 20 of the 90 identified taxa GBIF could check have no Kenyan record; the transport list offers "Mokoro". A reason to question provenance, not proof of origin: NS to confirm (C-7).', rules: ['E14', 'F10'] },
   { title: 'Taxon names need curation', text: '23 likely misspellings (GBIF-checked); curation-table typos and kept misspellings; several ids for one species; 23 unresolved unknowns (15% of records).', rules: ['F03', 'F13', 'F08', 'F07'] },
   { title: 'Species possibly lost', text: '10 quadrats declare additional species but have no rows; one row has no taxon.', rules: ['C04', 'C08'] },
   { title: 'Transects off their registration', text: 'Plot 05 offset 20 m; Plot 14 midpoint 33.6 m out; Plots 19/27 far too short; Plots 07/15 partly covered.', rules: ['E03', 'D01', 'D03', 'E05'] },
@@ -278,7 +420,7 @@ const HEADLINES: { title: string; text: string; rules: string[] }[] = [
   { title: 'Late uploads: provisional-id risk', text: 'Devices 02/03 started from an outdated species list; here the reused ids were the same plants, so no record is wrong.', rules: ['B06', 'B10', 'F09', 'K03'] },
 ]
 
-function OverviewTab({ t, showFlags }: Ctx) {
+function OverviewTab({ d, t, showFlags }: Ctx) {
   const byGroup = useMemo(() => {
     const groups = Object.keys(GROUPS)
     return SEVS.map((s) => ({
@@ -286,13 +428,13 @@ function OverviewTab({ t, showFlags }: Ctx) {
       orientation: 'h',
       name: s,
       y: groups.map((g) => GROUPS[g]),
-      x: groups.map((g) => FLAGS.filter((f) => f.group === g && f.severity === s).length),
+      x: groups.map((g) => d.F.filter((f) => f.group === g && f.severity === s).length),
       marker: { color: SEV_COLOR[s], line: { color: t.surface, width: 1 } },
       customdata: groups,
       hovertemplate: `%{y}: %{x} ${s}<extra></extra>`,
     }))
-  }, [t])
-  const clean = RULES.filter((r) => r.fail === 0)
+  }, [t, d.F])
+  const clean = RULES.filter((r) => r.fail === 0 && r.could_not_check === 0 && r.pass > 0) // checked everywhere AND passed
   const cnc = D.status_counts.could_not_check ?? 0
   return (
     <>
@@ -305,7 +447,7 @@ function OverviewTab({ t, showFlags }: Ctx) {
       <Section title="What matters for richness and diversity" sub="Ranked as in the report. Click a rule to see its flags.">
         <div className="qa-headlines">
           {HEADLINES.map((h, i) => {
-            const fl = FLAGS.filter((f) => h.rules.includes(f.rule_id))
+            const fl = d.F.filter((f) => h.rules.includes(f.rule_id))
             const w = worstOf(fl)
             return (
               <div key={h.title} className="qa-headline">
@@ -338,7 +480,7 @@ function OverviewTab({ t, showFlags }: Ctx) {
             />
           </div>
         </Section>
-        <Section title="What passed everywhere" sub={`${clean.length} of ${RULES.length} rules found nothing. "Passed" means checked on every entity; ${cnc} entity checks could not be run and are listed under Rules.`}>
+        <Section title="What passed everywhere" sub={`${clean.length} of ${RULES.length} rules were run on every entity and found nothing (rules with any “could not check” result are not listed). Whole run, not filtered.`}>
           <div className="qa-pass-list">
             {clean.map((r) => (
               <span key={r.rule_id} className="qa-chip qa-pass" data-tip={`${r.source}\n${r.pass} entities checked`} data-tip-title={r.rule_id}>
@@ -354,7 +496,7 @@ function OverviewTab({ t, showFlags }: Ctx) {
 
 // ── all flags ────────────────────────────────────────────────────────────────
 
-function FlagsTab({ showFlags, initial }: Ctx & { initial: FlagFilter }) {
+function FlagsTab({ d, showFlags, openRecord, initial }: Ctx & { initial: FlagFilter }) {
   const [sev, setSev] = useState<Record<Sev, boolean>>({ error: true, warning: true, info: true })
   const [group, setGroup] = useState(initial.group ?? '')
   const [rule, setRule] = useState(initial.rule ?? '')
@@ -368,7 +510,7 @@ function FlagsTab({ showFlags, initial }: Ctx & { initial: FlagFilter }) {
   }, [initial])
   const rows = useMemo(
     () =>
-      FLAGS.filter(
+      d.F.filter(
         (f) =>
           sev[f.severity as Sev] &&
           (!group || f.group === group) &&
@@ -377,15 +519,15 @@ function FlagsTab({ showFlags, initial }: Ctx & { initial: FlagFilter }) {
           (!canonOnly || f.canonical) &&
           (!q || `${f.rule_id} ${f.title} ${f.plot_name} ${f.observed} ${f.message} ${f.entity_key}`.toLowerCase().includes(q.toLowerCase())),
       ),
-    [sev, group, rule, plot, q, canonOnly],
+    [d.F, sev, group, rule, plot, q, canonOnly],
   )
-  const plots = [...new Set(FLAGS.map((f) => f.plot_name).filter(Boolean))].sort()
-  const rules = [...new Set(FLAGS.map((f) => f.rule_id))].sort()
+  const plots = [...new Set(d.F.map((f) => f.plot_name).filter(Boolean))].sort()
+  const rules = [...new Set(d.F.map((f) => f.rule_id))].sort()
   return (
     <>
       <div className="qa-filters">
         {SEVS.map((s) => (
-          <Toggle key={s} checked={sev[s]} onChange={(v) => setSev({ ...sev, [s]: v })} label={`${s} (${FLAGS.filter((f) => f.severity === s).length})`} />
+          <Toggle key={s} checked={sev[s]} onChange={(v) => setSev({ ...sev, [s]: v })} label={`${s} (${d.F.filter((f) => f.severity === s).length})`} />
         ))}
         <select className="select" value={group} onChange={(e) => setGroup(e.target.value)}>
           <option value="">All groups</option>
@@ -418,7 +560,7 @@ function FlagsTab({ showFlags, initial }: Ctx & { initial: FlagFilter }) {
         </button>
       </div>
       <p className="muted small">
-        {fmtInt(rows.length)} of {fmtInt(FLAGS.length)} flags. Source = the table and key of the row to open in ODK Central or the export. “Canonical surveys only” hides flags on the two rejected repeat surveys.
+        {fmtInt(rows.length)} of {fmtInt(d.F.length)} flags. Click a source to see the original record (as exported) and copy its full key for ODK Central. “Canonical surveys only” hides flags on the two rejected repeat surveys.
       </p>
       <DataTable
         className="qa-table"
@@ -432,7 +574,17 @@ function FlagsTab({ showFlags, initial }: Ctx & { initial: FlagFilter }) {
           { key: 'observed', label: 'Observed', render: (r) => <span className="small">{r.observed}</span> },
           { key: 'expected', label: 'Expected', render: (r) => <span className="small muted">{r.expected}</span> },
           { key: 'message', label: 'Why / action', render: (r) => <span className="small">{r.message}</span> },
-          { key: 'source', label: 'Source row', render: (r) => <code className="small" data-tip={r.entity_key}>{r.source_table}{r.source_key ? ` · …${String(r.source_key).slice(-14)}` : ''}</code>, sortValue: (r) => `${r.source_table}${r.source_key}` },
+          {
+            key: 'source',
+            label: 'Source row',
+            render: (r) => (
+              <button type="button" className="link-btn small" data-tip={`Open the original record\n${r.source_table} · ${r.source_key || r.entity_key}\nflag ${r.flag_id}`} onClick={() => openRecord({ table: r.source_table, key: r.source_key || r.entity_key, flag: r })}>
+                {r.source_table}
+                {r.source_key ? ` · …${String(r.source_key).slice(-14)}` : ''}
+              </button>
+            ),
+            sortValue: (r) => `${r.source_table}${r.source_key}`,
+          },
         ]}
       />
       <p className="small muted">Tip: the Overview, Plots and Field feedback views link here with a filter already set ({rule || group || plot ? 'one is active now' : 'none active'}). <button type="button" className="link-btn" onClick={() => showFlags({})}>Clear all filters</button></p>
@@ -442,12 +594,12 @@ function FlagsTab({ showFlags, initial }: Ctx & { initial: FlagFilter }) {
 
 // ── submissions ──────────────────────────────────────────────────────────────
 
-function SubmissionsTab({ t }: Ctx) {
-  const days = [...new Set(TIMELINE.map((r) => String(r.start).slice(0, 10)))].sort()
+function SubmissionsTab({ d, t }: Ctx) {
+  const days = [...new Set(d.TL.map((r) => String(r.start).slice(0, 10)))].sort()
   const [day, setDay] = useState('2026-05-26')
   const fig = useMemo(() => {
-    const sel = day === 'all' ? TIMELINE : TIMELINE.filter((r) => String(r.start).slice(0, 10) === day || String(r.end).slice(0, 10) === day)
-    const devices = [...new Set(TIMELINE.map((r) => r.device))].sort()
+    const sel = day === 'all' ? d.TL : d.TL.filter((r) => String(r.start).slice(0, 10) === day || String(r.end).slice(0, 10) === day)
+    const devices = [...new Set(d.TL.map((r) => r.device))].sort()
     const data: object[] = []
     for (const form of ['survey', 'registration']) {
       for (const rej of [false, true]) {
@@ -480,7 +632,7 @@ function SubmissionsTab({ t }: Ctx) {
       hovertemplate: '%{text} uploaded %{x|%d %b %H:%M} UTC<extra></extra>',
     })
     return { data, devices }
-  }, [day, t])
+  }, [day, t, d.TL])
   return (
     <>
       <Section title="Who was where, when" sub="Each bar is a form from opening to finalising (UTC; local EAT = UTC + 3 h). Triangles are uploads. A long gap between a bar and its upload leaves other devices with an outdated species list (B06, B10). 26 May shows the late device-01 uploads and the two rejected repeats.">
@@ -491,7 +643,7 @@ function SubmissionsTab({ t }: Ctx) {
       </Section>
       <Section title="Submissions" sub="One row per survey submission. E/W/I = error / warning / info flags on that submission.">
         <DataTable
-          rows={SUBS}
+          rows={d.S}
           initialSort={{ key: 'start_utc' }}
           cols={[
             { key: 'plot_name', label: 'Plot', render: (r) => short(r.plot_name) },
@@ -532,22 +684,22 @@ const STATUS_STYLE: Record<string, { color: string; symbol: string; size: number
   'backup, unused': { color: '#9aa8ae', symbol: 'circle', size: 6 },
 }
 
-function MapTab({ t, showFlags }: Ctx) {
+function MapTab({ d, t, showFlags }: Ctx) {
   const [basemap, setBasemap] = useState<Basemap>('light')
   const [colorBy, setColorBy] = useState<'status' | 'worst'>('status')
   const [sel, setSel] = useState<string>('SavMon_LW_Plot_05')
   const worstByPlot = useMemo(() => {
     const m: Record<string, Sev | null> = {}
-    for (const p of PLOTS) m[p.plot_name] = worstOf(plotFlags(p.plot_name))
+    for (const p of d.P) m[p.plot_name] = worstOf(plotFlags(d.F, p.plot_name))
     return m
-  }, [])
+  }, [d.F, d.P])
   const fig = useMemo(() => {
     const data: object[] = []
     for (const tr of TRANSECTS)
       data.push({ type: 'scattermap', mode: 'lines', lat: [tr.endpoint_a_lat, tr.midpoint_lat, tr.endpoint_b_lat], lon: [tr.endpoint_a_lon, tr.midpoint_lon, tr.endpoint_b_lon], line: { color: basemap === 'satellite' || t.theme === 'dark' ? '#ffffff' : '#00354d', width: 3 }, hoverinfo: 'skip', showlegend: false })
     const groups = colorBy === 'status' ? Object.keys(STATUS_STYLE) : ['error', 'warning', 'info', 'none']
     for (const g of groups) {
-      const ps = PLOTS.filter((p) => (colorBy === 'status' ? plotStatus(p) === g : (worstByPlot[p.plot_name] ?? 'none') === g))
+      const ps = d.P.filter((p) => (colorBy === 'status' ? plotStatus(p) === g : (worstByPlot[p.plot_name] ?? 'none') === g))
       if (!ps.length) continue
       const st = colorBy === 'status' ? STATUS_STYLE[g] : { color: g === 'none' ? '#1f9e8c' : SEV_COLOR[g as Sev], symbol: 'circle', size: 11 }
       data.push({
@@ -562,10 +714,10 @@ function MapTab({ t, showFlags }: Ctx) {
         hovertemplate: '%{text}<extra></extra>',
       })
     }
-    const lats = PLOTS.map((p) => p.prescribed_lat as number)
-    const lons = PLOTS.map((p) => p.prescribed_lon as number)
+    const lats = d.P.map((p) => p.prescribed_lat as number)
+    const lons = d.P.map((p) => p.prescribed_lon as number)
     return { data, center: { lat: (Math.min(...lats) + Math.max(...lats)) / 2, lon: (Math.min(...lons) + Math.max(...lons)) / 2 } }
-  }, [basemap, colorBy, sel, t, worstByPlot])
+  }, [basemap, colorBy, sel, t, worstByPlot, d.P])
   return (
     <>
       <div className="qa-filters">
@@ -577,18 +729,18 @@ function MapTab({ t, showFlags }: Ctx) {
         <div className="chart-card">
           <Plot data={fig.data} layout={{ ...baseLayout(t), map: { ...mapStyle(basemap, t.theme === 'dark'), center: fig.center, zoom: 11.6 }, margin: { l: 0, r: 0, t: 0, b: 0 }, legend: { ...((baseLayout(t).legend as object) ?? {}), y: 0.02, yanchor: 'bottom', bgcolor: t.surface } }} height={560} onClickIndex={(p) => setSel(p as string)} filename="plots_map" />
         </div>
-        <PlotPanel t={t} plot={sel} showFlags={showFlags} />
+        <PlotPanel t={t} plot={sel} flags={d.F} showFlags={showFlags} />
       </div>
     </>
   )
 }
 
 /** One plot in local metres: registered A–M–B line, 5 m belt, 25 m circle, quadrats by worst flag. */
-function PlotPanel({ t, plot, showFlags }: { t: ThemeTokens; plot: string; showFlags: (f: FlagFilter) => void }) {
+function PlotPanel({ t, plot, flags, showFlags }: { t: ThemeTokens; plot: string; flags: Row[]; showFlags: (f: FlagFilter) => void }) {
   const p = PLOTS.find((x) => x.plot_name === plot)
   const tr = TRANSECTS.find((x) => x.plot_name === plot)
   const qs = QUADRATS.filter((q) => q.plot_name === plot && q.canonical)
-  const fl = plotFlags(plot).filter((f) => ['D', 'E', 'J', 'C'].includes(f.group) && f.severity !== 'info').sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity])
+  const fl = plotFlags(flags, plot).filter((f) => ['D', 'E', 'J', 'C'].includes(f.group) && f.severity !== 'info').sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity])
   const fig = useMemo(() => {
     if (!tr) return null
     const cx = tr.cx as number
@@ -668,13 +820,13 @@ function PlotPanel({ t, plot, showFlags }: { t: ThemeTokens; plot: string; showF
 
 // ── plots ────────────────────────────────────────────────────────────────────
 
-function PlotsTab({ t, showFlags }: Ctx) {
-  const reg = PLOTS.filter((p) => p.registered).sort((a, b) => String(a.plot_name).localeCompare(String(b.plot_name)))
+function PlotsTab({ d, t, showFlags }: Ctx) {
+  const reg = d.P.filter((p) => p.registered).sort((a, b) => String(a.plot_name).localeCompare(String(b.plot_name)))
   const cov = Object.fromEntries(EFF_PLOTS.filter((e) => e.layer === 'resolved').map((e) => [e.plot_name, e]))
   const groups = Object.keys(GROUPS).filter((g) => g !== 'K')
   const heat = useMemo(() => {
-    const z = reg.map((p) => groups.map((g) => SEV_RANK[worstOf(plotFlags(p.plot_name).filter((f) => f.group === g)) ?? ''] ?? 0))
-    const txt = reg.map((p) => groups.map((g) => plotFlags(p.plot_name).filter((f) => f.group === g).length || ''))
+    const z = reg.map((p) => groups.map((g) => SEV_RANK[worstOf(plotFlags(d.F, p.plot_name).filter((f) => f.group === g)) ?? ''] ?? 0))
+    const txt = reg.map((p) => groups.map((g) => plotFlags(d.F, p.plot_name).filter((f) => f.group === g).length || ''))
     return [
       {
         type: 'heatmap',
@@ -702,7 +854,7 @@ function PlotsTab({ t, showFlags }: Ctx) {
         hovertemplate: '%{y} · %{x}: %{text} flags<extra></extra>',
       },
     ]
-  }, [t])
+  }, [t, d.F, reg])
   return (
     <>
       <Section title="Flags per plot and rule group" sub={`Colour = worst severity (blue info, amber warning, red error); number = count. Canonical surveys only; project-wide findings that hit every plot alike are left out (${[...SYSTEMIC].join(', ')}). Click a cell to list a plot's flags.`}>
@@ -746,11 +898,11 @@ const QUEUES: { key: string; label: string; rules: string[]; sub: string }[] = [
   { key: 'woody', label: 'Woody & format', rules: ['F06', 'F01', 'F12'], sub: 'Woody taxa in herbaceous data (excluded in the resolved layer), canonical-format problems, named “unknown” woody species.' },
 ]
 
-function TaxonomyTab({ showFlags }: Ctx) {
+function TaxonomyTab({ d, showFlags }: Ctx) {
   const [qk, setQk] = useState('spelling')
   const [q, setQ] = useState('')
   const queue = QUEUES.find((x) => x.key === qk)!
-  const rows = FLAGS.filter((f) => queue.rules.includes(f.rule_id) && f.canonical)
+  const rows = d.F.filter((f) => queue.rules.includes(f.rule_id) && f.canonical)
   const recs = (r: Row) => {
     const m = /\((\d+) records?\)|: (\d+) records/.exec(String(r.observed))
     return m ? Number(m[1] ?? m[2]) : 0
@@ -761,11 +913,11 @@ function TaxonomyTab({ showFlags }: Ctx) {
       <div className="stats-row">
         <Stat label="Taxa (resolved)" value={fmtInt(O.taxa_resolved)} sub={`${O.taxa_resolved_identified} identified · ${O.taxa_resolved - O.taxa_resolved_identified} unresolved unknowns`} />
         <Stat label="Raw keys" value={fmtInt(O.taxa_raw)} sub="list species + provisional slots as recorded" />
-        <Stat label="Names to check" value={fmtInt(FLAGS.filter((f) => f.rule_id === 'F03').length)} sub="GBIF fuzzy or no species match" />
-        <Stat label="No Kenyan record" value={FLAGS.find((f) => f.rule_id === 'F10' && f.entity_type === 'project')?.observed.split(' ')[0] ?? '—'} sub="identified taxa (GBIF)" />
+        <Stat label="Names to check" value={fmtInt(d.F.filter((f) => f.rule_id === 'F03').length)} sub="GBIF fuzzy or no species match" />
+        <Stat label="No Kenyan record" value={d.F.find((f) => f.rule_id === 'F10' && f.entity_type === 'project')?.observed.split(' ')[0] ?? '—'} sub="identified taxa (GBIF)" />
       </div>
       <Section title="Curation queue" sub={queue.sub} right={<button type="button" className="btn ghost sm" onClick={() => showFlags({ rule: queue.rules[0] })}>Open in All flags</button>}>
-        <Segmented value={qk} onChange={setQk} size="sm" options={QUEUES.map((x) => ({ value: x.key, label: `${x.label} (${FLAGS.filter((f) => x.rules.includes(f.rule_id) && f.canonical).length})` }))} />
+        <Segmented value={qk} onChange={setQk} size="sm" options={QUEUES.map((x) => ({ value: x.key, label: `${x.label} (${d.F.filter((f) => x.rules.includes(f.rule_id) && f.canonical).length})` }))} />
         <DataTable
           className="qa-table"
           rows={rows}
@@ -967,14 +1119,16 @@ function RulesTab({ showFlags }: Ctx) {
 
 const FIELD_RULES = new Set(['A03', 'A04', 'C01', 'C02', 'C03', 'C04', 'C08', 'C09', 'C13', 'C15', 'E01', 'E02', 'E04', 'E05', 'E06', 'E09', 'E10', 'B05', 'B06', 'B10', 'D01', 'D02', 'D03', 'D04', 'D06', 'F01', 'F02', 'F04', 'F05', 'F12'])
 
-function TonightTab({ showFlags }: Ctx) {
-  const days = [...new Set(FLAGS.map((f) => f.day).filter(Boolean))].sort()
-  const toCheck = (d: string) => FLAGS.filter((f) => f.day === d && FIELD_RULES.has(f.rule_id) && f.severity !== 'info').length
-  const [day, setDay] = useState(() => days.reduce((a, b) => (toCheck(b) > toCheck(a) ? b : a), days[0])) // open on the busiest day
-  const fl = FLAGS.filter((f) => f.day === day && FIELD_RULES.has(f.rule_id) && f.severity !== 'info')
+function TonightTab({ d, showFlags }: Ctx) {
+  const days = [...new Set(d.F.map((f) => f.day).filter(Boolean))].sort()
+  const toCheck = (x: string) => d.F.filter((f) => f.day === x && FIELD_RULES.has(f.rule_id) && f.severity !== 'info').length
+  const busiest = days.reduce((a, b) => (toCheck(b) > toCheck(a) ? b : a), days[0])
+  const [picked, setDay] = useState<string>(busiest) // open on the busiest day
+  const day = days.includes(picked) ? picked : busiest // the shared filters may remove the picked day
+  const fl = d.F.filter((f) => f.day === day && FIELD_RULES.has(f.rule_id) && f.severity !== 'info')
   const byPlot = new Map<string, Row[]>()
   for (const f of fl) byPlot.set(f.plot_name || '(project)', [...(byPlot.get(f.plot_name || '(project)') ?? []), f])
-  const subs = TIMELINE.filter((r) => String(new Date(new Date(r.start).getTime() + 3 * 3.6e6).toISOString()).slice(0, 10) === day)
+  const subs = d.TL.filter((r) => String(new Date(new Date(r.start).getTime() + 3 * 3.6e6).toISOString()).slice(0, 10) === day)
   return (
     <>
       <Section title="Check tonight" sub="What a team lead would review at the end of a field day: errors and warnings the team can still fix while near the plots (missing rows, empty records, position and length problems, late uploads). Pick a day.">

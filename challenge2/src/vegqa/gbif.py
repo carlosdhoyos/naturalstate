@@ -16,6 +16,7 @@ import json
 import time
 import urllib.parse
 import urllib.request
+from .load import by_key
 from datetime import date
 from pathlib import Path
 
@@ -49,7 +50,7 @@ def lookup(name: str, country: str, contrast: list[str]) -> dict:
 
 def names_in_data(d) -> list[str]:
     """Every taxon name that appears in the data or in the curation table (as written; whitespace trimmed)."""
-    sp = d.ent["species"].set_index("__id")
+    sp = by_key(d.ent["species"], "__id")
     used = {u for us in d.quadrat._species for u in us}
     names = {sp.label[u] for u in used if u in sp.index}
     se = d.ent["species_extra"]

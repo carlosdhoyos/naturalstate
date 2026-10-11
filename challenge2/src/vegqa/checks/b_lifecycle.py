@@ -7,6 +7,7 @@ import pandas as pd
 
 from ..engine import rows, rule
 from ..model import registration_for
+from ..load import by_key
 
 LOCAL_OFFSET = "+03:00"  # East Africa Time (Africa/Nairobi), no daylight saving
 NEW_MODES = ("new_unknown", "new_missing")
@@ -43,14 +44,14 @@ def duplicate_surveys(ctx):
                            for k, dev, st, rs in zip(g.KEY, g._device, g._start, g.ReviewState))
         ctx.add("fail" if n > 1 else "pass", "plot", plot, plot_name=plot, source_table="survey", source_key=";".join(g.KEY),
                 observed=f"{n} submissions: {detail}", expected=f"1 survey per plot in replicate {rep}",
-                message="canonical = not rejected, then latest end (V-01); the other is kept for repeatability (G04)" if n > 1 else "")
+                message="canonical = latest submission not rejected / hasIssues (V-01); the others are kept for repeatability (G04)" if n > 1 else "")
 
 
 @rule("B03")
 def survey_plot_link(ctx):
     d = ctx.data
-    sv = d.ent["surveys"].set_index("__id")
-    vp = d.ent["vegplots"].set_index("__id")
+    sv = by_key(d.ent["surveys"], "__id")
+    vp = by_key(d.ent["vegplots"], "__id")
     reg = registration_for(ctx)
     for r in rows(d.survey):
         problems = []
@@ -76,7 +77,7 @@ def survey_plot_link(ctx):
 def survey_before_registration(ctx):
     d = ctx.data
     reg = registration_for(ctx)
-    vp = d.ent["vegplots"].set_index("__id")
+    vp = by_key(d.ent["vegplots"], "__id")
     for r in rows(d.survey):
         if r._centroid_uuid not in reg.index:
             ctx.add("could_not_check", "survey", r.KEY, plot_name=r.plot_name, survey_key=r.KEY, message="no registration (see B03)")
@@ -215,7 +216,7 @@ def stale_entity_list(ctx):
     one started, on any device; separate 'not yet on the server' (late upload) from 'device not refreshed'."""
     d = ctx.data
     e = d.extra[d.extra.entry_mode.isin(NEW_MODES)].merge(d.quadrat[["KEY", "PARENT_KEY"]], left_on="PARENT_KEY", right_on="KEY", suffixes=("", "_q"))
-    s = d.survey.set_index("KEY")
+    s = by_key(d.survey, "KEY")
     e["survey"] = e.PARENT_KEY_q
     e["end"], e["submitted"], e["device"] = e.survey.map(s._end), e.survey.map(s._submitted), e.survey.map(s._device)
     for r in rows(d.survey.sort_values("_start")):
@@ -249,10 +250,10 @@ def stale_entity_list(ctx):
 
 @rule("B11")
 def recorder_in_team(ctx):
-    team = ctx.data.ent["project_team"].set_index("__id")
+    team = by_key(ctx.data.ent["project_team"], "__id")
     for r in rows(_submissions(ctx.data)):
         src = ctx.data.survey if r.form == "survey" else ctx.data.registration
-        rec = src.set_index("KEY").recorder_uuid[r.KEY]
+        rec = by_key(src, "KEY").recorder_uuid[r.KEY]
         problems = []
         if rec not in r._team:
             problems.append("recorder not among the selected team")

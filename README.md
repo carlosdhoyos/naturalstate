@@ -33,7 +33,7 @@ Each challenge has its own folder with code and a Markdown write-up.
 - **Headline:**
   - The 30 surveyed plots are complete at record level.
   - The shrubland stratum was not sampled.
-  - The data do not fit Lewa: the whole dataset, NS's prescribed points included, sits about 705 m below the terrain, and 20 identified taxa have no Kenyan GBIF record.
+  - The data's provenance needs confirming: the whole dataset, NS's prescribed points included, sits about 705 m below the terrain at its coordinates, and 20 identified taxa have no Kenyan GBIF record.
   - Taxon names need curation: raw richness is 132 taxa, resolved 115; 23 names are probably misspelled.
   - The deployed forms differ from the form files (geohash taken from the measured midpoint; replicate label in lower case); no record was edited.
   - Several transects are offset, too short or bent.
@@ -53,4 +53,4 @@ Each challenge has its own folder with code and a Markdown write-up.
   - Each entry separates the policy from its measured consequences; superseded parts are marked, not deleted.
 - [`docs/challenge1_paper_alignment.md`](docs/challenge1_paper_alignment.md): Wood & Kahl's recommendations, point by point, against what the analysis does.
 - Challenge 1 confirmation items C-1 to C-7: [`challenge1/Q1_report.md`](challenge1/Q1_report.md), section 9.
-- [`docs/challenge2_decisions.md`](docs/challenge2_decisions.md): Challenge 2 decisions (V-01 to V-11), differences from the exploratory review, new findings (N1–N13), the independent review, and confirmation items (C-1 to C-12).
+- [`docs/challenge2_decisions.md`](docs/challenge2_decisions.md): Challenge 2 decisions (V-01 to V-12), differences from the exploratory review, new findings (N1–N13), the independent review, and confirmation items (C-1 to C-12).

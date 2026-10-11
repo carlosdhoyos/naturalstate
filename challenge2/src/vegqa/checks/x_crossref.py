@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..engine import rule
 from ..taxonomy import slot_number
+from ..load import by_key
 
 NEW_MODES = ("new_unknown", "new_missing")
 
@@ -11,9 +12,9 @@ NEW_MODES = ("new_unknown", "new_missing")
 @rule("X01")
 def entity_vs_form(ctx):
     d = ctx.data
-    se = d.ent["species_extra"].set_index("__id")
-    q = d.quadrat.set_index("KEY")
-    s = d.survey.set_index("KEY")
+    se = by_key(d.ent["species_extra"], "__id")
+    q = by_key(d.quadrat, "KEY")
+    s = by_key(d.survey, "KEY")
     e = d.extra[d.extra.entry_mode.isin(NEW_MODES)].copy()
     e["submitted"] = e.PARENT_KEY.map(q.PARENT_KEY).map(s._submitted)
     for slot, g in e.sort_values("submitted").groupby("target_extra_name"):
@@ -30,7 +31,7 @@ def entity_vs_form(ctx):
                 p.append(f"{field} {ent[field]!r} != written {want!r}")
         ctx.add("fail" if p else "pass", "species_extra", num, source_table="species_extra", source_key=slot,
                 observed="; ".join(p) or "entity = last write", expected="entity fields = what the last submission wrote")
-    vp = d.ent["vegplots"].set_index("plot_uuid")
+    vp = by_key(d.ent["vegplots"], "plot_uuid")
     for _, r in d.registration.iterrows():
         if r.plot_uuid not in vp.index:
             continue

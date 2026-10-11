@@ -114,6 +114,14 @@ REG_COLS = {
 }
 
 
+def by_key(df: pd.DataFrame, col: str) -> pd.DataFrame:
+    """`df` indexed by `col` for lookups, keeping the FIRST row of a duplicated key.
+
+    Keys are expected to be unique, but that is exactly what rule A02 checks: a lookup must not crash on a
+    duplicate before A02 can report it. Duplicates are never dropped from the tables themselves."""
+    return df.drop_duplicates(col, keep="first").set_index(col)
+
+
 def _ts(s: pd.Series) -> pd.Series:
     """ODK timestamps (with an offset or Z) as UTC instants; unparseable -> NaT (flagged later)."""
     return pd.to_datetime(s.replace("", np.nan), utc=True, errors="coerce", format="ISO8601")
@@ -211,5 +219,5 @@ def load(exports: Path = EXPORTS, entities: Path = ENTITIES) -> Data:
     v["_lat"], v["_lon"] = _num(g[0]), _num(g[1])
     v["_survey_uuids"] = _tokens(v.survey_uuids)
     # a survey selects a vegplot entity; a registration selects a centroid. vegplots.plot_uuid links them.
-    d.survey["_centroid_uuid"] = d.survey.plot_uuid.map(v.set_index("__id").plot_uuid).fillna("")
+    d.survey["_centroid_uuid"] = d.survey.plot_uuid.map(by_key(v, "__id").plot_uuid).fillna("")
     return d

@@ -9,6 +9,7 @@ import pandas as pd
 from ..engine import rows, rule
 from ..forms import choices, design_issues, fields, select_fields
 from ..geo import geohash, geohash_centre
+from ..load import by_key
 
 JUNK = re.compile(r"^[\W_]*\w?[\W_]*$")  # empty of words: punctuation / whitespace / one character
 FREE_TEXT = {"quadrat_repeat": ["quadrat_comment"], "survey": ["survey_end-herbaceous_veg_notes"],
@@ -80,7 +81,7 @@ def sop_form_conventions(ctx):
     ctx.add("fail" if n_space else "pass", "project", "canonical separator", source_table="additional_species_repeat",
             observed=f"{n_space} typed canonicals use spaces, {n_us} underscores", expected="SOP step 7: Genus_species",
             message="SOP and form disagree; data follow the form (spaces). Align the SOP" if n_space else "")
-    f = fields("herbaceous_veg_survey").set_index("name")
+    f = by_key(fields("herbaceous_veg_survey"), "name")
     par = f.parameters.get("location_quadrat", "")
     warn = re.search(r"warning-accuracy=(\d+)", par)
     ctx.add("fail" if warn and int(warn.group(1)) > ctx.th["max_accuracy_m"] else "pass", "project", "quadrat warning accuracy", source_table="form",
@@ -109,12 +110,12 @@ def form_calculation_bug(ctx):
 @rule("K03")
 def rejection_keeps_entity_writes(ctx):
     d = ctx.data
-    q = d.quadrat.set_index("KEY")
-    s = d.survey.set_index("KEY")
+    q = by_key(d.quadrat, "KEY")
+    s = by_key(d.survey, "KEY")
     e = d.extra[d.extra.entry_mode.isin(["new_unknown", "new_missing"])].copy()
     e["review"] = e.PARENT_KEY.map(q.PARENT_KEY).map(s.ReviewState)
     rej = e[e.review == "rejected"]
-    se = d.ent["species_extra"].set_index("__id")
+    se = by_key(d.ent["species_extra"], "__id")
     labels = sorted(se.label.get(t, t[:8]) for t in rej.target_extra_name.unique())
     ctx.add("fail" if len(rej) else "pass", "project", "entity writes of rejected submissions", source_table="species_extra",
             observed=f"{len(rej)} entity writes from rejected submissions remain ({', '.join(labels)})" if len(rej) else "none",
@@ -129,7 +130,7 @@ def form_design(ctx):
     px = img.parameters.str.extract(r"max-pixels=(\d+)")[0].dropna()
     if px.nunique() > 1:
         issues.append("herbaceous_veg_survey: image max-pixels differ (" + ", ".join(f"{n}={v}" for n, v in zip(img.name, img.parameters.str.extract(r'max-pixels=(\d+)')[0]) if pd.notna(v)) + ")")
-    reg = fields("register_vegetation_plots").set_index("name")
+    reg = by_key(fields("register_vegetation_plots"), "name")
     if not reg.choice_filter.get("selected_plot_uuid", "").strip():
         issues.append("register_vegetation_plots: plot list has no choice filter (an already-registered plot can be registered again)")
     for i in issues:
@@ -169,7 +170,7 @@ def column_profile(ctx):
 @rule("P02")
 def junk_text(ctx):
     d = ctx.data
-    plot_by_survey = d.survey.set_index("KEY").plot_name
+    plot_by_survey = by_key(d.survey, "KEY").plot_name
     srcs = {"quadrat_repeat": d.raw["quadrat"], "survey": d.raw["survey"], "registration": d.raw["registration"]}
     for tname, cols in FREE_TEXT.items():
         df = srcs[tname]

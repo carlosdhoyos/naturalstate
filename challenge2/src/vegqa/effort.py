@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from .engine import rows
+from .load import by_key
 
 RESOLVED_OK = ["identified", "identified_uncurated", "unknown_unresolved", "unknown_uncurated"]
 
@@ -61,9 +62,22 @@ def hill(y: np.ndarray) -> tuple[float, float, float]:
     return float(len(y)), float(np.exp(-(p * np.log(p)).sum())), float(1 / (p ** 2).sum())
 
 
+def empty_stats(T: int, note: str) -> dict:
+    """No quadrats, or quadrats without any taxon: richness is what was observed (0), every ratio and
+    estimator is undefined (NaN, never 100% or infinity), and the note says why."""
+    nan = float("nan")
+    return {"T": T, "S_obs": 0, "incidences": 0, "Q1_uniques": 0, "Q2_duplicates": 0, "chao2": 0.0 if T else nan, "chao2_lo95": nan, "chao2_hi95": nan,
+            "completeness": nan, "coverage": nan, "new_taxa_next_quadrat": nan, "hill_q0": 0.0 if T else nan, "hill_q1": nan, "hill_q2": nan,
+            "note": note, "curve": [0.0] * T}
+
+
 def stats(inc: pd.DataFrame, T: int) -> dict:
     """No interval is given for coverage: a naive bootstrap over quadrats is biased upwards (resampled
     quadrats turn uniques into duplicates); a valid interval needs Chao's assemblage bootstrap (iNEXT)."""
+    if T == 0:
+        return empty_stats(0, "no quadrats: survey incomplete, metrics undefined (A03)")
+    if inc.empty:
+        return empty_stats(T, f"no taxa in {T} quadrats: a valid zero, richness 0, ratios undefined")
     y = inc.groupby("taxon").size().to_numpy()  # number of quadrats each taxon occupies
     s_obs, U = len(y), int(y.sum())
     q1, q2 = int((y == 1).sum()), int((y == 2).sum())
@@ -75,10 +89,13 @@ def stats(inc: pd.DataFrame, T: int) -> dict:
     return {"T": T, "S_obs": s_obs, "incidences": U, "Q1_uniques": q1, "Q2_duplicates": q2,
             "chao2": round(chao2, 1), "chao2_lo95": round(lo, 1), "chao2_hi95": round(hi, 1),
             "completeness": round(s_obs / chao2, 3) if chao2 else np.nan, "coverage": round(coverage(y, T), 3),
-            "new_taxa_next_quadrat": round(next_q, 2), "hill_q0": h0, "hill_q1": round(h1, 2), "hill_q2": round(h2, 2), "curve": curve}
+            "new_taxa_next_quadrat": round(next_q, 2), "hill_q0": h0, "hill_q1": round(h1, 2), "hill_q2": round(h2, 2), "note": "", "curve": curve}
 
 
 def plan_vs_done(plots: pd.DataFrame) -> pd.DataFrame:
+    """Per prescribed point (plots.csv has one row per point and replicate): a point counts as surveyed
+    if any replicate surveyed it."""
+    plots = plots.sort_values("surveyed", ascending=False).drop_duplicates("plot_uuid")
     rows = []
     for stratum, g in plots.groupby("stratum"):
         prim, back = g[g.sample_status == "primary"], g[g.sample_status == "backup"]
@@ -95,16 +112,16 @@ def plan_vs_done(plots: pd.DataFrame) -> pd.DataFrame:
 
 def per_plot(ctx) -> tuple[pd.DataFrame, pd.DataFrame]:
     s = ctx.data.survey[ctx.data.survey.KEY.isin(ctx.canonical)]
-    team = ctx.data.ent["project_team"].set_index("__id").label
+    team = by_key(ctx.data.ent["project_team"], "__id").label
     recs, curves = [], []
     for r in rows(s):
         T = int((ctx.data.quadrat.PARENT_KEY == r.KEY).sum())  # 20 by design; A03 flags any other count
         for layer in ("raw", "resolved"):
             st = stats(incidence(ctx.occ, r.KEY, layer), T)
             curve = st.pop("curve")
-            recs.append({"plot_name": r.plot_name, "survey_key": r.KEY, "layer": layer, "recorder": team.get(r.recorder_uuid, ""),
+            recs.append({"plot_name": r.plot_name, "replicate": r.replicate, "survey_key": r.KEY, "layer": layer, "recorder": team.get(r.recorder_uuid, ""),
                          "duration_min": round((r._end - r._start).total_seconds() / 60, 1), "team_size": len(r._team), **st})
-            curves += [{"plot_name": r.plot_name, "layer": layer, "quadrats": t, "expected_taxa": round(v, 2)} for t, v in enumerate(curve, 1)]
+            curves += [{"plot_name": r.plot_name, "replicate": r.replicate, "layer": layer, "quadrats": t, "expected_taxa": round(v, 2)} for t, v in enumerate(curve, 1)]
     df = pd.DataFrame(recs)
     df["person_minutes"] = (df.duration_min * df.team_size).round(0)
     return df.sort_values(["layer", "plot_name"]).reset_index(drop=True), pd.DataFrame(curves)
@@ -128,7 +145,7 @@ def project_level(ctx) -> pd.DataFrame:
 def repeatability(ctx) -> pd.DataFrame:
     s = ctx.data.survey
     rows = []
-    for plot, g in s.groupby("plot_name"):
+    for (plot, rep), g in s.groupby(["plot_name", "replicate"]):  # repeat visits within ONE monitoring round only
         if len(g) < 2:
             continue
         g = g.sort_values("_start")
@@ -141,11 +158,12 @@ def repeatability(ctx) -> pd.DataFrame:
                 qa, qb = set(ia.taxon[ia.quadrat_number == n]), set(ib.taxon[ib.quadrat_number == n])
                 if qa | qb:
                     jq.append(len(qa & qb) / len(qa | qb))
-            team = ctx.data.ent["project_team"].set_index("__id").label
-            rows.append({"plot_name": plot, "layer": layer, "first": f"{g._device.iloc[0]} {g._start.iloc[0]:%d %b %H:%M}Z", "second": f"{g._device.iloc[1]} {g._start.iloc[1]:%d %b %H:%M}Z",
+            team = by_key(ctx.data.ent["project_team"], "__id").label
+            union = sa | sb
+            rows.append({"plot_name": plot, "replicate": rep, "layer": layer, "first": f"{g._device.iloc[0]} {g._start.iloc[0]:%d %b %H:%M}Z", "second": f"{g._device.iloc[1]} {g._start.iloc[1]:%d %b %H:%M}Z",
                          "recorder_first": team.get(g.recorder_uuid.iloc[0], ""), "recorder_second": team.get(g.recorder_uuid.iloc[1], ""),
-                         "taxa_first": len(sa), "taxa_second": len(sb), "shared": len(sa & sb), "plot_jaccard": round(len(sa & sb) / len(sa | sb), 3),
-                         "mean_quadrat_jaccard": round(float(np.mean(jq)), 3), "min_quadrat_jaccard": round(float(np.min(jq)), 3),
+                         "taxa_first": len(sa), "taxa_second": len(sb), "shared": len(sa & sb), "plot_jaccard": round(len(sa & sb) / len(union), 3) if union else np.nan,
+                         "mean_quadrat_jaccard": round(float(np.mean(jq)), 3) if jq else np.nan, "min_quadrat_jaccard": round(float(np.min(jq)), 3) if jq else np.nan,
                          "duration_first_min": round(g._duration_min.iloc[0], 0), "duration_second_min": round(g._duration_min.iloc[1], 0)})
     return pd.DataFrame(rows)
 

@@ -2,9 +2,9 @@
 
 This log records the decisions behind the vegetation QA/QC. Each entry gives what we observed, what we decided, and how the decision changes the results. **No source value is ever changed.** Every decision acts on how values are interpreted, joined or flagged.
 
-The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-c2dda0aff86a057a` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
+The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-4622d26cbc136a65` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
 
-- **V-01 to V-11** are decisions.
+- **V-01 to V-12** are decisions.
 - **"Differences from the exploration"** lists where the pipeline deliberately disagrees with the earlier exploratory review.
 - **N1 to N13** are findings the systematic sweeps and the independent review added.
 - **"Independent review"** records what the review found and what changed.
@@ -16,12 +16,9 @@ The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are
 
 **Observed.** Plots 18 and 21 were each surveyed twice on 26 May: in the morning on device-01, and in the afternoon on device-02. Natural State marked the two device-02 submissions `rejected` in ODK Central.
 
-**Decision.** For each plot and replicate, the canonical survey is the first one in this order:
+**Decision.** For each plot and replicate there is **at most one** canonical survey: among submissions whose ODK review state is not excluded, the latest by end time. Excluded states are `rejected` and `hasIssues`, configurable in `rules.yaml` as `canonical_excluded_review_states`. An excluded submission never counts towards richness or effort; this matches what B01 tells the reviewer. A plot whose submissions are all excluded has **no** canonical survey, and J03 reports it as "viable plot without an accepted survey". (The first version always chose one submission per plot, so a rejected-only plot would have counted. The third review caught it.)
 
-1. not rejected;
-2. then the latest end time.
-
-Non-canonical submissions stay in every table with `canonical = False`. They are checked like any other submission, but they never count towards richness or effort. The two pairs are reused to measure repeatability (G04, effort section).
+Non-canonical submissions stay in every table with `canonical = False` and the reason. They are checked like any other submission, but they never count towards richness or effort. The two pairs are reused to measure repeatability (G04, effort section).
 
 **Consequence.** 30 canonical surveys out of 32 submissions. The choice and its reason for every submission are in `outputs/canonical_choice.csv`. Rule B02 flags both plots, so the choice is visible, not silent.
 
@@ -140,6 +137,24 @@ Every threshold of ours is labelled `judgement` in the catalogue and can be chan
 
 **Decision.** No position rule relies on the quadrat order. Positions are tested against the registered segment and against the survey's own robust line. Walking order is reported once, as a project-level procedural note.
 
+## V-12. The workflow never assumes what a rule checks
+
+**Observed (third review).** Several steps assumed invariants that rules exist to check:
+
+- a duplicated survey or registration key crashed the run before A02 could report it;
+- a survey with no quadrats divided by zero;
+- a survey with no taxa reported 100% coverage and infinite diversity;
+- A04 truncated 1.5 to 1 and passed it;
+- plot summaries and repeatability merged replicates.
+
+**Decision.**
+
+- Every lookup by key keeps the first row of a duplicated key (`load.by_key`); the tables themselves keep every row, and A02 reports the duplicate.
+- A survey with no quadrats or no taxa gets an explicit effort row: richness 0 where it was observed, ratios undefined (not 0%, 100% or infinity), and a `note`.
+- A04 requires whole numbers before comparing the sequence.
+- Plot summaries have one row per plot **and replicate**, and repeat visits are only paired within a replicate.
+- `tests/test_robustness.py` runs the **whole** workflow (rules, marts, effort, figures, dashboard export) on each of these inputs and checks that the right rule reports it.
+
 ---
 
 ## Differences from the exploration
@@ -174,7 +189,7 @@ The exploration's numbers were approximate. The pipeline re-derives them, and th
 | N8 | The curation table's label disagrees with its number for herb_039 (labelled herb_011) and herb_072 (labelled herb_036) | F13 |
 | N9 | 20 of the 90 identified taxa GBIF could check have no GBIF record in Kenya but hundreds in southern Africa. The species list (Acacia galpinii, Pechuel-loeschea) and the transport options ("Mokoro", an Okavango dugout) suggest the list was built for a southern-African project | F10 |
 | N10 | **The deployed registration form computes the geohash from the measured midpoint**, not from the centroid as the form file says: the stored geohash equals the midpoint's geohash-7 in 30/30 registrations, and `Edits` = 0 everywhere. It differs from the centroid list only for Plots 01, 04 and 15, whose midpoint lies in a neighbouring cell. (The first version of this log called these three "edited after collection"; the independent review showed that was wrong.) | C17 |
-| N11 | The whole dataset sits about 705 m below the SRTM terrain at its coordinates: field GPS −704 m (median of 62 submissions), and NS's own prescribed points −703 m (centroid altitudes). Not a field error; consistent with coordinates and altitudes from different places, e.g. relocated demonstration data from a site near 1,000 m | E14 |
+| N11 | The whole dataset sits about 705 m below the SRTM terrain at its coordinates: field GPS −704 m (median of 62 submissions), and NS's own prescribed points −703 m (centroid altitudes). Not a field error. With the species-range pattern (N9) and the transport list, it is a reason to question the dataset's provenance; one hypothesis among others is relocated demonstration data from a site near 1,000 m. It does not establish where the coordinates or altitudes come from (C-7) | E14 |
 | N12 | The 51 prescribed points are 9–104 m (median 66 m) from the centres of their geohash cells, although the SOP defines the midpoint as the cell centre | J04 |
 | N13 | 29 of 30 savanna plots are recorded as "Scrub"; the ecosystem list has no savanna option | D08 |
 
@@ -230,4 +245,16 @@ An independent reviewer, given no context, re-ran the pipeline and the tests, ex
 | Per-plot "worst flag" coloured every plot by project-wide rules | Project-wide rules (D05, E13, B12, C14, C17, E14, J04) are left out of per-plot colouring, and the UI says so |
 | Coverage with Q2 = 0 | The Chao & Jost (2012) form for Q2 = 0 |
 | Suggestion not taken up | Folding J04's 51 per-point rows into one: kept, so each point can be inspected |
+
+### Third independent review (whole-workflow robustness)
+
+| Finding | Change |
+|---|---|
+| A duplicated survey or registration key crashed the run before A02 | `load.by_key` for every lookup; robustness tests for duplicates in surveys, registrations, quadrats, additional species, species and vegplot entities (V-12) |
+| Rejected-only plots still counted; `hasIssues` could be canonical | At most one canonical survey per plot and replicate, from non-excluded review states only (V-01) |
+| Zero quadrats divided by zero; no taxa gave 100% coverage and infinite diversity | Explicit empty-survey effort rows with a note (V-12) |
+| A04 passed 1.5 as 1 | Whole numbers required first |
+| Replicates merged in plot summaries and repeatability | One row per plot and replicate; pairs within a replicate |
+| Dashboard: source keys not openable; no shared filters; review identity too weak; "passed everywhere" ignored could-not-check | Source records open from each flag; shared replicate / stratum / device / recorder / date filters; `project_id`, `flag_id`, `evidence_hash` on every result (DDL updated); "passed everywhere" requires no could-not-check |
+| Provenance stated too firmly | Worded as a hypothesis for NS to confirm (N11, C-7, report, dashboard) |
 
