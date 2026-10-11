@@ -3,7 +3,7 @@
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
 **Interactive version:** the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`, Vegetation → QA/QC dashboard): every flag with its source row, the map with per-plot transect panels, the curation queue and the effort views.
-**Prepared by:** Carlos Hoyos · run `qa-55a7f222034e5654` · reproducible with `python challenge2/src/run_challenge2.py`
+**Prepared by:** Carlos Hoyos · run `qa-2d9fb1f6eb5d5def` · reproducible with `python challenge2/src/run_challenge2.py`
 
 ---
 
@@ -306,6 +306,8 @@ Each registered transect is drawn at true scale in section (d), Figure d2. The f
 | Life form | Some list species marked "herbaceous" are shrubs or climbers elsewhere (e.g. Pechuel-loeschea leubnitziae), so the list's group may not match the SOP's "non-woody" rule. Not checked automatically | (C-7) |
 
 ### Plots at a glance
+
+Colour is the worst severity per plot and rule group, and the number is the flag count. This figure counts every submission and includes the project-wide findings, so its numbers are higher than in the dashboard's Plots view, which shows canonical surveys only and leaves the project-wide findings out.
 
 ![Flags per plot](outputs/figures/flags_heatmap.png)
 

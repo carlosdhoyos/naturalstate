@@ -286,13 +286,16 @@ def flags_heatmap(results: pd.DataFrame, plots: pd.DataFrame, path: Path):
             c = cnt.iat[i, j]
             if pd.notna(c):
                 ax.text(j, i, int(c), ha="center", va="center", fontsize=6.5, color="white" if m.iat[i, j] >= 2 else INK)
+    names_g = {"A": "Structure", "B": "Lifecycle", "C": "Form rules", "D": "Registration", "E": "Quadrats", "F": "Taxonomy",
+               "G": "Plausibility", "J": "Plan vs done", "X": "Entity vs form", "P": "Profiling"}
     ax.set_xticks(range(len(groups)))
-    ax.set_xticklabels(groups)
+    ax.set_xticklabels([f"{g} · {names_g[g]}" for g in groups], rotation=45, ha="right", fontsize=7)
     ax.set_yticks(range(len(names)))
     ax.set_yticklabels([n.replace("SavMon_LW_", "") for n in names], fontsize=7)
-    ax.set_title("Flags per plot and rule group (colour = worst severity, number = count)", loc="left", fontsize=9)
-    handles = [plt.Rectangle((0, 0), 1, 1, color=STATUS[k], label=k) for k in ("info", "warning", "error")]
-    ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(1.01, 1), frameon=False)
+    ax.set_title("Flags per plot and rule group (colour = worst severity, number = count;\nall submissions, project-wide findings included)", loc="left", fontsize=9)
+    handles = [plt.Rectangle((0, 0), 1, 1, facecolor="#f3f6f7", edgecolor="#c3cfd4", label="no flag")]
+    handles += [plt.Rectangle((0, 0), 1, 1, color=STATUS[k], label=k) for k in ("info", "warning", "error")]
+    ax.legend(handles=handles, title="worst severity", loc="upper left", bbox_to_anchor=(1.01, 1), frameon=False)
     ax.spines[:].set_visible(False)
     fig.savefig(path)
     plt.close(fig)

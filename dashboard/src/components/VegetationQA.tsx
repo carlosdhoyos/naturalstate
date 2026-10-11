@@ -882,7 +882,19 @@ function PlotsTab({ d, t, showFlags }: Ctx) {
           [0.75, SEV_COLOR.error],
           [1, SEV_COLOR.error],
         ],
-        showscale: false,
+        // a stepped scale: four categories, each label centred on its band (z 0..3 over zmin 0, zmax 3)
+        showscale: true,
+        colorbar: {
+          title: { text: 'worst severity', side: 'right' },
+          tickvals: [0.375, 1.125, 1.875, 2.625],
+          ticktext: ['no flag', 'info', 'warning', 'error'],
+          thickness: 12,
+          len: 0.35,
+          y: 1,
+          yanchor: 'top',
+          outlinewidth: 0,
+          tickfont: { color: t.muted },
+        },
         xgap: 2,
         ygap: 2,
         customdata: reg1.map((p) => groups.map(() => p.plot_name)),
@@ -894,7 +906,7 @@ function PlotsTab({ d, t, showFlags }: Ctx) {
     <>
       <Section title="Flags per plot and rule group" sub={`Colour = worst severity (blue info, amber warning, red error); number = count. Canonical surveys only; project-wide findings that hit every plot alike are left out (${[...SYSTEMIC].join(', ')}). Click a cell to list a plot's flags.`}>
         <div className="chart-card">
-          <Plot data={heat} layout={{ ...baseLayout(t), margin: { l: 70, r: 10, t: 10, b: 150 }, xaxis: { ...axisStyle(t), tickangle: -35, side: 'bottom' }, yaxis: { ...axisStyle(t), autorange: 'reversed' } }} height={760} onClickIndex={(p) => showFlags({ plot: p as string })} filename="flags_heatmap" />
+          <Plot data={heat} layout={{ ...baseLayout(t), margin: { l: 70, r: 90, t: 10, b: 150 }, xaxis: { ...axisStyle(t), tickangle: -35, side: 'bottom' }, yaxis: { ...axisStyle(t), autorange: 'reversed' } }} height={760} onClickIndex={(p) => showFlags({ plot: p as string })} filename="flags_heatmap" />
         </div>
       </Section>
       <Section title="Registered plots" sub="Geometry from the registration; richness and coverage from the canonical survey (resolved taxa); provisional effort metrics are marked.">
