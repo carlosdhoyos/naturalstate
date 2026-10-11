@@ -5,7 +5,7 @@ Two challenges:
 1. **Birds**: turn BirdNET predictions into species observations using per-species confidence thresholds (Wood & Kahl 2024: the score at which a prediction has a 99% fitted probability of being correct), and specify how the Tech team can automate it.
 2. **Vegetation**: clean, join and QA/QC herbaceous vegetation survey data from ODK (flag issues, don't fix them), produce a data quality report, and specify the automated QA/QC dashboard pipeline.
 
-Challenge 1 is complete. Challenge 2 is in progress. Each challenge has its own folder with code and a Markdown write-up.
+Each challenge has its own folder with code and a Markdown write-up.
 
 ## Challenge 1
 
@@ -23,6 +23,20 @@ Challenge 1 is complete. Challenge 2 is in progress. Each challenge has its own 
 - **Deployable package:** [`challenge1/ns_observations/`](challenge1/ns_observations/README.md), with the `ns-observations calibrate` / `label` CLI, JSON schemas and a Dockerfile.
 - **How the analysis follows Wood & Kahl:** [`docs/challenge1_paper_alignment.md`](docs/challenge1_paper_alignment.md).
 
+## Challenge 2
+
+[`challenge2/`](challenge2/README.md) holds the reproducible QA/QC pipeline (Python), its rule catalogue, tests and outputs. No source value is changed: every problem is a flag pointing to its source row.
+
+- **Q1 answer:** [`challenge2/Q1_data_quality_report.md`](challenge2/Q1_data_quality_report.md): (a) survey-level summary, (b) plot-level summary, (c) sampling effort, (d) map of transect locations.
+- **Q2 answer, for the Tech team:** [`challenge2/Q2_tech_handover.md`](challenge2/Q2_tech_handover.md).
+- **Rule catalogue:** [`challenge2/rules/rules.yaml`](challenge2/rules/rules.yaml): 91 rules, each with its source, severity and metric impact.
+- **Headline:**
+  - The 30 surveyed plots are complete at record level.
+  - The shrubland stratum was not sampled.
+  - Taxon names need curation: raw richness is 132 taxa, resolved 115; 23 names are probably misspelled; 20 identified taxa have no Kenyan GBIF record.
+  - Several transects are offset, too short or bent.
+  - A late upload let two devices claim the same provisional species ids.
+
 ## Data Explorer
 
 [`dashboard/standalone/index.html`](dashboard/standalone/index.html) is a single self-contained file. Download it and double-click to explore every CSV in this repo (profiles, charts, filters, table, map) with no server. See [`dashboard/README.md`](dashboard/README.md) for what it does and the decisions behind it.
@@ -36,3 +50,4 @@ Challenge 1 is complete. Challenge 2 is in progress. Each challenge has its own 
   - D-13 is Wood & Kahl's covariate test, compared by AIC; D-14 records how the five other papers were used (reported, used as a check, not adopted, or downstream).
   - Each entry separates the policy from its measured consequences; superseded parts are marked, not deleted.
 - [`docs/challenge1_paper_alignment.md`](docs/challenge1_paper_alignment.md): Wood & Kahl's recommendations, point by point, against what the analysis does.
+- [`docs/challenge2_decisions.md`](docs/challenge2_decisions.md): Challenge 2 decisions (V-01 to V-11), differences from the exploratory review, new findings (N1–N9) and confirmation items (C-1 to C-9).

@@ -125,3 +125,18 @@ def test_curation_parsing():
                        "notes": ["duplicate of herb_036", "woody but below 40cm so should be excluded", ""]})
     c = curation_actions(si)
     assert c.loc["herb_001", "merge_into"] == "herb_036" and c.loc["herb_002", "exclude"] and c.loc["herb_003", "unresolved"]
+
+
+def test_report_tables_refresh_is_idempotent_and_keeps_prose(tmp_path):
+    from vegqa import report_tables
+
+    src = report_tables.REPORT.read_text()
+    p = tmp_path / "r.md"
+    p.write_text(src)
+    report_tables.refresh(p)
+    once = p.read_text()
+    report_tables.refresh(p)
+    assert p.read_text() == once
+    prose = lambda t: [line for line in t.splitlines() if not line.startswith("|")]
+    assert prose(once) == prose(src)
+    assert once.count("<!-- table:") == len(report_tables.TABLES)

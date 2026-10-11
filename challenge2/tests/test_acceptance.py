@@ -303,3 +303,8 @@ def test_N7_form_design(results):
 def test_N8_curation_label_mismatch(results):
     f13 = fails(results, "F13")
     assert f13[f13.entity_key == "herb_039"].observed.str.contains("label 'herb_011'").all()
+
+
+def test_N9_species_list_region(results):
+    f10 = fails(results, "F10")
+    assert f10[f10.entity_type == "project"].observed.str.startswith("20/90").all()
