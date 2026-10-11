@@ -3,7 +3,7 @@
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
 **Interactive version:** the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`, Vegetation → QA/QC dashboard): every flag with its source row, the map with per-plot transect panels, the curation queue and the effort views.
-**Prepared by:** Carlos Hoyos · run `qa-798e59b8855cb9d1` · reproducible with `python challenge2/src/run_challenge2.py`
+**Prepared by:** Carlos Hoyos · run `qa-c2dda0aff86a057a` · reproducible with `python challenge2/src/run_challenge2.py`
 
 ---
 
@@ -16,45 +16,46 @@ The 30 surveyed plots are complete and internally consistent at the record level
 - every reference resolves;
 - every GPS point meets the 5 m accuracy requirement.
 
-The problems that matter for richness and diversity sit elsewhere: in **what was sampled**, **where the data come from**, **how taxa are named**, and **a few records that the app could not have produced**.
+The problems that matter for richness and diversity sit elsewhere: in **what was sampled**, **where the data come from**, **how taxa are named**, and **where transects are**.
 
 **Issues that affect richness and diversity, in order of importance:**
 
 1. **The shrubland stratum was not sampled.** None of its 6 primary points was registered (J01), so the project cannot report herbaceous richness for shrubland. In the savanna stratum, 29 of 30 primary points were surveyed, plus 1 backup.
-2. **Positions, altitudes and species do not fit together at Lewa.** Confirm where the data were collected (C-7).
-   - Every GPS altitude is about **705 m below the terrain** at its recorded position (SRTM: 1,350–1,750 m; GPS: 960–1,030 m) (E14).
+2. **The data do not fit Lewa's terrain or flora.** Confirm where the data were collected (C-7).
+   - The whole dataset sits about **705 m below the terrain** at its coordinates (E14). Field GPS altitudes are 930–1,090 m, while SRTM gives 1,640–1,750 m at the same points. **Natural State's own prescribed points (the centroid list) show the same offset (−703 m)**, so this is not a field error: the coordinates and the altitudes come from different places.
    - **20 of the 90 identified taxa GBIF could check have no GBIF record in Kenya** (92 identified in all), but hundreds in southern Africa (F10): Pogonarthria fleckii, Pechuel-loeschea leubnitziae, Erlangea misera, Aristida scabrivalvis, and others.
    - The transport list offers "Mokoro", an Okavango dugout canoe.
 
-   Together these are consistent with a species list, and perhaps altitudes, carried over from a southern-African site near 1,000 m. Missing GBIF records alone would be weak evidence; the pattern is not.
+   Together these are consistent with demonstration data relocated from a southern-African site near 1,000 m, such as the Okavango. Missing GBIF records alone would be weak evidence; the pattern is not.
 3. **Taxonomy needs curation before diversity metrics are computed.**
    - 23 taxon names are probably misspelled (F03), checked against the GBIF backbone: "Crotolaria", "Ipomea", "Oldenladia", "Duosperma cretanum", "Polygalaerioptera", among others.
    - The curation table introduces one new typo ("Hibiscuc") and keeps others (F13).
    - Several provisional ids are one species (F08): "Ipomea dichroa" is 4 ids.
    - 23 unknowns remain unresolved, and they make up 15% of the records (F07).
    - Raw richness is 132 taxa. After Natural State's own curation it is 115; collapsing names GBIF matches to the same species gives 114 (Polygalaerioptera = Polygala erioptera).
-4. **Three registrations were edited after collection** (C17). The registration form copies each plot's geohash from the centroid list, but Plots 01, 04 and 15 store a different geohash. That value is exactly the geohash of the *measured* midpoint, which the form cannot compute. The edited value also reached the `vegplots` entity, so the plot's identifier now differs between the design list and the plot register.
-5. **Species may have been lost in 10 quadrats.** They are marked "additional species present" but have no species rows (C04). One further additional-species row has no taxon (C08).
-6. **Some transects are not where the registration says** (E03, D01–D04):
+4. **Species may have been lost in 10 quadrats.** They are marked "additional species present" but have no species rows (C04). One further additional-species row has no taxon (C08).
+5. **Some transects are not where the registration says** (E03, D01–D04):
    - Plot 05's quadrats lie 20 m to one side of the registered line, beyond GPS error.
    - Plot 14's midpoint is 33.6 m from the prescribed point; the SOP allows 25 m.
    - Plots 19 and 27 were registered as 23 m and 29 m transects instead of 50 m.
    - Plots 07 and 15 cover only part of their transect.
-7. **All 30 transects run roughly east–west** (49–89° off north–south), and **all 32 surveys walk out-and-back**. The SOP asks for a north–south layout and pairs at each 5 m mark. This is systematic, so it reads as a local practice, not as field errors (D05, E13; C-3).
-8. **The form's own end-of-survey check is wrong in 23 of 32 surveys** (C07, K02). The "quadrats with species" count misses list species because of a path error in the form, so the plausibility check the SOP relies on (step 13) misleads the team.
-9. **A process risk that did not change the data this time.** Device-01 uploaded its morning surveys of Plots 18 and 21 about 9–10 h late, so devices 02 and 03 started from an outdated species list (B06, B10).
+6. **All 30 transects run roughly east–west** (49–89° off north–south), and **all 32 surveys walk out-and-back**. The SOP asks for a north–south layout and pairs at each 5 m mark. This is systematic, so it reads as a local practice, not as field errors (D05, E13; C-3).
+7. **The form's own end-of-survey check is wrong in 23 of 32 surveys** (C07, K02). The "quadrats with species" count misses list species because of a path error in the form, so the plausibility check the SOP relies on (step 13) misleads the team.
+8. **A process risk that did not change the data this time.** Device-01 uploaded its morning surveys of Plots 18 and 21 about 9–10 h late, so devices 02 and 03 started from an outdated species list (B06, B10).
    - The two repeat surveys on device-02 then created provisional ids herb_100–102 that device-01 had already used.
    - Here they were the *same* plants in the *same* plots, so the values are identical and no two taxa share an id (F09).
    - Had they been different plants, two taxa would have merged silently.
    - Natural State rejected the repeats, but rejection does not undo entity updates (K03).
 
-**Counts:** 94 rules were evaluated on 24,827 rule × entity combinations. The result was 759 failures:
+9. **The deployed forms differ from the form files** (C17, C14). Every registration stores the geohash of its measured midpoint, while the form file copies the centroid's. The two differ only for Plots 01, 04 and 15, whose midpoint lies in a neighbouring geohash cell. Likewise, every survey stores the replicate in lower case (`lw_baseline`), where the form file would give `LW_baseline`. No record was edited (ODK Central's `Edits` = 0 for all 63 submissions). Confirm which form version was deployed (C-12).
+
+**Counts:** 94 rules were evaluated on 24,829 rule × entity combinations. The result was 697 failures:
 
 | Severity | Failures | Meaning |
 |---|---:|---|
-| Error | 27 | Violates a documented requirement or prevents reliable interpretation |
-| Warning | 284 | Needs review |
-| Info | 448 | Context |
+| Error | 24 | Violates a documented requirement or prevents reliable interpretation |
+| Warning | 222 | Needs review |
+| Info | 451 | Context |
 
 A further 22 combinations could not be checked. Every check that passed is listed with its count in Appendix A, so "not flagged" can be told apart from "not checked". A rule has a default severity, but a single result can be raised or lowered with a stated reason, for example a GPS z-score tier. Appendix A therefore shows each rule's failures split by the severity actually given.
 
@@ -91,7 +92,7 @@ The survey is the herbaceous survey entity of the Lewa baseline replicate as a w
 | Occurrences (canonical) | 2,093 |
 | Taxa: raw / resolved / resolved and identified | 132 / 115 / 92 |
 | Devices / recorders | 3 / 2 |
-| Flags: error / warning / info | 27 / 284 / 448 |
+| Flags: error / warning / info | 24 / 222 / 451 |
 <!-- /table -->
 
 ### What is in good order (checks that passed everywhere)
@@ -103,7 +104,7 @@ The survey is the herbaceous survey entity of the Lewa baseline replicate as a w
 | Evidence | Attachments present = expected for all 63 submissions; no photo file used twice (880 files) | A08, E11 |
 | Timing | Every quadrat photo falls inside its survey window; no upload before its form ended; no team member on two overlapping visits; no implausible travel speed between visits | E08, B06 (error tier only), B08, B09 |
 | GPS | All points meet the form's 5 m accuracy limit | D06, E01 |
-| Form rules | No constraint, required-field or relevance rule of either form is broken (canonical names, confirmation, macro photos, registration metadata); every entity-lookup calculation matches its list except the three edited geohashes (C17); the one other exception is Plot 28's empty additional-species row (C08) | C01–C03, C05, C06, C09–C13, C15, C16 |
+| Form rules | No constraint, required-field or relevance rule of either form is broken (canonical names, confirmation, macro photos, registration metadata); every entity-lookup calculation matches its list except the geohash, which the deployed form computes from the midpoint (C17); the one other exception is Plot 28's empty additional-species row (C08) | C01–C03, C05, C06, C09–C13, C15, C16 |
 | Entity state | Every provisional species entity holds exactly what its last submission wrote; the provisional index sequence is unbroken across accepted submissions | X01 (species slots), F14 |
 | Plot links | Every survey points to a registered, viable plot of the herbaceous survey | B03, D11 |
 
@@ -152,38 +153,38 @@ The survey is the herbaceous survey entity of the Lewa baseline replicate as a w
 <!-- table:submissions -->
 | plot | start (EAT) | device | recorder | review | canonical | min | upload h | taxa (resolved) | E/W/I | failed rules |
 |---|---|---|---|---|---|---:|---:|---:|---|---|
-| Plot_08 | 19 May 11:42 | d01 | Sam | not reviewed | yes | 236 | 4.0 | 26 | 0/7/18 | B05 B12 C07 C14 E02 E03 E04 E07 E13 E14 F01 |
-| Plot_12 | 20 May 09:30 | d01 | Sam | not reviewed | yes | 165 | 6.9 | 33 | 0/5/8 | B05 B12 C14 E02 E04 E07 E13 E14 F05 |
-| Plot_22 | 20 May 13:53 | d01 | Sam | not reviewed | yes | 73 | 4.8 | 20 | 0/3/7 | B12 C07 C14 E02 E04 E07 E13 E14 F05 |
-| Plot_03 | 20 May 16:24 | d01 | Sam | not reviewed | yes | 59 | 3.1 | 15 | 0/3/8 | B12 C14 E02 E04 E09 E13 E14 F11 G02 |
-| Plot_30 | 21 May 09:10 | d02 | Grace | not reviewed | yes | 101 | 0.4 | 24 | 1/4/4 | B12 C04 C07 C14 E02 E03 E04 E13 E14 |
-| Plot_10 | 21 May 11:29 | d01 | Grace | not reviewed | yes | 63 | 2.0 | 21 | 1/2/4 | B12 C04 C07 C14 E02 E13 E14 |
-| Plot_14 | 21 May 13:03 | d01 | Grace | not reviewed | yes | 58 | 0.8 | 17 | 1/6/9 | B12 C04 C07 C14 E02 E03 E04 E13 E14 F02 |
-| Plot_09 | 21 May 14:50 | d01 | Grace | not reviewed | yes | 82 | 0.6 | 26 | 0/3/5 | B12 C07 C14 E02 E04 E07 E13 E14 |
-| Plot_05 | 22 May 09:27 | d01 | Grace | not reviewed | yes | 102 | 1.0 | 16 | 1/15/9 | B12 C07 C14 E02 E03 E04 E13 E14 G02 |
-| Plot_26 | 22 May 12:05 | d01 | Grace | not reviewed | yes | 110 | 0.1 | 22 | 2/2/8 | B12 C07 C14 E02 E04 E07 E13 E14 F06 F11 |
-| Plot_27 | 22 May 14:42 | d01 | Grace | not reviewed | yes | 66 | 0.4 | 22 | 0/9/13 | B12 C07 C14 E02 E03 E04 E07 E13 E14 |
-| Plot_19 | 22 May 16:13 | d01 | Grace | not reviewed | yes | 60 | 0.5 | 19 | 1/8/13 | B12 C04 C07 C14 E02 E04 E07 E13 E14 G02 |
-| Plot_46 | 22 May 17:41 | d01 | Grace | not reviewed | yes | 33 | 2.2 | 8 | 3/2/7 | B12 C04 C07 C14 E02 E07 E13 E14 |
-| Plot_06 | 23 May 09:37 | d01 | Grace | not reviewed | yes | 92 | 0.5 | 24 | 0/6/6 | B12 C14 E02 E04 E13 E14 |
-| Plot_17 | 23 May 11:36 | d01 | Grace | not reviewed | yes | 44 | 0.5 | 22 | 0/1/4 | B12 C14 E13 E14 F11 |
-| Plot_13 | 23 May 12:46 | d01 | Grace | not reviewed | yes | 70 | 0.0 | 12 | 0/6/8 | B12 C14 E02 E03 E04 E13 E14 F11 |
-| Plot_01 | 23 May 15:03 | d01 | Grace | not reviewed | yes | 70 | 0.5 | 31 | 0/6/4 | B12 C07 C14 E02 E03 E06 E13 E14 |
-| Plot_28 | 23 May 16:40 | d01 | Grace | not reviewed | yes | 64 | 1.5 | 22 | 0/1/7 | B12 C14 E04 E07 E13 E14 F11 G02 |
-| Plot_02 | 24 May 10:06 | d01 | Grace | not reviewed | yes | 100 | 0.3 | 18 | 0/2/6 | B12 C07 C14 E07 E13 E14 F11 G02 |
-| Plot_24 | 24 May 12:05 | d01 | Grace | not reviewed | yes | 38 | 0.1 | 11 | 0/2/4 | B12 C07 C14 E13 E14 F11 |
-| Plot_20 | 24 May 13:09 | d01 | Grace | not reviewed | yes | 54 | 0.5 | 17 | 0/2/6 | B12 C07 C14 E02 E03 E13 E14 F11 |
-| Plot_15 | 24 May 15:00 | d01 | Grace | not reviewed | yes | 60 | 0.7 | 21 | 1/4/7 | B12 C04 C07 C14 E02 E05 E07 E13 E14 F11 |
-| Plot_07 | 24 May 16:38 | d01 | Grace | not reviewed | yes | 56 | 3.7 | 18 | 0/4/12 | B12 C07 C14 E02 E03 E05 E07 E13 E14 |
-| Plot_04 | 25 May 15:06 | d01 | Grace | not reviewed | yes | 56 | 0.1 | 20 | 0/4/10 | B12 C07 C14 E02 E04 E07 E13 E14 F11 G02 |
-| Plot_25 | 25 May 16:20 | d01 | Grace | not reviewed | yes | 63 | 0.1 | 31 | 0/2/5 | B12 C07 C14 E02 E13 E14 |
-| Plot_18 | 26 May 09:23 | d01 | Grace | not reviewed | yes | 54 | 10.4 | 27 | 1/2/5 | B06 B12 C14 E02 E13 E14 F05 F06 |
-| Plot_21 | 26 May 10:44 | d01 | Grace | not reviewed | yes | 68 | 8.9 | 30 | 0/2/5 | B06 B12 C07 C14 E02 E13 E14 |
-| Plot_29 | 26 May 12:57 | d02 | Sam | not reviewed | yes | 42 | 0.9 | 24 | 1/3/5 | B10 B12 C04 C07 C14 E02 E04 E13 E14 |
-| Plot_18 | 26 May 15:13 | d02 | Grace | rejected | no | 26 | 2.5 | 24 | 1/5/6 | B01 B05 B10 B12 C14 E02 E04 E13 E14 F05 F06 |
-| Plot_21 | 26 May 15:48 | d02 | Sam | rejected | no | 24 | 16.8 | 30 | 1/5/4 | B01 B05 B06 B10 B12 C04 C07 C14 E13 E14 |
-| Plot_11 | 26 May 16:31 | d03 | Grace | not reviewed | yes | 54 | 0.8 | 25 | 0/5/5 | B10 B12 C14 E02 E04 E13 E14 F05 F11 |
-| Plot_16 | 27 May 10:41 | d01 | Grace | not reviewed | yes | 51 | 0.2 | 23 | 0/3/6 | B12 C07 C14 E07 E13 E14 F01 |
+| Plot_08 | 19 May 11:42 | d01 | Sam | not reviewed | yes | 236 | 4.0 | 26 | 0/6/18 | B05 B12 C07 C14 E02 E03 E04 E07 E13 F01 |
+| Plot_12 | 20 May 09:30 | d01 | Sam | not reviewed | yes | 165 | 6.9 | 33 | 0/4/8 | B05 B12 C14 E02 E04 E07 E13 F05 |
+| Plot_22 | 20 May 13:53 | d01 | Sam | not reviewed | yes | 73 | 4.8 | 20 | 0/2/7 | B12 C07 C14 E02 E04 E07 E13 F05 |
+| Plot_03 | 20 May 16:24 | d01 | Sam | not reviewed | yes | 59 | 3.1 | 15 | 0/2/8 | B12 C14 E02 E04 E09 E13 F11 G02 |
+| Plot_30 | 21 May 09:10 | d02 | Grace | not reviewed | yes | 101 | 0.4 | 24 | 1/3/4 | B12 C04 C07 C14 E02 E03 E04 E13 |
+| Plot_10 | 21 May 11:29 | d01 | Grace | not reviewed | yes | 63 | 2.0 | 21 | 1/1/4 | B12 C04 C07 C14 E02 E13 |
+| Plot_14 | 21 May 13:03 | d01 | Grace | not reviewed | yes | 58 | 0.8 | 17 | 1/5/9 | B12 C04 C07 C14 E02 E03 E04 E13 F02 |
+| Plot_09 | 21 May 14:50 | d01 | Grace | not reviewed | yes | 82 | 0.6 | 26 | 0/2/5 | B12 C07 C14 E02 E04 E07 E13 |
+| Plot_05 | 22 May 09:27 | d01 | Grace | not reviewed | yes | 102 | 1.0 | 16 | 1/14/9 | B12 C07 C14 E02 E03 E04 E13 G02 |
+| Plot_26 | 22 May 12:05 | d01 | Grace | not reviewed | yes | 110 | 0.1 | 22 | 2/1/8 | B12 C07 C14 E02 E04 E07 E13 F06 F11 |
+| Plot_27 | 22 May 14:42 | d01 | Grace | not reviewed | yes | 66 | 0.4 | 22 | 0/8/13 | B12 C07 C14 E02 E03 E04 E07 E13 |
+| Plot_19 | 22 May 16:13 | d01 | Grace | not reviewed | yes | 60 | 0.5 | 19 | 1/7/13 | B12 C04 C07 C14 E02 E04 E07 E13 G02 |
+| Plot_46 | 22 May 17:41 | d01 | Grace | not reviewed | yes | 33 | 2.2 | 8 | 3/1/7 | B12 C04 C07 C14 E02 E07 E13 |
+| Plot_06 | 23 May 09:37 | d01 | Grace | not reviewed | yes | 92 | 0.5 | 24 | 0/5/6 | B12 C14 E02 E04 E13 |
+| Plot_17 | 23 May 11:36 | d01 | Grace | not reviewed | yes | 44 | 0.5 | 22 | 0/0/4 | B12 C14 E13 F11 |
+| Plot_13 | 23 May 12:46 | d01 | Grace | not reviewed | yes | 70 | 0.0 | 12 | 0/5/8 | B12 C14 E02 E03 E04 E13 F11 |
+| Plot_01 | 23 May 15:03 | d01 | Grace | not reviewed | yes | 70 | 0.5 | 31 | 0/5/4 | B12 C07 C14 E02 E03 E06 E13 |
+| Plot_28 | 23 May 16:40 | d01 | Grace | not reviewed | yes | 64 | 1.5 | 22 | 0/0/7 | B12 C14 E04 E07 E13 F11 G02 |
+| Plot_02 | 24 May 10:06 | d01 | Grace | not reviewed | yes | 100 | 0.3 | 18 | 0/1/6 | B12 C07 C14 E07 E13 F11 G02 |
+| Plot_24 | 24 May 12:05 | d01 | Grace | not reviewed | yes | 38 | 0.1 | 11 | 0/1/4 | B12 C07 C14 E13 F11 |
+| Plot_20 | 24 May 13:09 | d01 | Grace | not reviewed | yes | 54 | 0.5 | 17 | 0/1/6 | B12 C07 C14 E02 E03 E13 F11 |
+| Plot_15 | 24 May 15:00 | d01 | Grace | not reviewed | yes | 60 | 0.7 | 21 | 1/3/7 | B12 C04 C07 C14 E02 E05 E07 E13 F11 |
+| Plot_07 | 24 May 16:38 | d01 | Grace | not reviewed | yes | 56 | 3.7 | 18 | 0/3/12 | B12 C07 C14 E02 E03 E05 E07 E13 |
+| Plot_04 | 25 May 15:06 | d01 | Grace | not reviewed | yes | 56 | 0.1 | 20 | 0/3/10 | B12 C07 C14 E02 E04 E07 E13 F11 G02 |
+| Plot_25 | 25 May 16:20 | d01 | Grace | not reviewed | yes | 63 | 0.1 | 31 | 0/1/5 | B12 C07 C14 E02 E13 |
+| Plot_18 | 26 May 09:23 | d01 | Grace | not reviewed | yes | 54 | 10.4 | 27 | 1/1/5 | B06 B12 C14 E02 E13 F05 F06 |
+| Plot_21 | 26 May 10:44 | d01 | Grace | not reviewed | yes | 68 | 8.9 | 30 | 0/1/5 | B06 B12 C07 C14 E02 E13 |
+| Plot_29 | 26 May 12:57 | d02 | Sam | not reviewed | yes | 42 | 0.9 | 24 | 1/2/5 | B10 B12 C04 C07 C14 E02 E04 E13 |
+| Plot_18 | 26 May 15:13 | d02 | Grace | rejected | no | 26 | 2.5 | 24 | 1/4/6 | B01 B05 B10 B12 C14 E02 E04 E13 F05 F06 |
+| Plot_21 | 26 May 15:48 | d02 | Sam | rejected | no | 24 | 16.8 | 30 | 1/4/4 | B01 B05 B06 B10 B12 C04 C07 C14 E13 |
+| Plot_11 | 26 May 16:31 | d03 | Grace | not reviewed | yes | 54 | 0.8 | 25 | 0/4/5 | B10 B12 C14 E02 E04 E13 F05 F11 |
+| Plot_16 | 27 May 10:41 | d01 | Grace | not reviewed | yes | 51 | 0.2 | 23 | 0/2/6 | B12 C07 C14 E07 E13 F01 |
 <!-- /table -->
 
 </details>
@@ -209,8 +210,8 @@ The survey is the herbaceous survey entity of the Lewa baseline replicate as a w
 - **Stratum** (D08).
   - Plot 04 is recorded as "Forest" in the savanna stratum, and its canopy height (10 m) is the tallest in the data. The SOP allows an obvious stratum mismatch to justify non-viability (C-9).
   - The other 29 savanna plots are all recorded as **Scrub**: the ecosystem list has no "savanna" or "grassland savanna" option. Treating Scrub as compatible with savanna is our assumption (C-10).
-- **Edited registrations** (C17). Plots 01, 04 and 15 store a geohash equal to that of their measured midpoint, not the centroid geohash the form copies (see Summary, item 4).
-- **Prescribed points** (J04). The Registration SOP defines each plot midpoint as the centre of a geohash cell. All 51 prescribed points lie inside their geohash-7 cell, but 9–104 m (median 66 m) from its centre (C-11).
+- **Geohash** (C17). Each registration stores the geohash of its measured midpoint, not the centroid's geohash as in the form file (see Summary, item 9). It differs from the centroid's only for Plots 01, 04 and 15, and the value also reached the `vegplots` entity.
+- **Prescribed points** (J04). The Registration SOP defines each plot midpoint as the centre of a geohash cell. All 51 prescribed points lie inside their geohash-7 cell, but 9–104 m (median 66 m) from its centre. That spread is what points scattered at random inside the cells would give, which suggests the geohashes were derived from the points rather than the points from the geohashes (C-11).
 - **Backup** (D09, D10, J02). Plot 23 (non-viable: "On private property") was replaced by backup Plot 46, 3.8 km away, although Plot 42 was 2.1 km away. The backup-selection rule is not documented (C-2).
 - **Dominant woody species** (F12). Plot 14 records "Vachellia xanthophloea" as an *unknown* dominant woody species. A named species belongs in the known-species field.
 
@@ -266,37 +267,37 @@ The grid below shows each registered transect: the A–M–B line, the 5 m belt,
 <!-- table:plots -->
 | plot | status | viable | offset m | A-B m | off N-S deg | taxa raw / resolved | all-unknown quadrats | coverage | Hill q1 / q2 | E/W/I | failed rules |
 |---|---|---|---:|---:|---:|---|---:|---:|---|---|---|
-| Plot_01 | primary | yes | 11.4 | 63.2 | 49 | 31 / 31 | 3 | 0.839 | 21.4 / 16.3 | 1/9/7 | B05 B12 C07 C14 C17 D03 D05 E02 E03 E06 E13 E14 J04 |
-| Plot_02 | primary | yes | 13.3 | 53.8 | 77 | 18 / 18 | 7 | 0.888 | 14.6 / 12.4 | 0/5/8 | B12 C07 C14 D04 D05 E07 E13 E14 F11 G02 J04 |
-| Plot_03 | primary | yes | 5.3 | 57.5 | 73 | 15 / 15 | 14 | 0.844 | 10.7 / 8.4 | 0/6/11 | A10 B12 C14 D02 D05 E02 E04 E09 E13 E14 F11 G02 J04 |
-| Plot_04 | primary | yes | 5.7 | 53.5 | 70 | 21 / 20 | 6 | 0.836 | 14.9 / 11.9 | 1/7/12 | B12 C07 C14 C17 D05 D08 E02 E04 E07 E13 E14 F11 G02 J04 |
-| Plot_05 | primary | yes | 20.0 | 46.0 | 63 | 16 / 16 | 4 | 0.798 | 10.2 / 7.1 | 1/17/13 | B12 C07 C14 D05 E02 E03 E04 E13 E14 G02 J04 P02 |
-| Plot_06 | primary | yes | 4.3 | 48.4 | 74 | 24 / 24 | 4 | 0.895 | 16.5 / 12.5 | 0/8/12 | B05 B12 C14 D05 E02 E04 E13 E14 J04 P02 |
-| Plot_07 | primary | yes | 5.9 | 52.3 | 85 | 18 / 18 | 1 | 0.94 | 12.1 / 9.0 | 0/7/17 | B05 B12 C07 C14 D02 D05 E02 E03 E05 E07 E13 E14 J04 P02 |
-| Plot_08 | primary | yes | 5.7 | 47.6 | 68 | 26 / 26 | 0 | 0.93 | 16.2 / 11.1 | 0/9/22 | A10 B05 B06 B12 C07 C14 D05 E02 E03 E04 E07 E13 E14 F01 J04 |
-| Plot_09 | primary | yes | 5.3 | 45.7 | 78 | 27 / 26 | 1 | 0.882 | 18.4 / 14.7 | 0/5/8 | A10 B12 C07 C14 D05 E02 E04 E07 E13 E14 J04 |
-| Plot_10 | primary | yes | 10.2 | 57.5 | 71 | 21 / 21 | 0 | 0.84 | 13.1 / 9.1 | 1/4/7 | A10 B12 C04 C07 C14 D05 E02 E13 E14 J04 |
-| Plot_11 | primary | yes | 11.6 | 42.5 | 72 | 25 / 25 | 7 | 0.894 | 20.7 / 18.1 | 0/8/7 | B10 B12 C14 D04 D05 E02 E04 E13 E14 F05 F11 J04 |
-| Plot_12 | primary | yes | 12.2 | 41.9 | 57 | 35 / 33 | 4 | 0.902 | 24.5 / 19.1 | 0/7/12 | A10 B05 B12 C14 D05 E02 E04 E07 E13 E14 F05 J04 P02 |
-| Plot_13 | primary | yes | 14.0 | 56.1 | 78 | 13 / 12 | 7 | 0.975 | 8.5 / 6.9 | 0/10/11 | B12 C14 D02 D04 D05 E02 E03 E04 E13 E14 F11 J04 P02 |
-| Plot_14 | primary | yes | 33.6 | 44.0 | 89 | 18 / 17 | 0 | 0.93 | 8.9 / 6.1 | 2/10/12 | A10 B12 C04 C07 C14 D01 D02 D05 E02 E03 E04 E13 E14 F02 F12 J04 |
-| Plot_15 | primary | yes | 15.2 | 60.4 | 84 | 21 / 21 | 10 | 0.685 | 16.0 / 11.9 | 4/7/10 | B05 B12 C04 C07 C14 C17 D02 D03 D04 D05 E02 E05 E07 E13 E14 F11 J04 |
-| Plot_16 | primary | yes | 3.5 | 58.3 | 80 | 23 / 23 | 2 | 0.902 | 15.9 / 12.5 | 0/6/8 | B05 B12 C07 C14 D05 E07 E13 E14 F01 J04 |
-| Plot_17 | primary | yes | 23.9 | 49.6 | 82 | 22 / 22 | 3 | 0.887 | 14.4 / 10.3 | 0/3/9 | B12 C14 D01 D05 E13 E14 F11 J04 P02 |
-| Plot_18 | primary | yes | 2.6 | 45.7 | 66 | 28 / 27 | 5 | 0.807 | 19.5 / 15.1 | 2/11/13 | B01 B02 B05 B06 B10 B12 C14 D05 E02 E04 E13 E14 F05 F06 J04 |
-| Plot_19 | primary | yes | 3.6 | 22.6 | 60 | 19 / 19 | 5 | 0.819 | 13.4 / 10.5 | 3/10/16 | B12 C04 C07 C14 D02 D03 D05 E02 E04 E07 E13 E14 G02 J04 P02 |
-| Plot_20 | primary | yes | 4.6 | 45.1 | 75 | 17 / 17 | 8 | 0.916 | 13.0 / 10.4 | 0/4/9 | B05 B12 C07 C14 D05 E02 E03 E13 E14 F11 J04 |
-| Plot_21 | primary | yes | 13.8 | 44.8 | 82 | 30 / 30 | 1 | 0.875 | 22.9 / 18.9 | 1/10/13 | B01 B02 B05 B06 B10 B12 C04 C07 C14 D05 E02 E13 E14 G04 J04 |
-| Plot_22 | primary | yes | 17.8 | 65.6 | 50 | 20 / 20 | 1 | 0.914 | 15.7 / 13.1 | 1/7/11 | A10 B12 C07 C14 D02 D03 D04 D05 E02 E04 E07 E13 E14 F05 J04 P02 |
+| Plot_01 | primary | yes | 11.4 | 63.2 | 49 | 31 / 31 | 3 | 0.839 | 21.4 / 16.3 | 0/7/8 | B05 B12 C07 C14 C17 D03 D05 E02 E03 E06 E13 J04 |
+| Plot_02 | primary | yes | 13.3 | 53.8 | 77 | 18 / 18 | 7 | 0.888 | 14.6 / 12.4 | 0/3/8 | B12 C07 C14 D04 D05 E07 E13 F11 G02 J04 |
+| Plot_03 | primary | yes | 5.3 | 57.5 | 73 | 15 / 15 | 14 | 0.844 | 10.7 / 8.4 | 0/4/11 | A10 B12 C14 D02 D05 E02 E04 E09 E13 F11 G02 J04 |
+| Plot_04 | primary | yes | 5.7 | 53.5 | 70 | 21 / 20 | 6 | 0.836 | 14.9 / 11.9 | 0/5/13 | B12 C07 C14 C17 D05 D08 E02 E04 E07 E13 F11 G02 J04 |
+| Plot_05 | primary | yes | 20.0 | 46.0 | 63 | 16 / 16 | 4 | 0.798 | 10.2 / 7.1 | 1/15/13 | B12 C07 C14 D05 E02 E03 E04 E13 G02 J04 P02 |
+| Plot_06 | primary | yes | 4.3 | 48.4 | 74 | 24 / 24 | 4 | 0.895 | 16.5 / 12.5 | 0/6/12 | B05 B12 C14 D05 E02 E04 E13 J04 P02 |
+| Plot_07 | primary | yes | 5.9 | 52.3 | 85 | 18 / 18 | 1 | 0.94 | 12.1 / 9.0 | 0/5/17 | B05 B12 C07 C14 D02 D05 E02 E03 E05 E07 E13 J04 P02 |
+| Plot_08 | primary | yes | 5.7 | 47.6 | 68 | 26 / 26 | 0 | 0.93 | 16.2 / 11.1 | 0/7/22 | A10 B05 B06 B12 C07 C14 D05 E02 E03 E04 E07 E13 F01 J04 |
+| Plot_09 | primary | yes | 5.3 | 45.7 | 78 | 27 / 26 | 1 | 0.882 | 18.4 / 14.7 | 0/3/8 | A10 B12 C07 C14 D05 E02 E04 E07 E13 J04 |
+| Plot_10 | primary | yes | 10.2 | 57.5 | 71 | 21 / 21 | 0 | 0.84 | 13.1 / 9.1 | 1/2/7 | A10 B12 C04 C07 C14 D05 E02 E13 J04 |
+| Plot_11 | primary | yes | 11.6 | 42.5 | 72 | 25 / 25 | 7 | 0.894 | 20.7 / 18.1 | 0/6/7 | B10 B12 C14 D04 D05 E02 E04 E13 F05 F11 J04 |
+| Plot_12 | primary | yes | 12.2 | 41.9 | 57 | 35 / 33 | 4 | 0.902 | 24.5 / 19.1 | 0/5/12 | A10 B05 B12 C14 D05 E02 E04 E07 E13 F05 J04 P02 |
+| Plot_13 | primary | yes | 14.0 | 56.1 | 78 | 13 / 12 | 7 | 0.975 | 8.5 / 6.9 | 0/8/11 | B12 C14 D02 D04 D05 E02 E03 E04 E13 F11 J04 P02 |
+| Plot_14 | primary | yes | 33.6 | 44.0 | 89 | 18 / 17 | 0 | 0.93 | 8.9 / 6.1 | 2/8/12 | A10 B12 C04 C07 C14 D01 D02 D05 E02 E03 E04 E13 F02 F12 J04 |
+| Plot_15 | primary | yes | 15.2 | 60.4 | 84 | 21 / 21 | 10 | 0.685 | 16.0 / 11.9 | 3/5/11 | B05 B12 C04 C07 C14 C17 D02 D03 D04 D05 E02 E05 E07 E13 F11 J04 |
+| Plot_16 | primary | yes | 3.5 | 58.3 | 80 | 23 / 23 | 2 | 0.902 | 15.9 / 12.5 | 0/4/8 | B05 B12 C07 C14 D05 E07 E13 F01 J04 |
+| Plot_17 | primary | yes | 23.9 | 49.6 | 82 | 22 / 22 | 3 | 0.887 | 14.4 / 10.3 | 0/1/9 | B12 C14 D01 D05 E13 F11 J04 P02 |
+| Plot_18 | primary | yes | 2.6 | 45.7 | 66 | 28 / 27 | 5 | 0.807 | 19.5 / 15.1 | 2/8/13 | B01 B02 B05 B06 B10 B12 C14 D05 E02 E04 E13 F05 F06 J04 |
+| Plot_19 | primary | yes | 3.6 | 22.6 | 60 | 19 / 19 | 5 | 0.819 | 13.4 / 10.5 | 3/8/16 | B12 C04 C07 C14 D02 D03 D05 E02 E04 E07 E13 G02 J04 P02 |
+| Plot_20 | primary | yes | 4.6 | 45.1 | 75 | 17 / 17 | 8 | 0.916 | 13.0 / 10.4 | 0/2/9 | B05 B12 C07 C14 D05 E02 E03 E13 F11 J04 |
+| Plot_21 | primary | yes | 13.8 | 44.8 | 82 | 30 / 30 | 1 | 0.875 | 22.9 / 18.9 | 1/7/13 | B01 B02 B05 B06 B10 B12 C04 C07 C14 D05 E02 E13 G04 J04 |
+| Plot_22 | primary | yes | 17.8 | 65.6 | 50 | 20 / 20 | 1 | 0.914 | 15.7 / 13.1 | 1/5/11 | A10 B12 C07 C14 D02 D03 D04 D05 E02 E04 E07 E13 F05 J04 P02 |
 | Plot_23 | primary | no |  |  |  |  |  |  |  | 0/1/3 | B12 E12 J01 J04 |
-| Plot_24 | primary | yes | 6.2 | 50.6 | 87 | 11 / 11 | 14 | 0.816 | 5.9 / 3.9 | 0/4/6 | B12 C07 C14 D05 E13 E14 F11 J04 |
-| Plot_25 | primary | yes | 2.6 | 42.8 | 84 | 31 / 31 | 1 | 0.863 | 24.3 / 19.9 | 0/4/7 | B12 C07 C14 D05 E02 E13 E14 J04 |
-| Plot_26 | primary | yes | 7.7 | 50.5 | 67 | 24 / 22 | 7 | 0.896 | 17.4 / 14.3 | 2/4/11 | B05 B12 C07 C14 D05 E02 E04 E07 E13 E14 F06 F11 J04 |
-| Plot_27 | primary | yes | 20.3 | 28.6 | 56 | 22 / 22 | 4 | 0.908 | 17.8 / 15.6 | 2/11/16 | B12 C07 C14 D01 D02 D03 D05 E02 E03 E04 E07 E13 E14 J04 |
-| Plot_28 | primary | yes | 1.2 | 40.2 | 62 | 22 / 22 | 10 | 0.778 | 13.1 / 8.9 | 1/4/10 | B12 C08 C14 D02 D05 E04 E07 E13 E14 F11 G02 J04 P02 |
-| Plot_29 | primary | yes | 8.3 | 61.8 | 75 | 24 / 24 | 1 | 0.885 | 16.9 / 13.2 | 1/5/8 | B10 B12 C04 C07 C14 D05 E02 E04 E13 E14 J04 P02 |
-| Plot_30 | primary | yes | 14.5 | 50.9 | 70 | 24 / 24 | 0 | 0.868 | 16.3 / 12.0 | 1/7/7 | A10 B12 C04 C07 C14 D02 D05 E02 E03 E04 E13 E14 J04 |
-| Plot_46 | backup | yes | 6.2 | 46.7 | 78 | 8 / 8 | 2 | 0.954 | 5.4 / 4.2 | 3/4/11 | B12 C04 C07 C14 D05 D09 E02 E07 E13 E14 J02 J04 |
+| Plot_24 | primary | yes | 6.2 | 50.6 | 87 | 11 / 11 | 14 | 0.819 | 5.9 / 3.9 | 0/2/6 | B12 C07 C14 D05 E13 F11 J04 |
+| Plot_25 | primary | yes | 2.6 | 42.8 | 84 | 31 / 31 | 1 | 0.863 | 24.3 / 19.9 | 0/2/7 | B12 C07 C14 D05 E02 E13 J04 |
+| Plot_26 | primary | yes | 7.7 | 50.5 | 67 | 24 / 22 | 7 | 0.896 | 17.4 / 14.3 | 2/2/11 | B05 B12 C07 C14 D05 E02 E04 E07 E13 F06 F11 J04 |
+| Plot_27 | primary | yes | 20.3 | 28.6 | 56 | 22 / 22 | 4 | 0.908 | 17.8 / 15.6 | 2/9/16 | B12 C07 C14 D01 D02 D03 D05 E02 E03 E04 E07 E13 J04 |
+| Plot_28 | primary | yes | 1.2 | 40.2 | 62 | 22 / 22 | 10 | 0.778 | 13.1 / 8.9 | 1/2/10 | B12 C08 C14 D02 D05 E04 E07 E13 F11 G02 J04 P02 |
+| Plot_29 | primary | yes | 8.3 | 61.8 | 75 | 24 / 24 | 1 | 0.885 | 16.9 / 13.2 | 1/3/8 | B10 B12 C04 C07 C14 D05 E02 E04 E13 J04 P02 |
+| Plot_30 | primary | yes | 14.5 | 50.9 | 70 | 24 / 24 | 0 | 0.868 | 16.3 / 12.0 | 1/5/7 | A10 B12 C04 C07 C14 D02 D05 E02 E03 E04 E13 J04 |
+| Plot_46 | backup | yes | 6.2 | 46.7 | 78 | 8 / 8 | 2 | 0.954 | 5.4 / 4.2 | 3/2/11 | B12 C04 C07 C14 D05 D09 E02 E07 E13 J02 J04 |
 <!-- /table -->
 
 </details>
@@ -427,11 +428,12 @@ The full log is in [`docs/challenge2_decisions.md`](../docs/challenge2_decisions
 - **C-4** What positional tolerance does NS use?
 - **C-5** Is `species_extra_ids` authoritative, and can its merges and exclusions become structured columns? A ready list of suggested changes is in `outputs/species_list_suggestions.csv`.
 - **C-6** Is the shrubland stratum still planned?
-- **C-7** Where were the data collected, and is the species list the right one for Lewa? GPS altitudes are about 705 m below the terrain, a fifth of the taxa have no Kenyan record, and the transport list includes "Mokoro".
+- **C-7** Where were the data collected, and is the species list the right one for Lewa? The whole dataset, prescribed points included, sits about 705 m below the terrain; 20 of 90 checkable taxa have no Kenyan record; and the transport list includes "Mokoro".
 - **C-8** Can the device time zone be set to Africa/Nairobi?
 - **C-9** Should Plot 04 stay in the savanna sample?
 - **C-10** Which ecosystem types are compatible with each stratum? 29 of 30 savanna plots are recorded as Scrub.
 - **C-11** Which defines a plot: the prescribed coordinates or the geohash-cell centre? They differ by up to 104 m.
+- **C-12** Which form versions were deployed? The stored geohash and replicate label follow a different calculation from the form files, under the same version numbers.
 
 ---
 
@@ -479,7 +481,7 @@ Every rule evaluated in this run, with its source and result counts. "Not checke
 | C13 | error | indirect | Required quadrat field missing | form required herbs_present, quadrat_image, location_quadrat | 0 | 0/0/0 | 640 | 0 |
 | C14 | error | no | Stored calculated survey fields differ from recomputed | form calculations survey_year, replicate_index, replicate, labels | 32 | 0/0/32 | 0 | 0 |
 | C15 | error | yes | all_unknown = yes but additional species = no | form constraint additional_species_present: . = 'yes' or all_unknown != 'yes' | 0 | 0/0/0 | 139 | 0 |
-| C17 | error | indirect | Stored lookup calculation differs from its entity list | form calculations instance('<list>')/root/item[name = ${field}]/<column> (both forms, parsed) | 3 | 3/0/0 | 60 | 0 |
+| C17 | error | indirect | Stored lookup calculation differs from its entity list | form calculations instance('<list>')/root/item[name = ${field}]/<column> (both forms, parsed) | 3 | 0/0/3 | 62 | 0 |
 | C16 | error | no | Registration field missing or violating its form rule | registration form required/relevant/constraints | 0 | 0/0/0 | 31 | 0 |
 | D01 | error | indirect | Midpoint too far from the prescribed point | Registration SOP step 5 (midpoint <= 25 m from prescribed) | 3 | 1/0/2 | 27 | 0 |
 | D02 | warning | indirect | Half-transect length inconsistent with 25 m (beyond GPS error) | Registration SOP fig. 1 (A-M = M-B = 25 m) | 10 | 4/6/0 | 20 | 0 |
@@ -504,7 +506,7 @@ Every rule evaluated in this run, with its source and result counts. "Not checke
 | E10 | warning | no | Implausibly short time between consecutive quadrats | judgement | 0 | 0/0/0 | 608 | 0 |
 | E11 | error | no | Same photo file used more than once | judgement | 0 | 0/0/0 | 880 | 0 |
 | E12 | info | no | Confirmation location far from the plot, or missing | form background-geopoint | 1 | 0/0/1 | 43 | 19 |
-| E14 | warning | no | GPS altitudes inconsistent with the terrain at the recorded position | SRTM 90 m terrain elevation (cached reference) | 63 | 0/63/0 | 0 | 1 |
+| E14 | warning | no | GPS altitudes inconsistent with the terrain at the recorded position | SRTM 90 m terrain elevation (cached reference) | 1 | 0/1/0 | 62 | 1 |
 | E13 | info | no | Walking order differs from the SOP (e.g. out-and-back) | Herbaceous SOP steps 11-12 (both sides at each 5 m mark) | 33 | 0/0/33 | 0 | 0 |
 | F01 | warning | yes | Typed canonical not in canonical format | Herbaceous SOP step 7 (canonical Genus_species) | 2 | 0/2/0 | 43 | 0 |
 | F02 | warning | yes | Typed 'missing' species is on the project list | Herbaceous SOP step 7 (use the list; free text only if missing) | 9 | 0/1/8 | 113 | 0 |

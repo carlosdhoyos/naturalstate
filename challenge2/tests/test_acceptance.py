@@ -312,19 +312,25 @@ def test_N9_species_list_region(results):
     assert f10[f10.entity_type == "project"].observed.str.startswith("20/90").all()
 
 
-def test_N10_registration_geohash_edited(results):
-    """The registration copies the centroid geohash; three stored values are the geohash of the measured
-    midpoint instead, which the form cannot produce (found by the independent review)."""
+def test_N10_deployed_form_computes_geohash_from_midpoint(results):
+    """The form file copies the centroid geohash, but every registration stores the geohash of its measured
+    midpoint (30/30) and none was edited (Edits = 0): a deployed-form difference, reported as info. It
+    differs from the centroid's geohash only in the three plots whose midpoint lies in a neighbouring cell."""
     c17 = fails(results, "C17")
     assert set(c17.plot_name) == {P + "01", P + "04", P + "15"}
-    assert c17.observed.str.contains("= geohash of the registered midpoint").all()
+    assert (c17.severity == "info").all() and c17.observed.str.contains("as in 30/30 registrations").all()
+    assert c17.message.str.contains("deployed form").all()
+    proj = results[(results.rule_id == "C17") & (results.entity_type == "project")]
+    assert set(proj.status) == {"pass"}  # every parsed lookup calculation was recomputed
 
 
 def test_N11_altitudes_inconsistent_with_terrain(results):
+    """The whole dataset, NS's prescribed points included, sits ~700 m below the terrain: one project
+    finding, not 62 field errors."""
     e14 = fails(results, "E14")
-    proj = e14[e14.entity_type == "project"]
-    assert len(proj) == 1 and "median -7" in proj.observed.iloc[0]
-    assert (e14.entity_type != "project").sum() == 62  # every submission with altitudes (Plot 23 has none)
+    assert list(e14.entity_type) == ["project"]
+    obs = e14.observed.iloc[0]
+    assert "field GPS minus terrain: median -704 m" in obs and "centroid altitudes) minus terrain: median -703 m" in obs
 
 
 def test_repeat_surveys_reused_same_slots_for_same_plants(b):
@@ -346,8 +352,11 @@ def test_species_list_suggestions(b):
     s = b["tables"]["species_list_suggestions"]
     spell = s[s.action == "confirm_spelling"].set_index("name_as_recorded").suggested_name
     assert spell["Polygalaerioptera"] == "Polygala erioptera" and spell["Hibiscuc sidiformis"] == "Hibiscus sidiformis"
-    assert "Melosperma bracteatum" in spell.index  # no species-level match: no suggestion
-    merged = s[s.action == "merge_provisional"].set_index("name_as_recorded").provisional_ids
-    assert len(merged["Ipomea dichroa"].split()) == 4
-    assert set(s.action) <= {"add_to_list", "confirm_spelling", "merge_with_list", "merge_provisional", "check_range"}
-    assert (s[s.action == "check_range"].gbif_records_country == 0).all()
+    assert set(s[s.action == "verify_name"].name_as_recorded) == {"Melosperma bracteatum", "Justicia divaricata"}
+    merged = s[s.action == "merge_provisional"].set_index("suggested_name").provisional_ids
+    assert len(merged["Ipomoea dichroa"].split()) == 4 and merged["Polygala erioptera"] == "herb_023 herb_084"  # spelling variants = one species
+    # one species, never two contradictory rows: no species is both added and merged with the list
+    per = s.groupby("suggested_name").action.apply(set)
+    assert not any({"add_to_list", "merge_with_list"} <= a or {"add_to_list", "verify_before_adding"} <= a for a in per)
+    assert (s[s.action.isin(["check_range", "verify_before_adding"])].gbif_records_country == 0).all()
+    assert (s[s.action == "add_to_list"].gbif_records_country > 0).all()

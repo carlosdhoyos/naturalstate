@@ -61,6 +61,9 @@ const GROUPS: Record<string, string> = {
 }
 /** Fixed decimals (fmtNum in data/stats takes significant digits); '—' for missing values. */
 const fx = (v: unknown, d = 2): string => (typeof v === 'number' && Number.isFinite(v) ? v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—')
+/** Project-wide findings that hit every plot alike (layout, walking order, time-zone label, altitude offset, geohash centres, deployed-form differences): left out of per-plot colouring so plots stay comparable. */
+const SYSTEMIC = new Set(['D05', 'E13', 'B12', 'C14', 'C17', 'E14', 'J04'])
+const plotFlags = (plot: string) => FLAGS.filter((f) => f.plot_name === plot && f.canonical && !SYSTEMIC.has(f.rule_id))
 const short = (p: string | null | undefined) => (p ? String(p).replace('SavMon_LW_', '') : '')
 const ruleTitle = Object.fromEntries(RULES.map((r) => [r.rule_id, r.title as string]))
 
@@ -200,7 +203,8 @@ function DataTable({ cols, rows, limit = 60, initialSort, className = '' }: { co
     return [...rows].sort((a, b) => {
       const x = val(a)
       const y = val(b)
-      const cmp = x == null ? 1 : y == null ? -1 : typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true })
+      if (x == null || y == null) return x == null && y == null ? 0 : x == null ? 1 : -1 // missing values last, in both directions
+      const cmp = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true })
       return sort.desc ? -cmp : cmp
     })
   }, [rows, sort, cols])
@@ -264,13 +268,13 @@ const worstOf = (rows: Row[]): Sev | null => {
 
 const HEADLINES: { title: string; text: string; rules: string[] }[] = [
   { title: 'Shrubland stratum not sampled', text: '0 of 6 primary points registered: no richness for shrubland.', rules: ['J01'] },
-  { title: 'Positions, altitudes and species disagree with Lewa', text: 'GPS altitudes ~705 m below the terrain; 20 of 90 identified taxa have no Kenyan GBIF record; the transport list offers "Mokoro". Confirm where the data come from (C-7).', rules: ['E14', 'F10'] },
+  { title: 'The data do not fit Lewa’s terrain or flora', text: 'The whole dataset, NS’s own prescribed points included, sits ~705 m below the SRTM terrain at its coordinates; 20 of the 90 identified taxa GBIF could check have no Kenyan record; the transport list offers "Mokoro". Confirm where the data come from (C-7).', rules: ['E14', 'F10'] },
   { title: 'Taxon names need curation', text: '23 likely misspellings (GBIF-checked); curation-table typos and kept misspellings; several ids for one species; 23 unresolved unknowns (15% of records).', rules: ['F03', 'F13', 'F08', 'F07'] },
-  { title: 'Three registrations edited after collection', text: 'Plots 01, 04, 15 store the geohash of their measured midpoint, which the form cannot compute; it spread to the plot register.', rules: ['C17'] },
   { title: 'Species possibly lost', text: '10 quadrats declare additional species but have no rows; one row has no taxon.', rules: ['C04', 'C08'] },
   { title: 'Transects off their registration', text: 'Plot 05 offset 20 m; Plot 14 midpoint 33.6 m out; Plots 19/27 far too short; Plots 07/15 partly covered.', rules: ['E03', 'D01', 'D03', 'E05'] },
   { title: 'Systematic E–W layout and out-and-back walking', text: '30/30 transects 49–89° off N–S; 32/32 surveys out-and-back. A protocol question (C-3), not 30 field errors.', rules: ['D05', 'E13'] },
   { title: 'Form calculation bug', text: '"Quadrats with species" wrong in 23/32 surveys: a path error in the form.', rules: ['C07', 'K02'] },
+  { title: 'Deployed form differs from the form file', text: 'Every registration stores its measured midpoint’s geohash (the form file copies the centroid’s), and every survey a lower-case replicate label. Edits = 0 everywhere: no sign of manual edits.', rules: ['C17', 'C14'] },
   { title: 'Late uploads: provisional-id risk', text: 'Devices 02/03 started from an outdated species list; here the reused ids were the same plants, so no record is wrong.', rules: ['B06', 'B10', 'F09', 'K03'] },
 ]
 
@@ -534,7 +538,7 @@ function MapTab({ t, showFlags }: Ctx) {
   const [sel, setSel] = useState<string>('SavMon_LW_Plot_05')
   const worstByPlot = useMemo(() => {
     const m: Record<string, Sev | null> = {}
-    for (const p of PLOTS) m[p.plot_name] = worstOf(FLAGS.filter((f) => f.plot_name === p.plot_name && f.canonical))
+    for (const p of PLOTS) m[p.plot_name] = worstOf(plotFlags(p.plot_name))
     return m
   }, [])
   const fig = useMemo(() => {
@@ -567,7 +571,7 @@ function MapTab({ t, showFlags }: Ctx) {
       <div className="qa-filters">
         <Segmented value={colorBy} onChange={setColorBy} size="sm" options={[{ value: 'status', label: 'Colour: plan status' }, { value: 'worst', label: 'Colour: worst flag' }]} />
         <Segmented value={basemap} onChange={setBasemap} size="sm" options={[{ value: 'light', label: 'Map' }, { value: 'satellite', label: 'Satellite' }, { value: 'none', label: 'No basemap' }]} />
-        <span className="muted small">Basemap tiles need a connection; points and transects draw without them. Click a plot.</span>
+        <span className="muted small">Basemap tiles need a connection; points and transects draw without them. Click a plot. “Worst flag” leaves out project-wide findings that hit every plot alike ({[...SYSTEMIC].join(', ')}).</span>
       </div>
       <div className="sum-grid two">
         <div className="chart-card">
@@ -584,7 +588,7 @@ function PlotPanel({ t, plot, showFlags }: { t: ThemeTokens; plot: string; showF
   const p = PLOTS.find((x) => x.plot_name === plot)
   const tr = TRANSECTS.find((x) => x.plot_name === plot)
   const qs = QUADRATS.filter((q) => q.plot_name === plot && q.canonical)
-  const fl = FLAGS.filter((f) => f.plot_name === plot && f.canonical && ['D', 'E', 'J', 'C'].includes(f.group) && f.severity !== 'info')
+  const fl = plotFlags(plot).filter((f) => ['D', 'E', 'J', 'C'].includes(f.group) && f.severity !== 'info').sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity])
   const fig = useMemo(() => {
     if (!tr) return null
     const cx = tr.cx as number
@@ -669,8 +673,8 @@ function PlotsTab({ t, showFlags }: Ctx) {
   const cov = Object.fromEntries(EFF_PLOTS.filter((e) => e.layer === 'resolved').map((e) => [e.plot_name, e]))
   const groups = Object.keys(GROUPS).filter((g) => g !== 'K')
   const heat = useMemo(() => {
-    const z = reg.map((p) => groups.map((g) => SEV_RANK[worstOf(FLAGS.filter((f) => f.plot_name === p.plot_name && f.group === g && f.canonical)) ?? ''] ?? 0))
-    const txt = reg.map((p) => groups.map((g) => FLAGS.filter((f) => f.plot_name === p.plot_name && f.group === g && f.canonical).length || ''))
+    const z = reg.map((p) => groups.map((g) => SEV_RANK[worstOf(plotFlags(p.plot_name).filter((f) => f.group === g)) ?? ''] ?? 0))
+    const txt = reg.map((p) => groups.map((g) => plotFlags(p.plot_name).filter((f) => f.group === g).length || ''))
     return [
       {
         type: 'heatmap',
@@ -701,7 +705,7 @@ function PlotsTab({ t, showFlags }: Ctx) {
   }, [t])
   return (
     <>
-      <Section title="Flags per plot and rule group" sub="Colour = worst severity (blue info, amber warning, red error); number = count. Canonical surveys only. Click a cell to list a plot's flags.">
+      <Section title="Flags per plot and rule group" sub={`Colour = worst severity (blue info, amber warning, red error); number = count. Canonical surveys only; project-wide findings that hit every plot alike are left out (${[...SYSTEMIC].join(', ')}). Click a cell to list a plot's flags.`}>
         <div className="chart-card">
           <Plot data={heat} layout={{ ...baseLayout(t), margin: { l: 70, r: 10, t: 10, b: 150 }, xaxis: { ...axisStyle(t), tickangle: -35, side: 'bottom' }, yaxis: { ...axisStyle(t), autorange: 'reversed' } }} height={760} onClickIndex={(p) => showFlags({ plot: p as string })} filename="flags_heatmap" />
         </div>

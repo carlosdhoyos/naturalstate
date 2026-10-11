@@ -2,13 +2,13 @@
 
 This log records the decisions behind the vegetation QA/QC. Each entry gives what we observed, what we decided, and how the decision changes the results. **No source value is ever changed.** Every decision acts on how values are interpreted, joined or flagged.
 
-The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-798e59b8855cb9d1` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
+The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-c2dda0aff86a057a` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
 
 - **V-01 to V-11** are decisions.
 - **"Differences from the exploration"** lists where the pipeline deliberately disagrees with the earlier exploratory review.
 - **N1 to N13** are findings the systematic sweeps and the independent review added.
 - **"Independent review"** records what the review found and what changed.
-- **C-1 to C-11** are confirmation items for Natural State.
+- **C-1 to C-12** are confirmation items for Natural State.
 
 ---
 
@@ -79,7 +79,12 @@ A single result may carry a different severity from its rule's default, always w
 - duplicate entity writes that hold identical values (F09: info);
 - the aggregate range row (F10: warning, while each taxon row is info).
 
-The one exception to "could not have come from the app" is C14's letter-case difference (`lw_baseline` stored against `LW_baseline` computed by the form file). It is consistent across all 32 submissions, so it is far more likely a difference between the deployed form and the form file than 32 edits. It is reported as info. The report's appendix splits every rule's failures by the severity actually given.
+There are two exceptions to "could not have come from the app", both reported as info:
+
+- **C14:** the letter-case difference (`lw_baseline` stored against `LW_baseline` computed by the form file).
+- **C17:** the geohash, which every registration takes from its measured midpoint instead of the centroid.
+
+Both patterns hold for every submission, and ODK Central's `Edits` field is 0 everywhere. So they are differences between the deployed form and the form file, not edits (C-12). A rule that finds a mismatch in only some records, with no such pattern, still reports an error. The report's appendix splits every rule's failures by the severity actually given.
 
 ## V-06. Quadrats without herbs count as samples
 
@@ -152,6 +157,7 @@ The exploration's numbers were approximate. The pipeline re-derives them, and th
 | Grace recorder 26/32 (S8) | 25/30 canonical | Canonical surveys only |
 | Canavalia rosea "coastal" (T10) | Not flagged | GBIF has Kenyan records; a coastal-vs-inland test needs habitat data |
 | Background geopoint 12–44 m (S9) | Reported as distances; pass (≤ 50 m) | Missing points are `could_not_check` |
+| Three registrations "edited after collection" (this log's first version, N10) | A deployed-form difference: every registration stores the midpoint's geohash, `Edits` = 0 | Checked against all 30 registrations and the platform's audit field |
 | Slot collision "between different plants" (S3; also this report's first version) | The repeats reused herb_100–102 for the same plants in the same plots | Checked plant by plant (F09); it is a process risk that did not change any record |
 
 ## New findings from the systematic sweeps
@@ -167,8 +173,8 @@ The exploration's numbers were approximate. The pipeline re-derives them, and th
 | N7 | Form design: macro photos at max-pixels 4096–4100 (copy-paste drift); quadrat GPS warning at 10 m against 5 m elsewhere; the registration plot list has no filter, so a plot can be registered twice | K01, K04 |
 | N8 | The curation table's label disagrees with its number for herb_039 (labelled herb_011) and herb_072 (labelled herb_036) | F13 |
 | N9 | 20 of the 90 identified taxa GBIF could check have no GBIF record in Kenya but hundreds in southern Africa. The species list (Acacia galpinii, Pechuel-loeschea) and the transport options ("Mokoro", an Okavango dugout) suggest the list was built for a southern-African project | F10 |
-| N10 | **Three registrations edited after collection.** Plots 01, 04 and 15 store a geohash equal to the geohash-7 of their measured midpoint, not the centroid geohash the form copies; the edited value also reached `vegplots` | C17 |
-| N11 | Every GPS altitude is about 705 m below the SRTM terrain at its position (range −785 to −631 m), consistent with data from a site near 1,000 m | E14 |
+| N10 | **The deployed registration form computes the geohash from the measured midpoint**, not from the centroid as the form file says: the stored geohash equals the midpoint's geohash-7 in 30/30 registrations, and `Edits` = 0 everywhere. It differs from the centroid list only for Plots 01, 04 and 15, whose midpoint lies in a neighbouring cell. (The first version of this log called these three "edited after collection"; the independent review showed that was wrong.) | C17 |
+| N11 | The whole dataset sits about 705 m below the SRTM terrain at its coordinates: field GPS −704 m (median of 62 submissions), and NS's own prescribed points −703 m (centroid altitudes). Not a field error; consistent with coordinates and altitudes from different places, e.g. relocated demonstration data from a site near 1,000 m | E14 |
 | N12 | The 51 prescribed points are 9–104 m (median 66 m) from the centres of their geohash cells, although the SOP defines the midpoint as the cell centre | J04 |
 | N13 | 29 of 30 savanna plots are recorded as "Scrub"; the ecosystem list has no savanna option | D08 |
 
@@ -187,6 +193,7 @@ The exploration's numbers were approximate. The pipeline re-derives them, and th
 | C-9 | Should Plot 04 ("Forest" in a savanna stratum) stay in the savanna sample? | D08 |
 | C-10 | Which ecosystem types are compatible with each stratum? | D08, N13 |
 | C-11 | Which defines a plot: the prescribed coordinates or the geohash-cell centre? | J04, N12 |
+| C-12 | Which form versions were deployed? The stored geohash and replicate label follow a different calculation from the form files under the same version numbers | C14, C17, N5, N10 |
 
 ---
 
@@ -196,7 +203,7 @@ An independent reviewer, given no context, re-ran the pipeline and the tests, ex
 
 | Finding | Change |
 |---|---|
-| Registration geohash edited in 3 plots; no rule checked form lookups | New rule C17 recomputes every simple entity-lookup calculation of both forms from the parsed XLSForm (N10) |
+| Registration geohash differs from the centroid list in 3 plots; no rule checked form lookups | New rule C17 recomputes every simple entity-lookup calculation of both forms from the parsed XLSForm (N10) |
 | The slot-collision narrative overstated the effect | Rewritten as a process risk; F09 now says whether duplicate writes are identical; B10's metric impact lowered to "indirect" |
 | Times labelled EAT were read off the +02:00 stamps | Report wall-clock times re-derived from UTC as EAT (+1 h); source timestamps unchanged |
 | Resolved richness includes a certain duplicate (Polygalaerioptera) | A sensitivity row collapses names GBIF matches to one species (114) |
@@ -208,3 +215,19 @@ An independent reviewer, given no context, re-ran the pipeline and the tests, ex
 | Hard-coded paths, 20 quadrats, country | Input folders are arguments; quadrats and countries read from `rules.yaml` |
 | Suggestions taken up | The altitude/terrain check (E14), geohash-centre check (J04), shared app user, life-form caveat |
 | Suggestion not taken up | SOP version history naming another project: not found in the SOP text |
+
+### Second independent review (after C17, E14, J04, the effort rewrite, the mutation tests and the dashboard)
+
+| Finding | Change |
+|---|---|
+| "Three registrations edited" is contradicted by `Edits` = 0 and by the midpoint's geohash in 30/30 registrations | C17 reports a systematic, midpoint-derived geohash as a deployed-form difference (info), says so in its message, and reports `Edits`; report, decisions (N10) and dashboard reworded; C-12 added |
+| C17 silently skipped 6 of the 18 lookups it parses (ambiguous alias columns) | Lookups are matched against the raw export columns only; all are recomputed (all 6 match), and any lookup that cannot be is `could_not_check` |
+| E14 blamed field submissions for an offset that NS's own centroid list shares | One project finding with both offsets; a submission is flagged only if it departs from the dataset's own offset (none does); ranges corrected |
+| Mutation tests only checked "fails somewhere" | Each mutation must add a new failing entity against an unmutated baseline; new cases for E14, a survey-form C17 lookup and J04 (must pass at a cell centre) |
+| Field feedback missed flags on additional-species rows (C08); canonical toggle could miss them | Those flags are resolved to their survey through the quadrat |
+| Species suggestions could add one species twice (Polygala) and add taxa with no Kenyan record | Grouped by GBIF species; additions only with a GBIF species match and Kenyan records, otherwise "verify name" or "verify before adding" |
+| F09 single rejected writer would be called "identical repeat"; F10 message hard-coded "a fifth" | Fixed |
+| Per-plot "worst flag" coloured every plot by project-wide rules | Project-wide rules (D05, E13, B12, C14, C17, E14, J04) are left out of per-plot colouring, and the UI says so |
+| Coverage with Q2 = 0 | The Chao & Jost (2012) form for Q2 = 0 |
+| Suggestion not taken up | Folding J04's 51 per-point rows into one: kept, so each point can be inspected |
+

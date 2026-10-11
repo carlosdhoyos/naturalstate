@@ -238,7 +238,7 @@ def entity_writers(ctx):
             p.append(f"written by {len(writers)} submissions: " + ", ".join(f"{w.plot_name} ({w.review or 'not reviewed'})" for w in rows(writers)))
         if len(rejected):
             p.append("written by a rejected submission")
-        same = writers.plot_name.nunique() == 1 and writers.entity_label_to_write.nunique() == 1
+        same = len(writers) > 1 and writers.plot_name.nunique() == 1 and writers.entity_label_to_write.nunique() == 1
         if p:
             p.append("identical values from a repeat survey of the same plot (same plant re-recorded)" if same
                      else "different plots or values: two taxa share one provisional id")
@@ -272,7 +272,7 @@ def range_check(ctx):
                 message="no GBIF record in the country: verify the identification or the source of the species list (GBIF is incomplete)" if bad else "")
     ctx.add("fail" if zero else "pass", "project", "range summary", source_table="reference/gbif_cache.json",
             observed=f"{zero}/{total} identified taxa have no GBIF record in {country}", expected="0", severity="warning" if zero else None,
-            message="aggregate raised to warning: one taxon without records is weak evidence, a fifth of the list is a pattern" if zero else "")
+            message=f"aggregate raised to warning: one taxon without records is weak evidence, {zero / total:.0%} of the identified taxa is a pattern" if zero else "")
 
 
 @rule("F11")

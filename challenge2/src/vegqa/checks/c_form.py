@@ -323,29 +323,42 @@ def lookup_calculations(form: str) -> list[tuple[str, str, str, str]]:
     return out
 
 
-def _col(df: pd.DataFrame, name: str):
-    hits = [c for c in df.columns if c == name or c.endswith("-" + name)]
+def _col(cols: list[str], name: str):
+    """The export column of a form field: the field name itself or its group path ending in '-name'.
+    Only the raw export's columns are searched (the loader's short aliases would make matches ambiguous)."""
+    hits = [c for c in cols if c == name or c.endswith("-" + name)]
     return hits[0] if len(hits) == 1 else None
 
 
 @rule("C17")
 def lookup_calculations_match_entities(ctx):
     """Sweep H, generic part: every calculation of the form `instance('list')/root/item[name = ${field}]/column`
-    is recomputed from the entity list and compared with the stored value (both forms, parsed from the XLSX)."""
+    is recomputed from the entity list and compared with the stored value (both forms, parsed from the XLSX).
+    A stored value that differs could come from an edit, or from a deployed form that computes the field
+    differently from the form file; a pattern shared by every submission points to the second (C14 is
+    the same case), and the platform's own audit field (`Edits`) tells them apart."""
     d = ctx.data
-    for form, table, df in (("herbaceous_veg_survey", "survey", d.survey), ("register_vegetation_plots", "registration", d.registration)):
-        checks = []
+    for form, table in (("herbaceous_veg_survey", "survey"), ("register_vegetation_plots", "registration")):
+        raw = d.raw[table]
+        df = getattr(d, table)
+        checks, skipped = [], []
         for calc, ent, keyf, col in lookup_calculations(form):
-            stored_col, key_col = _col(df, calc), _col(df, keyf)
+            stored_col, key_col = _col(list(raw.columns), calc), _col(list(raw.columns), keyf)
             e = d.ent.get(ent)
-            if stored_col is None or key_col is None or e is None:
-                continue
             ecol = {"name": "__id"}.get(col, col)
-            if ecol not in e.columns:
+            if stored_col is None or key_col is None or e is None or ecol not in e.columns:
+                skipped.append(calc)
                 continue
             checks.append((calc, ent, stored_col, key_col, e.set_index("__id")[ecol]))
+        # the geohash pattern: is every stored geohash the geohash of the measured midpoint?
+        mid_share = None
+        if table == "registration" and _col(list(raw.columns), "geohash"):
+            gcol = _col(list(raw.columns), "geohash")
+            have = df[df._midpoint_lat.notna()]
+            mids = [geohash(a, b, len(g) or 7) == g for a, b, g in zip(have._midpoint_lat, have._midpoint_lon, have[gcol])]
+            mid_share = (sum(mids), len(mids))
         for _, r in df.iterrows():
-            diffs = []
+            diffs, systematic = [], True
             for calc, ent, stored_col, key_col, emap in checks:
                 k = r[key_col]
                 if not k:
@@ -353,10 +366,25 @@ def lookup_calculations_match_entities(ctx):
                 want = str(emap.get(k, ""))
                 if str(r[stored_col]) != want:
                     note = ""
-                    if calc == "geohash" and pd.notna(r.get("_midpoint_lat")):
-                        mid = geohash(r["_midpoint_lat"], r["_midpoint_lon"], len(want) or 7)
-                        note = f" (= geohash of the registered midpoint)" if mid == r[stored_col] else ""
+                    is_mid = calc == "geohash" and pd.notna(r.get("_midpoint_lat")) and geohash(r["_midpoint_lat"], r["_midpoint_lon"], len(want) or 7) == r[stored_col]
+                    if is_mid and mid_share:
+                        note = f" (= geohash of the measured midpoint, as in {mid_share[0]}/{mid_share[1]} registrations)"
+                    systematic &= bool(is_mid and mid_share and mid_share[0] == mid_share[1])
                     diffs.append(f"{calc}: stored {r[stored_col]!r}, {ent} has {want!r}{note}")
-            ctx.add("fail" if diffs else "pass", table, r.KEY, plot_name=r.plot_name, survey_key=r.KEY if table == "survey" else "", source_table=table, source_key=r.KEY,
+            edits = str(r.get("Edits", "")).strip()
+            if diffs and systematic:
+                status, sev = "fail", "info"
+                msg = (f"every registration stores the midpoint's geohash, so the deployed form evidently computes it from the measured midpoint, "
+                       f"not from the centroid as the form file says; it differs from the centroid only where the midpoint lies in a neighbouring cell. "
+                       f"Edits = {edits or '0'}: no sign of an edit (confirmation item)")
+            elif diffs:
+                status, sev = "fail", None
+                msg = f"the app copies this value from the entity list: a different value points to an edit (Edits = {edits or '?'}) or a deployed form that differs from the form file"
+            else:
+                status, sev, msg = "pass", None, ""
+            ctx.add(status, table, r.KEY, plot_name=r.plot_name, survey_key=r.KEY if table == "survey" else "", source_table=table, source_key=r.KEY,
                     observed="; ".join(diffs) or f"{len(checks)} lookups consistent", expected="stored value = entity value the calculation reads",
-                    message="the app copies this value from the entity list: a different value points to an edit after collection" if diffs else "")
+                    message=msg, severity=sev)
+        ctx.add("could_not_check" if skipped else "pass", "project", f"{form} lookups", source_table="form",
+                observed=f"{len(checks)} lookup calculations recomputed" + (f"; not recomputed: {', '.join(skipped)}" if skipped else ""),
+                expected="every lookup calculation recomputed", message="field or entity column not found in the export" if skipped else "")

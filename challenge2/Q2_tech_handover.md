@@ -4,7 +4,7 @@
 **Assumes:** the ODK submissions, entity lists and form definitions already arrive on the platform as tables. This document covers everything after that.
 **Reference implementation:** `challenge2/` (Python 3.11 or later; tested with 3.13). It is the executable specification: same rules, same outputs, acceptance and mutation test suites, and a full run in about 3 seconds.
 
-**Deployment model (recommended):** run the reference implementation as a scheduled container job, not a re-write. It takes the input folders as arguments (`--exports`, `--entities`, `--out`) and writes the tables the dashboard reads. If the team prefers to re-implement the rules in SQL or another stack, the acceptance and mutation suites define what "equivalent" means.
+**Deployment model (recommended):** run the reference implementation as a scheduled container job, not a re-write. `challenge2/Dockerfile` builds it (`docker build -t vegqa:1.0.0 challenge2`). The job reads three mounted input folders (`/data/exports`, `/data/entities`, `/data/forms`), writes every output to `/out`, runs as a non-root user and needs no network. Outside a container the same flags apply: `--exports`, `--entities`, `--forms`, `--out`. The run id hashes inputs by role and file name, not path, so the same data give the same id wherever they are mounted (tested). If the team prefers to re-implement the rules in SQL or another stack, the acceptance and mutation suites define what "equivalent" means.
 
 ---
 
@@ -139,8 +139,8 @@ Thresholds live in the same file, under `thresholds:`, each commented with its s
 - **Stale entity list (B10):** compare `base_active_herb_count` with the number of distinct slots activated (`new_*` rows) by surveys that **ended** before this one **started**, on any device. Separately, say whether those slots were already on the server, which tells a late upload from a device that was not refreshed.
 - **Form calculation bug (C07):** recompute "quadrats with species" correctly and also as the form literally computes it. A stored value equal to the literal version identifies the form bug (K02).
 - **Spelling (F03, F13):** use the GBIF backbone match from the cached reference file. A GBIF exact match outranks similarity to another list name. Never call GBIF during a QA run (§7).
-- **Lookup calculations (C17):** a stored value different from the entity value its calculation reads could not come from the app. Entity lists the forms themselves write to (`species_extra`) are excluded, because their values legitimately change after the form read them; F14 and X01 check those slots.
-- **Terrain (E14):** the median of GPS altitude minus SRTM elevation per submission, from the cached elevation file; flagged beyond 100 m.
+- **Lookup calculations (C17):** a stored value different from the entity value its calculation reads could not come from the form file. It points to an edit, or to a deployed form that differs from the file. A pattern shared by every submission, together with ODK Central's `Edits` field, tells them apart; here every registration takes the geohash from the measured midpoint, so it is reported as info (C-12). Entity lists the forms themselves write to (`species_extra`) are excluded, because their values legitimately change after the form read them; F14 and X01 check those slots.
+- **Terrain (E14):** GPS altitude minus SRTM elevation, from the cached elevation file. One project row compares the whole dataset, NS's centroid altitudes included, with the terrain. A submission is flagged only when it departs from that dataset offset by more than 100 m, so a dataset-wide offset is not blamed on the field.
 
 ## 5. Effort statistics (marts `effort_*`)
 
@@ -154,7 +154,7 @@ These use incidence data per canonical plot (T = 20 quadrats), on both the raw a
 - **Project level:** the same statistics with plots as the sampling units.
 - **Planned vs done:** per stratum, from `centroids` (primary/backup), registrations and canonical surveys.
 - **Repeatability:** plot and mean quadrat Jaccard for any plot with two or more submissions in a replicate.
-- **Richness sensitivity:** raw, canonical, resolved, identified only, unknowns only.
+- **Richness sensitivity:** raw, canonical, resolved, resolved with GBIF spelling variants collapsed, identified only, unknowns only.
 
 Show coverage first. Chao2 intervals are wide with 20 quadrats (V-10).
 
@@ -215,7 +215,7 @@ create table flag_reviews (id bigserial primary key, rule_id text not null, enti
 
 ## 8. Acceptance tests and verification status
 
-`challenge2/tests` (132 tests, run with `pytest`) holds the acceptance and mutation suites to port:
+`challenge2/tests` (136 tests, run with `pytest`) holds the acceptance and mutation suites to port:
 
 | Area | What the tests pin |
 |---|---|
@@ -223,16 +223,17 @@ create table flag_reviews (id bigserial primary key, rule_id text not null, enti
 | Passed checks | The 12 checks that passed must still report `pass` |
 | Differences | Deliberate differences from the exploration (`docs/challenge2_decisions.md`) |
 | New findings | N1–N13 |
-| Mutations | 34 rules must fire on a copy of the data with one injected error (`test_mutations.py`), so a rule that never fails cannot pass the suite |
+| Mutations | 35 rules must create a new failing entity on a copy of the data with one injected error, compared with an unmutated baseline (`test_mutations.py`); J04 must pass at a cell centre |
 | Properties | Determinism (identical results and `run_id` on rerun); inputs never modified (file hashes before and after); raw columns identical to the export; row counts; one canonical survey per plot; every result field is text; catalogue = code |
 | Unit tests | Projection, bearings, segment frame, robust line, Chao2 / coverage / rarefaction formulas, curation parsing |
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-798e59b8855cb9d1`) |
-| Acceptance, mutation and unit tests | 132 passing |
+| All rules implemented and run on the provided data | Done (run `qa-c2dda0aff86a057a`) |
+| Acceptance, mutation and unit tests | 136 passing |
 | GBIF cache | 99 names, retrieved 2026-10-10 |
 | Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |
+| Container job | **Built and run** (`docker build -t vegqa:1.0.0 challenge2`). On the take-home data its outputs are byte-identical to a local run: same run id, all tables and the dashboard JSON |
 | Dashboard views | Reference page built: Data Explorer → Vegetation → QA/QC dashboard (`dashboard/src/components/VegetationQA.tsx`), reading `outputs/dashboard_results.json`. All nine views of section 6 run on the provided data |
 | Flag-review workflow | Specified (DDL above); not implemented in the reference |
 | Platform integration (triggers, storage) | To build |
@@ -278,6 +279,7 @@ These are flagged by the K rules, but a QA dashboard cannot fix them:
 | `challenge2/reference/gbif_cache.json` | Cached GBIF reference |
 | `challenge2/reference/elevation_cache.json` | Cached SRTM elevations |
 | `challenge2/tests/` | Acceptance, mutation and unit tests |
+| `challenge2/Dockerfile` | Job image: the pipeline on mounted inputs, outputs to `/out` |
 | `docs/challenge2_decisions.md` | Decisions V-01 to V-11, differences, new findings, independent review, confirmation items |
 
 **To run:**

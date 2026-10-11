@@ -8,6 +8,7 @@ column empty; the checks turn that into a flag. Nothing is guessed or repaired.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -15,7 +16,8 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[3]
-DATA = ROOT / "Data Vegetation"
+# the repository layout by default; a container or platform job points VEGQA_DATA (or the CLI flags) elsewhere
+DATA = Path(os.environ.get("VEGQA_DATA", ROOT / "Data Vegetation"))
 EXPORTS = DATA / "ODK Data Exports"
 ENTITIES = DATA / "Entity lists"
 FORMS = DATA / "ODK Data Collection Forms"

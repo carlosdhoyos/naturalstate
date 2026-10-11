@@ -50,7 +50,9 @@ def coverage(y: np.ndarray, T: int) -> float:
     U, q1, q2 = int(y.sum()), int((y == 1).sum()), int((y == 2).sum())
     if not U or not q1:
         return 1.0
-    return 1 - (q1 / U) * ((T - 1) * q1 / ((T - 1) * q1 + 2 * q2))
+    if q2 > 0:
+        return 1 - (q1 / U) * ((T - 1) * q1 / ((T - 1) * q1 + 2 * q2))
+    return 1 - (q1 / U) * ((T - 1) * (q1 - 1) / ((T - 1) * (q1 - 1) + 2))  # Q2 = 0 (Chao & Jost 2012; iNEXT)
 
 
 def hill(y: np.ndarray) -> tuple[float, float, float]:

@@ -8,7 +8,11 @@ from functools import lru_cache
 
 import pandas as pd
 
+from pathlib import Path
+
 from .load import FORMS
+
+_DIR = [FORMS]  # folder with the XLSForms; set_forms_dir() changes it
 
 FORM_FILES = {"herbaceous_veg_survey": "herbaceous_veg_survey.xlsx", "register_vegetation_plots": "register_vegetation_plots.xlsx"}
 
@@ -17,7 +21,13 @@ FORM_FILES = {"herbaceous_veg_survey": "herbaceous_veg_survey.xlsx", "register_v
 def sheet(form: str, name: str) -> pd.DataFrame:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")  # openpyxl: "Data Validation extension is not supported"
-        return pd.read_excel(FORMS / FORM_FILES[form], sheet_name=name, dtype=str).fillna("")
+        return pd.read_excel(_DIR[0] / FORM_FILES[form], sheet_name=name, dtype=str).fillna("")
+
+
+def set_forms_dir(path: Path) -> None:
+    """Read the XLSForms from another folder (e.g. a mounted volume)."""
+    _DIR[0] = Path(path)
+    sheet.cache_clear()
 
 
 def form_version(form: str) -> str:

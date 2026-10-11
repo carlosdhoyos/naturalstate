@@ -28,16 +28,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from vegqa import dashboard, effort, engine, figures, suggestions, tables  # noqa: E402
 from vegqa.gbif import CACHE as GBIF_CACHE  # noqa: E402
-from vegqa.load import DATA, ENTITIES, EXPORTS, load  # noqa: E402
+from vegqa.forms import set_forms_dir  # noqa: E402
+from vegqa.load import ENTITIES, EXPORTS, FORMS, load  # noqa: E402
+from vegqa.dem import CACHE as DEM_CACHE  # noqa: E402
 from vegqa.model import canonical_survey_keys, projection  # noqa: E402
 from vegqa.taxonomy import build_occurrences  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[1] / "outputs"
 
 
-def file_hashes() -> dict:
-    files = sorted(p for p in DATA.rglob("*") if p.is_file() and p.suffix in (".csv", ".xlsx")) + [GBIF_CACHE, engine.RULES_YAML]
-    return {str(p.relative_to(DATA.parent)): hashlib.sha256(p.read_bytes()).hexdigest()[:16] for p in files if p.exists()}
+def file_hashes(exports: Path = EXPORTS, entities: Path = ENTITIES, forms: Path = FORMS) -> dict:
+    """Content hashes of every input, keyed by role and file name (not by absolute path), so the same data
+    give the same run id wherever they are mounted."""
+    out = {}
+    for role, folder, suffix in (("exports", exports, ".csv"), ("entities", entities, ".csv"), ("forms", forms, ".xlsx")):
+        for p in sorted(Path(folder).glob(f"*{suffix}")):
+            out[f"{role}/{p.name}"] = hashlib.sha256(p.read_bytes()).hexdigest()[:16]
+    for name, p in (("reference/gbif_cache.json", GBIF_CACHE), ("reference/elevation_cache.json", DEM_CACHE), ("rules/rules.yaml", engine.RULES_YAML)):
+        if p.exists():
+            out[name] = hashlib.sha256(p.read_bytes()).hexdigest()[:16]
+    return out
 
 
 def code_version() -> str:
@@ -64,9 +74,10 @@ def rule_summary(results: pd.DataFrame, catalogue: dict) -> pd.DataFrame:
     return out.reset_index()
 
 
-def build(exports: Path = EXPORTS, entities: Path = ENTITIES) -> dict:
+def build(exports: Path = EXPORTS, entities: Path = ENTITIES, forms: Path = FORMS) -> dict:
     """Everything the run produces, in memory (tests use this; main() writes it). Point `exports` and
     `entities` at the platform's tables (same file names as the ODK exports) to run on new data."""
+    set_forms_dir(forms)
     d = load(exports, entities)
     canonical, canon_table = canonical_survey_keys(d)
     occ = build_occurrences(d, canonical)
@@ -74,7 +85,7 @@ def build(exports: Path = EXPORTS, entities: Path = ENTITIES) -> dict:
     ctx = engine.Ctx(d, occ, canonical, projection(d), catalogue["thresholds"], catalogue)
     results = engine.run_all(ctx)
     results = results.sort_values(["rule_id", "entity_type", "entity_key", "observed"], kind="mergesort").reset_index(drop=True)
-    hashes = file_hashes()
+    hashes = file_hashes(exports, entities, forms)
     rid = engine.run_id(hashes, catalogue, code_version())
     results.insert(0, "run_id", rid)
     subs = tables.submissions(ctx, results)
@@ -89,11 +100,11 @@ def build(exports: Path = EXPORTS, entities: Path = ENTITIES) -> dict:
             "catalogue": catalogue}
 
 
-def main(exports: Path = EXPORTS, entities: Path = ENTITIES, out: Path | None = None) -> dict:
+def main(exports: Path = EXPORTS, entities: Path = ENTITIES, out: Path | None = None, forms: Path = FORMS) -> dict:
     global OUT
     OUT = out or OUT
     OUT.mkdir(parents=True, exist_ok=True)
-    b = build(exports, entities)
+    b = build(exports, entities, forms)
     results, catalogue = b["results"], b["catalogue"]
     results.to_csv(OUT / "qa_results.csv", index=False)
     flags = results[results.status == "fail"]
@@ -118,7 +129,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--exports", type=Path, default=EXPORTS, help="folder with the ODK export CSVs")
     ap.add_argument("--entities", type=Path, default=ENTITIES, help="folder with the entity list CSVs")
+    ap.add_argument("--forms", type=Path, default=FORMS, help="folder with the two XLSForms")
     ap.add_argument("--out", type=Path, default=OUT, help="output folder")
     a = ap.parse_args()
-    m = main(a.exports, a.entities, a.out)
+    m = main(a.exports, a.entities, a.out, a.forms)
     print(json.dumps({k: m[k] for k in ("run_id", "status_counts", "fail_by_severity", "rows")}, indent=1))

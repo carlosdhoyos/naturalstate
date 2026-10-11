@@ -98,14 +98,17 @@ def export(ctx, tables: dict, results: pd.DataFrame, summary: pd.DataFrame, run_
     r = ctx.data.registration.set_index("KEY")
     day = pd.concat([(s._start + pd.Timedelta(hours=3)).dt.strftime("%Y-%m-%d"), (r._start + pd.Timedelta(hours=3)).dt.strftime("%Y-%m-%d")])
     dev = pd.concat([s._device, r._device])
-    sk = flags.survey_key.where(flags.survey_key != "", flags.source_key)
+    # flags on additional-species rows carry the row's KEY: resolve it to its survey through the quadrat
+    q_parent = ctx.data.quadrat.set_index("KEY").PARENT_KEY
+    x_survey = ctx.data.extra.set_index("KEY").PARENT_KEY.map(q_parent)
+    sk = flags.survey_key.where(flags.survey_key != "", flags.source_key.map(x_survey).fillna(flags.source_key))
     flags["day"] = sk.map(day).fillna("")
     flags["device"] = sk.map(dev).fillna("")
     flags["group"] = flags.rule_id.str[0]
     cat = ctx.catalogue["rules"]
     flags["title"] = flags.rule_id.map(lambda x: cat[x]["title"])
     flags["metric_impact"] = flags.rule_id.map(lambda x: cat[x]["metric_impact"])
-    flags["canonical"] = ~flags.survey_key.isin(set(ctx.data.survey.KEY) - set(ctx.canonical))
+    flags["canonical"] = ~sk.isin(set(ctx.data.survey.KEY) - set(ctx.canonical))
     out = {
         "generated_by": "challenge2/src/run_challenge2.py",
         "run_id": run_id,

@@ -205,6 +205,15 @@ def e_entity_label(df):
     set_(df, first(df, (df.choice_status == "active") & (df.new_record_reason == "missing_species")), "label", "Edited outside the form")
 
 
+def e_survey_lookup(df):
+    set_(df, 0, "field_team_specifics-transport_type_label", "Hovercraft")
+
+
+def e_altitude_jump(df):
+    sel = df.PARENT_KEY == df.loc[0, "PARENT_KEY"]
+    df.loc[sel, "location_quadrat-Altitude"] = (pd.to_numeric(df.loc[sel, "location_quadrat-Altitude"]) + 800).astype(str)
+
+
 CASES = [
     ("A01", QUADRAT, e_orphan), ("A03", QUADRAT, e_drop_quadrat), ("A04", QUADRAT, e_quadrat_number), ("A05", SURVEY, e_transport),
     ("A06", QUADRAT, e_woody_pick), ("A07", SURVEY, e_form_version), ("A08", SURVEY, e_attachments), ("A09", SURVEY, e_instance),
@@ -215,16 +224,45 @@ CASES = [
     ("C16", REG, e_canopy), ("C17", REG, e_geohash), ("D06", REG, e_reg_accuracy), ("D07", "vegplots.csv", e_vegplot_geometry),
     ("E01", QUADRAT, e_quadrat_accuracy), ("E08", QUADRAT, e_photo_outside), ("E10", QUADRAT, e_photo_gap), ("E11", QUADRAT, e_photo_dup),
     ("F14", EXTRA, e_index), ("P03", REG, e_choice), ("X01", "species_extra.csv", e_entity_label),
+    ("C17-survey", SURVEY, e_survey_lookup), ("E14", QUADRAT, e_altitude_jump),
 ]
+
+
+_BASELINE: dict[str, set] = {}
+
+
+def baseline_failures(tmp_path, rule_id):
+    if rule_id not in _BASELINE:
+        out = run_rule(tmp_path / "baseline", rule_id.split("-")[0], {})
+        _BASELINE[rule_id] = set(out.loc[out.status == "fail", "entity_key"])
+    return _BASELINE[rule_id]
 
 
 @pytest.mark.parametrize("rule_id,fname,edit", CASES, ids=[c[0] for c in CASES])
 def test_rule_fires_on_injected_error(tmp_path, rule_id, fname, edit):
-    out = run_rule(tmp_path, rule_id, {fname: edit})
-    assert (out.status == "fail").any(), f"{rule_id} did not fire on its injected error"
+    """The injected error must create a NEW failing entity: rules that already fail on the provided data
+    (C17, X01, ...) would otherwise pass this test even if they ignored the edit."""
+    out = run_rule(tmp_path, rule_id.split("-")[0], {fname: edit})
+    new = set(out.loc[out.status == "fail", "entity_key"]) - baseline_failures(tmp_path, rule_id)
+    assert new, f"{rule_id} did not fire on its injected error"
 
 
 def test_unmutated_copy_gives_no_extra_failures(tmp_path):
     """Control: copying the data alone does not create failures in an all-pass rule."""
     out = run_rule(tmp_path, "C17", {})
     assert set(out[out.status == "fail"].plot_name) == {"SavMon_LW_Plot_01", "SavMon_LW_Plot_04", "SavMon_LW_Plot_15"}
+
+
+def test_J04_passes_for_a_point_at_its_cell_centre(tmp_path):
+    from vegqa.geo import geohash_centre
+
+    def to_centre(df):
+        g = df.loc[0, "geohash"]
+        lat, lon = geohash_centre(g)
+        parts = df.loc[0, "geometry"].split()
+        parts[0], parts[1] = f"{lat:.7f}", f"{lon:.7f}"
+        df.loc[0, "geometry"] = " ".join(parts)
+
+    out = run_rule(tmp_path, "J04", {"centroids.csv": to_centre})
+    first_id = read_text(ENTITIES / "centroids.csv").loc[0, "__id"]
+    assert out.loc[out.entity_key == first_id, "status"].iloc[0] == "pass"

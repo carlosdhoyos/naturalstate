@@ -1,0 +1,6 @@
+.venv/
+outputs/
+out/
+tests/
+**/__pycache__/
+*.md

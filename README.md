@@ -33,9 +33,9 @@ Each challenge has its own folder with code and a Markdown write-up.
 - **Headline:**
   - The 30 surveyed plots are complete at record level.
   - The shrubland stratum was not sampled.
-  - Positions, altitudes and species do not fit together at Lewa: GPS altitudes sit about 705 m below the terrain, and 20 identified taxa have no Kenyan GBIF record.
+  - The data do not fit Lewa: the whole dataset, NS's prescribed points included, sits about 705 m below the terrain, and 20 identified taxa have no Kenyan GBIF record.
   - Taxon names need curation: raw richness is 132 taxa, resolved 115; 23 names are probably misspelled.
-  - Three plot registrations were edited after collection: their geohash is that of the measured midpoint.
+  - The deployed forms differ from the form files (geohash taken from the measured midpoint; replicate label in lower case); no record was edited.
   - Several transects are offset, too short or bent.
   - A late upload let two devices claim the same provisional species ids. Here they were the same plants, so it is a process risk that did not change the data.
 
@@ -53,4 +53,4 @@ Each challenge has its own folder with code and a Markdown write-up.
   - Each entry separates the policy from its measured consequences; superseded parts are marked, not deleted.
 - [`docs/challenge1_paper_alignment.md`](docs/challenge1_paper_alignment.md): Wood & Kahl's recommendations, point by point, against what the analysis does.
 - Challenge 1 confirmation items C-1 to C-7: [`challenge1/Q1_report.md`](challenge1/Q1_report.md), section 9.
-- [`docs/challenge2_decisions.md`](docs/challenge2_decisions.md): Challenge 2 decisions (V-01 to V-11), differences from the exploratory review, new findings (N1–N13), the independent review, and confirmation items (C-1 to C-11).
+- [`docs/challenge2_decisions.md`](docs/challenge2_decisions.md): Challenge 2 decisions (V-01 to V-11), differences from the exploratory review, new findings (N1–N13), the independent review, and confirmation items (C-1 to C-12).

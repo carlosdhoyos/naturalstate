@@ -154,3 +154,24 @@ def test_geohash_roundtrip():
     g = geohash(0.2278005, 37.3591777, 7)
     lat, lon = geohash_centre(g)
     assert geohash(lat, lon, 7) == g and abs(lat - 0.2278) < 0.001 and abs(lon - 37.3592) < 0.001
+
+
+def test_same_results_wherever_the_data_are_mounted(b, tmp_path):
+    """The container mounts the inputs elsewhere: copied folders must give the same run id and results."""
+    import shutil
+
+    import run_challenge2
+    from vegqa.load import ENTITIES, EXPORTS, FORMS
+
+    dirs = {}
+    for name, src in (("exp", EXPORTS), ("ent", ENTITIES), ("frm", FORMS)):
+        dirs[name] = tmp_path / f"mounted_{name}"
+        shutil.copytree(src, dirs[name])
+    try:
+        moved = run_challenge2.build(dirs["exp"], dirs["ent"], dirs["frm"])
+    finally:
+        from vegqa.forms import set_forms_dir
+
+        set_forms_dir(FORMS)  # later tests read the repository copy again
+    assert moved["run_id"] == b["run_id"]
+    pd.testing.assert_frame_equal(moved["results"], b["results"])

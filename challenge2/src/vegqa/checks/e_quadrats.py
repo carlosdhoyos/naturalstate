@@ -294,7 +294,11 @@ def walking_order(ctx):
 
 @rule("E14")
 def altitude_vs_terrain(ctx):
-    """Median (GPS altitude - SRTM terrain) per submission, from the cached DEM reference (vegqa.dem)."""
+    """GPS altitude minus SRTM terrain, from the cached DEM reference (vegqa.dem).
+
+    The project row compares the whole dataset with the terrain, including NS's own prescribed points
+    (the centroid entity carries an altitude), so a dataset-wide offset is not blamed on the field teams.
+    A submission is flagged only when it departs from the dataset's own offset by more than the tolerance."""
     from ..dem import key, load_cache
 
     dem = ctx.cached("dem", lambda: load_cache()["points"])
@@ -307,18 +311,27 @@ def altitude_vs_terrain(ctx):
     for r in rows(d.registration):
         pts = [(r[f"_{p}_lat"], r[f"_{p}_lon"], r[f"_{p}_alt"]) for p in ("endpoint_a", "midpoint", "endpoint_b")]
         items.append(("registration", r.KEY, r.plot_name, "", pts))
-    all_diffs = []
+    meds = {}
     for form, key_, plot, skey, pts in items:
         diffs = [alt - dem[key(a, b)] for a, b, alt in pts if pd.notna(a) and pd.notna(alt) and key(a, b) in dem]
-        if not diffs:
+        meds[key_] = (form, plot, skey, float(np.median(diffs)) if diffs else None, len(diffs))
+    field = [m[3] for m in meds.values() if m[3] is not None]
+    offset = float(np.median(field)) if field else 0.0
+    c = d.ent["centroids"]
+    c_alt = pd.to_numeric(c.geometry.str.split(expand=True)[2], errors="coerce")
+    design = [a - dem[key(la, lo)] for la, lo, a in zip(c._lat, c._lon, c_alt) if pd.notna(a) and key(la, lo) in dem]
+    for key_, (form, plot, skey, med, n) in meds.items():
+        if med is None:
             ctx.add("could_not_check", form, key_, plot_name=plot, survey_key=skey, source_table=form, source_key=key_, message="no positions with altitude in the DEM cache")
             continue
-        med = float(np.median(diffs))
-        all_diffs += diffs
-        ctx.add("fail" if abs(med) > tol else "pass", form, key_, plot_name=plot, survey_key=skey, source_table=form, source_key=key_,
-                observed=f"GPS altitude {med:+.0f} m against SRTM terrain (median of {len(diffs)} points)", expected=f"within {tol} m")
-    if all_diffs:
-        v = np.array(all_diffs)
-        ctx.add("fail" if abs(np.median(v)) > tol else "pass", "project", "altitude vs terrain", source_table="reference/elevation_cache.json",
-                observed=f"{len(v)} points: GPS minus terrain median {np.median(v):+.0f} m (range {v.min():+.0f} to {v.max():+.0f} m)",
-                expected=f"within {tol} m", message="systematic offset: positions and altitudes do not belong to the same place (confirmation item)" if abs(np.median(v)) > tol else "")
+        dev = med - offset
+        ctx.add("fail" if abs(dev) > tol else "pass", form, key_, plot_name=plot, survey_key=skey, source_table=form, source_key=key_,
+                observed=f"GPS altitude {med:+.0f} m against SRTM terrain (median of {n} points); {dev:+.0f} m from the dataset's own offset",
+                expected=f"within {tol} m of the dataset offset ({offset:+.0f} m)", message="this submission departs from the rest of the data" if abs(dev) > tol else "")
+    if field:
+        bad = abs(offset) > tol
+        dmed = float(np.median(design)) if design else float("nan")
+        ctx.add("fail" if bad else "pass", "project", "altitude vs terrain", source_table="reference/elevation_cache.json",
+                observed=f"field GPS minus terrain: median {offset:+.0f} m over {len(field)} submissions; NS's prescribed points (centroid altitudes) minus terrain: median {dmed:+.0f} m over {len(design)} points",
+                expected=f"within {tol} m",
+                message="the whole dataset, NS's own design list included, sits hundreds of metres below the terrain at its coordinates: not a field error; coordinates and altitudes may come from different places (confirmation item C-7)" if bad else "")
