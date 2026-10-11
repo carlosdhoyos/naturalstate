@@ -340,3 +340,14 @@ def test_repeat_surveys_reused_same_slots_for_same_plants(b):
 def test_N12_prescribed_points_not_geohash_centres(results):
     j = fails(results, "J04")
     assert j[j.entity_type == "project"].observed.str.startswith("51/51").all()
+
+
+def test_species_list_suggestions(b):
+    s = b["tables"]["species_list_suggestions"]
+    spell = s[s.action == "confirm_spelling"].set_index("name_as_recorded").suggested_name
+    assert spell["Polygalaerioptera"] == "Polygala erioptera" and spell["Hibiscuc sidiformis"] == "Hibiscus sidiformis"
+    assert "Melosperma bracteatum" in spell.index  # no species-level match: no suggestion
+    merged = s[s.action == "merge_provisional"].set_index("name_as_recorded").provisional_ids
+    assert len(merged["Ipomea dichroa"].split()) == 4
+    assert set(s.action) <= {"add_to_list", "confirm_spelling", "merge_with_list", "merge_provisional", "check_range"}
+    assert (s[s.action == "check_range"].gbif_records_country == 0).all()

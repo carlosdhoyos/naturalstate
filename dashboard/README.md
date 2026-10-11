@@ -76,6 +76,18 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   10. **Co-detection matrix**, plus whether validated clips coincide with other species.
 
   The site check only flags a recorder when the species is mostly right elsewhere.
+- **Vegetation QA/QC dashboard (the Challenge 2 answer):** the views specified in `challenge2/Q2_tech_handover.md` §6, in nine tabs. Every flag and statistic is precomputed by `challenge2/src/run_challenge2.py` and embedded at build time from `challenge2/outputs/dashboard_results.json`, so the page never re-implements a rule.
+  1. **Overview:** headline numbers, the ranked issues that matter for richness and diversity (each linked to its flags), flags by rule group, and the rules that passed everywhere.
+  2. **All flags:** every failure with severity, observed and expected values, action, and its source table and key. Filters by severity, group, rule, plot and text; a canonical-only toggle; CSV download of the filtered rows.
+  3. **Submissions:** a per-device timeline of every form (open → finalise) with uploads, by day; the submissions table with timing, active species slots and flag counts.
+  4. **Map:** prescribed points by plan status or worst flag, with registered transects. Clicking a plot opens its panel in local metres: the A–M–B line, the 5 m belt, the 25 m limit and the quadrats coloured by their worst position flag.
+  5. **Plots:** a heatmap of plots × rule groups (worst severity and count) and the plot table.
+  6. **Taxonomy:** the curation queue (names to check, curation-table issues, unresolved unknowns, range, duplicates, woody and format) and the raw → resolved taxon map.
+  7. **Sampling effort:** planned vs done, accumulation curves, coverage and Chao2 completeness with intervals, project completeness and Hill numbers, repeatability and the richness sensitivity.
+  8. **Rules:** the catalogue with source, default severity, richness impact and fail / pass / not-checked counts, and the thresholds.
+  9. **Field feedback:** “check tonight” for a chosen field day, with the issues a team can still fix near the plots, plus process reminders.
+
+  Tabs can be deep-linked, e.g. `#/qa:vegetation/map`.
 - **Derived time columns:**
   - Birds: `clock_correction_h`, `detection_time_local`, `hour_local`, `date_local`; validations: `hour_local`. The correction is inferred from bird activity in `src/data/clocks.ts`, not hard-coded.
   - Vegetation: `start_hour_eat`.

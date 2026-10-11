@@ -1,6 +1,6 @@
 {
- "run_id": "qa-51d04ffae4815cf9",
- "code_version": "code-5c78d6faf201",
+ "run_id": "qa-798e59b8855cb9d1",
+ "code_version": "code-2086e5fd93f1",
  "catalogue_version": "1.0",
  "inputs": {
   "Data Vegetation/Entity lists/areas.csv": "48e56055a5d5694f",
@@ -37,7 +37,8 @@
   "effort_curves": 1200,
   "effort_project": 2,
   "effort_repeatability": 4,
-  "effort_richness_sensitivity": 6
+  "effort_richness_sensitivity": 6,
+  "species_list_suggestions": 112
  },
  "status_counts": {
   "pass": 24046,

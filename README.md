@@ -28,7 +28,7 @@ Each challenge has its own folder with code and a Markdown write-up.
 [`challenge2/`](challenge2/README.md) holds the reproducible QA/QC pipeline (Python), its rule catalogue, tests and outputs. No source value is changed: every problem is a flag pointing to its source row.
 
 - **Q1 answer:** [`challenge2/Q1_data_quality_report.md`](challenge2/Q1_data_quality_report.md): (a) survey-level summary, (b) plot-level summary, (c) sampling effort, (d) map of transect locations.
-- **Q2 answer, for the Tech team:** [`challenge2/Q2_tech_handover.md`](challenge2/Q2_tech_handover.md).
+- **Q2 answer, for the Tech team:** [`challenge2/Q2_tech_handover.md`](challenge2/Q2_tech_handover.md), with a working reference of the dashboard: the **QA/QC dashboard** page of the Data Explorer (Vegetation → QA/QC dashboard).
 - **Rule catalogue:** [`challenge2/rules/rules.yaml`](challenge2/rules/rules.yaml): 94 rules, each with its source, severity and metric impact.
 - **Headline:**
   - The 30 surveyed plots are complete at record level.

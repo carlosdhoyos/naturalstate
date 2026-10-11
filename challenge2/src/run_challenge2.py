@@ -9,7 +9,9 @@ writes to challenge2/outputs/:
   rule_summary.csv    one row per rule: catalogue fields + counts
   survey_overview.csv, submissions.csv, plots.csv, quadrats.csv, occurrences.csv   (vegqa.tables)
   effort_*.csv        sampling-effort tables (vegqa.effort)
+  species_list_suggestions.csv   suggested species-list / curation updates for NS's curators (vegqa.suggestions)
   figures/*.png       static maps and charts for the report (vegqa.figures)
+  dashboard_results.json   everything the Vegetation QA/QC dashboard page embeds (vegqa.dashboard)
   run_manifest.json   run id, input hashes, catalogue version, row counts
 """
 
@@ -24,7 +26,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from vegqa import effort, engine, figures, tables  # noqa: E402
+from vegqa import dashboard, effort, engine, figures, suggestions, tables  # noqa: E402
 from vegqa.gbif import CACHE as GBIF_CACHE  # noqa: E402
 from vegqa.load import DATA, ENTITIES, EXPORTS, load  # noqa: E402
 from vegqa.model import canonical_survey_keys, projection  # noqa: E402
@@ -82,6 +84,7 @@ def build(exports: Path = EXPORTS, entities: Path = ENTITIES) -> dict:
         "survey_overview": tables.survey_overview(ctx, results, subs, plots), "canonical_choice": canon_table,
     }
     out_tables.update(effort.all_tables(ctx, plots))
+    out_tables["species_list_suggestions"] = suggestions.build(ctx)
     return {"ctx": ctx, "results": results, "summary": rule_summary(results, catalogue), "tables": out_tables, "run_id": rid, "hashes": hashes,
             "catalogue": catalogue}
 
@@ -99,6 +102,7 @@ def main(exports: Path = EXPORTS, entities: Path = ENTITIES, out: Path | None = 
     for name, df in b["tables"].items():
         df.to_csv(OUT / f"{name}.csv", index=False)
     figs = figures.make_all(b["ctx"], b["tables"], results, OUT / "figures")
+    dashboard.export(b["ctx"], b["tables"], results, b["summary"], b["run_id"], OUT / "dashboard_results.json")
     manifest = {
         "run_id": b["run_id"], "code_version": code_version(), "catalogue_version": catalogue["version"], "inputs": b["hashes"],
         "rows": {"qa_results": len(results), "qa_flags": len(flags), **{k: len(v) for k, v in b["tables"].items()}},

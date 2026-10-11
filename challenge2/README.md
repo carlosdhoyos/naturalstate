@@ -12,6 +12,8 @@ This folder holds a reproducible QA/QC pipeline for the ODK herbaceous vegetatio
   - Sections: (a) survey-level summary, (b) plot-level summary, (c) sampling effort, (d) map of transect locations.
   - Also: the headline issues, decisions, confirmation items, and the full rule catalogue with results.
 - **[Q2_tech_handover.md](Q2_tech_handover.md):** what the Tech team needs to run this automatically and build the Vegetation QA/QC dashboard.
+- **The dashboard itself:** [`dashboard/standalone/index.html`](../dashboard/standalone/index.html) → Vegetation → **QA/QC dashboard**. It has nine views (overview, all flags, submissions timeline, map with transect panels, plots, taxonomy curation queue, sampling effort, rules, field feedback), all read from `outputs/dashboard_results.json`.
+- **For NS's curators:** [`outputs/species_list_suggestions.csv`](outputs/species_list_suggestions.csv), with spellings to confirm, taxa to add to the list, merges and range checks, each with its evidence.
 
 **How it works:**
 
@@ -28,9 +30,10 @@ This folder holds a reproducible QA/QC pipeline for the ODK herbaceous vegetatio
 python -m venv challenge2/.venv && challenge2/.venv/bin/pip install -r challenge2/requirements.txt
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py         # writes outputs/ and outputs/figures/ (about 3 s)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.report_tables)    # refreshes the report's tables from outputs/
-(cd challenge2/tests && ../.venv/bin/python -m pytest -q)            # 131 tests (acceptance, mutation, unit)
+(cd challenge2/tests && ../.venv/bin/python -m pytest -q)            # 132 tests (acceptance, mutation, unit)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.gbif)             # optional: fetch GBIF data for new names (network)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.dem)              # optional: fetch terrain elevations for new points (network)
+(cd dashboard && npm install && npm run build)                        # rebuild the dashboard page with the new outputs
 ```
 
 **What the tests pin:**

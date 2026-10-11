@@ -1,0 +1,113 @@
+action,name_as_recorded,suggested_name,provisional_ids,records,plots,gbif_match,gbif_status,gbif_records_country,gbif_records_contrast,rules,evidence
+confirm_spelling,Melosperma bracteatum,,herb_029,41,14,HIGHERRANK,ACCEPTED,,,F03 F13,no species-level match in GBIF (matched only at genus rank)
+confirm_spelling,Leucas tettenesis,Leucas tettensis,herb_024,32,11,FUZZY,ACCEPTED,1.0,41.0,F03 F13,GBIF backbone fuzzy match: 'Leucas tettensis'
+confirm_spelling,Oldenladia corymbosa,Oldenlandia corymbosa,herb_020,25,13,FUZZY,ACCEPTED,93.0,139.0,F03 F13,GBIF backbone fuzzy match: 'Oldenlandia corymbosa'
+confirm_spelling,Duosperma cretanum,Duosperma crenatum,herb_009,16,6,FUZZY,ACCEPTED,13.0,106.0,F03 F13,GBIF backbone fuzzy match: 'Duosperma crenatum'
+confirm_spelling,Ipomea dichroa,Ipomoea dichroa,herb_019 herb_021 herb_025 herb_049,13,7,FUZZY,SYNONYM,14.0,149.0,F03 F13,GBIF backbone fuzzy match: 'Ipomoea dichroa'
+confirm_spelling,Ipomea chloroneura,Ipomoea chloroneura,herb_088,11,4,FUZZY,ACCEPTED,0.0,69.0,F03 F13,GBIF backbone fuzzy match: 'Ipomoea chloroneura'
+confirm_spelling,Crotolaria sphaerocarpa,Crotalaria sphaerocarpa,herb_005,10,4,FUZZY,ACCEPTED,1.0,643.0,F03 F13,GBIF backbone fuzzy match: 'Crotalaria sphaerocarpa'
+confirm_spelling,Crotolaria heidmannii,Crotalaria heidmannii,herb_018,8,2,FUZZY,ACCEPTED,0.0,92.0,F03 F13,GBIF backbone fuzzy match: 'Crotalaria heidmannii'
+confirm_spelling,Crotolaria pisicarpa,Crotalaria pisicarpa,herb_014 herb_031,8,5,FUZZY,ACCEPTED,0.0,171.0,F03 F13,GBIF backbone fuzzy match: 'Crotalaria pisicarpa'
+confirm_spelling,Brachiara dura,Brachiaria dura,herb_089,6,3,FUZZY,SYNONYM,2.0,84.0,F03 F13,GBIF backbone fuzzy match: 'Brachiaria dura'
+confirm_spelling,Zornia glochidiala,Zornia glochidiata,herb_098,4,2,FUZZY,ACCEPTED,44.0,199.0,F03 F13,GBIF backbone fuzzy match: 'Zornia glochidiata'
+confirm_spelling,Cenchrus bifloris,Cenchrus biflorus,herb_075,3,1,FUZZY,ACCEPTED,6.0,34.0,F03 F13,GBIF backbone fuzzy match: 'Cenchrus biflorus'
+confirm_spelling,Ipomea leucanthemum,Ipomoea leucanthemum,herb_092,2,1,FUZZY,ACCEPTED,0.0,26.0,F03 F13,GBIF backbone fuzzy match: 'Ipomoea leucanthemum'
+confirm_spelling,Ipomea sinensis,Ipomoea sinensis,herb_064,2,1,FUZZY,ACCEPTED,69.0,422.0,F03 F13,GBIF backbone fuzzy match: 'Ipomoea sinensis'
+confirm_spelling,Justicia divaricata,,herb_059 herb_104,2,2,HIGHERRANK,ACCEPTED,,,F03 F13,no species-level match in GBIF (matched only at family rank)
+confirm_spelling,Polygalaerioptera,Polygala erioptera,herb_023,2,1,FUZZY,ACCEPTED,111.0,69.0,F03 F13,GBIF backbone fuzzy match: 'Polygala erioptera'
+confirm_spelling,Crotolaria platysepala,Crotalaria platysepala,herb_081,1,1,FUZZY,ACCEPTED,0.0,224.0,F03 F13,GBIF backbone fuzzy match: 'Crotalaria platysepala'
+confirm_spelling,Hibiscuc sidiformis,Hibiscus sidiformis,herb_050,1,1,FUZZY,ACCEPTED,8.0,261.0,F03 F13,GBIF backbone fuzzy match: 'Hibiscus sidiformis'
+confirm_spelling,Tragus racemosa,Tragus racemosus,herb_096,1,1,FUZZY,ACCEPTED,1.0,597.0,F03 F13,GBIF backbone fuzzy match: 'Tragus racemosus'
+add_to_list,Tephrosia purpurea,Tephrosia purpurea,herb_004 herb_055,102,22,EXACT,ACCEPTED,82.0,968.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Rhynchosia totta,Rhynchosia totta,herb_015,65,17,EXACT,ACCEPTED,12.0,1632.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Evolvulus alsinoides,Evolvulus alsinoides,herb_001 herb_093,63,19,EXACT,ACCEPTED,111.0,1147.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Macrotyloma daltonii,Macrotyloma daltonii,herb_027,53,12,EXACT,ACCEPTED,2.0,33.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Aristida scabrivalvis,Aristida scabrivalvis,herb_040 herb_067,50,12,EXACT,ACCEPTED,0.0,507.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Melosperma bracteatum,Melosperma bracteatum,herb_029,41,14,HIGHERRANK,ACCEPTED,,,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Pogonarthria fleckii,Pogonarthria fleckii,herb_041,37,12,EXACT,ACCEPTED,0.0,289.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Leucas tettenesis,Leucas tettensis,herb_024,32,11,FUZZY,ACCEPTED,1.0,41.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Leucas tettensis'
+add_to_list,Erlangea misera,Erlangea misera,herb_057,30,9,EXACT,ACCEPTED,0.0,229.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Oldenladia corymbosa,Oldenlandia corymbosa,herb_020,25,13,FUZZY,ACCEPTED,93.0,139.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Oldenlandia corymbosa'
+add_to_list,Sida rhombifolia,Sida rhombifolia,herb_054,23,8,EXACT,ACCEPTED,117.0,765.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Xenostegia tridentata,Xenostegia tridentata,herb_013,18,10,EXACT,ACCEPTED,22.0,1083.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Eragrostis pilosa,Eragrostis pilosa,herb_035,17,4,EXACT,ACCEPTED,42.0,225.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Sida alba,Sida alba,herb_080,17,8,EXACT,ACCEPTED,20.0,143.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Duosperma cretanum,Duosperma crenatum,herb_009,16,6,FUZZY,ACCEPTED,13.0,106.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Duosperma crenatum'
+add_to_list,Phyllanthus pentandrus,Phyllanthus pentandrus,herb_022,15,7,EXACT,ACCEPTED,0.0,167.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Senna obtusifolia,Senna obtusifolia,herb_046,14,4,EXACT,ACCEPTED,187.0,126.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Ipomea dichroa,Ipomoea dichroa,herb_019 herb_021 herb_025 herb_049,13,7,FUZZY,SYNONYM,14.0,149.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Ipomoea dichroa'
+add_to_list,Blepharis maderaspatensis,Blepharis maderaspatensis,herb_012,12,8,EXACT,ACCEPTED,141.0,320.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Ipomea chloroneura,Ipomoea chloroneura,herb_088,11,4,FUZZY,ACCEPTED,0.0,69.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Ipomoea chloroneura'
+add_to_list,Crotolaria sphaerocarpa,Crotalaria sphaerocarpa,herb_005,10,4,FUZZY,ACCEPTED,1.0,643.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Crotalaria sphaerocarpa'
+add_to_list,Crotolaria heidmannii,Crotalaria heidmannii,herb_018,8,2,FUZZY,ACCEPTED,0.0,92.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Crotalaria heidmannii'
+add_to_list,Crotolaria pisicarpa,Crotalaria pisicarpa,herb_014 herb_031,8,5,FUZZY,ACCEPTED,0.0,171.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Crotalaria pisicarpa'
+add_to_list,Polygala erioptera,Polygala erioptera,herb_084,8,2,EXACT,ACCEPTED,111.0,69.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Panicum hirtum,Panicum hirtum,herb_047,7,3,EXACT,ACCEPTED,25.0,80.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Sida chrysantha,Sida chrysantha,herb_063,7,4,EXACT,ACCEPTED,12.0,302.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Brachiara dura,Brachiaria dura,herb_089,6,3,FUZZY,SYNONYM,2.0,84.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Brachiaria dura'
+add_to_list,Jacquemontia tamnifolia,Jacquemontia tamnifolia,herb_028,5,3,EXACT,ACCEPTED,42.0,186.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Setaria pumila,Setaria pumila,herb_079,4,3,EXACT,ACCEPTED,133.0,671.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Zornia glochidiala,Zornia glochidiata,herb_098,4,2,FUZZY,ACCEPTED,44.0,199.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Zornia glochidiata'
+add_to_list,Abutilon ramosum,Abutilon ramosum,herb_062,3,3,EXACT,ACCEPTED,10.0,175.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Alectra orobanchoides,Alectra orobanchoides,herb_003,3,2,EXACT,ACCEPTED,12.0,558.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Asparagus africanus,Asparagus africanus,herb_069,3,3,EXACT,ACCEPTED,110.0,1657.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Canavalia rosea,Canavalia rosea,herb_103,3,1,EXACT,ACCEPTED,17.0,310.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Cenchrus bifloris,Cenchrus biflorus,herb_075,3,1,FUZZY,ACCEPTED,6.0,34.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Cenchrus biflorus'
+add_to_list,Chamaecrista absus,Chamaecrista absus,herb_077,3,1,EXACT,ACCEPTED,39.0,515.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Hermannia eenii,Hermannia eenii,herb_091,3,1,EXACT,ACCEPTED,0.0,159.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Mollugo cerviana,Mollugo cerviana,herb_101,3,1,EXACT,SYNONYM,26.0,508.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Rhynchosia minima,Rhynchosia minima,herb_032 herb_070,3,2,EXACT,ACCEPTED,379.0,932.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Citrullus naudinianus,Citrullus naudinianus,herb_060,2,1,EXACT,ACCEPTED,0.0,692.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Hermbstaedtia linearis,Hermbstaedtia linearis,herb_074,2,2,EXACT,ACCEPTED,0.0,102.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Ipomea leucanthemum,Ipomoea leucanthemum,herb_092,2,1,FUZZY,ACCEPTED,0.0,26.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Ipomoea leucanthemum'
+add_to_list,Ipomea sinensis,Ipomoea sinensis,herb_064,2,1,FUZZY,ACCEPTED,69.0,422.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Ipomoea sinensis'
+add_to_list,Justicia divaricata,Justicia divaricata,herb_059 herb_104,2,2,HIGHERRANK,ACCEPTED,,,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Leucas lavandulifolia,Leucas lavandulifolia,herb_044,2,1,EXACT,ACCEPTED,0.0,149.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Pavonia clathrata,Pavonia clathrata,herb_083,2,2,EXACT,ACCEPTED,0.0,116.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Polygalaerioptera,Polygala erioptera,herb_023,2,1,FUZZY,ACCEPTED,111.0,69.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Polygala erioptera'
+add_to_list,Striga gesnerioides,Striga gesnerioides,herb_043,2,1,EXACT,ACCEPTED,68.0,802.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Xenostegia pinnata,Xenostegia pinnata,herb_090,2,2,EXACT,ACCEPTED,45.0,131.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Boerhavia coccinea,Boerhavia coccinea,herb_051,1,1,EXACT,ACCEPTED,73.0,204.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Commelina africana,Commelina africana,herb_099,1,1,EXACT,ACCEPTED,266.0,4069.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Crotolaria platysepala,Crotalaria platysepala,herb_081,1,1,FUZZY,ACCEPTED,0.0,224.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Crotalaria platysepala'
+add_to_list,Cyperus margaritaceus,Cyperus margaritaceus,herb_102,1,1,EXACT,ACCEPTED,7.0,654.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Euphorbia crotonoides,Euphorbia crotonoides,herb_085,1,1,EXACT,ACCEPTED,81.0,62.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Gisekia pharnaceoides,Gisekia pharnaceoides,herb_065,1,1,EXACT,ACCEPTED,85.0,740.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Hibiscuc sidiformis,Hibiscus sidiformis,herb_050,1,1,FUZZY,ACCEPTED,8.0,261.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Hibiscus sidiformis'
+add_to_list,Indigofera filipes,Indigofera filipes,herb_073,1,1,EXACT,ACCEPTED,0.0,344.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Thunbergia reticulata,Thunbergia reticulata,herb_048,1,1,EXACT,ACCEPTED,6.0,131.0,F02,recorded as a provisional taxon and identified; not on the project list
+add_to_list,Tragus racemosa,Tragus racemosus,herb_096,1,1,FUZZY,ACCEPTED,1.0,597.0,F02,recorded as a provisional taxon and identified; not on the project list; GBIF spelling 'Tragus racemosus'
+merge_with_list,Cenchrus ciliaris,Cenchrus ciliaris,herb_016,85,16,EXACT,ACCEPTED,536.0,3920.0,F02,provisional id(s) herb_016 curated to a species already on the list: reuse the list species in the field
+merge_with_list,Ocimum americanum,Ocimum americanum,herb_008,70,13,EXACT,ACCEPTED,147.0,920.0,F02,provisional id(s) herb_008 curated to a species already on the list: reuse the list species in the field
+merge_with_list,Kyphocarpa angustifolia,Kyphocarpa angustifolia,herb_007,6,5,EXACT,DOUBTFUL,0.0,264.0,F02,provisional id(s) herb_007 curated to a species already on the list: reuse the list species in the field
+merge_with_list,Chloris virgata,Chloris virgata,herb_095,4,2,EXACT,ACCEPTED,130.0,1543.0,F02,provisional id(s) herb_095 curated to a species already on the list: reuse the list species in the field
+merge_with_list,Pechuel-loeschea leubnitziae,Pechuel-loeschea leubnitziae,herb_053,4,2,EXACT,ACCEPTED,0.0,737.0,F02,provisional id(s) herb_053 curated to a species already on the list: reuse the list species in the field
+merge_with_list,Corchorus tridens,Corchorus tridens,herb_052,2,2,EXACT,ACCEPTED,48.0,242.0,F02,provisional id(s) herb_052 curated to a species already on the list: reuse the list species in the field
+merge_with_list,Indigofera tinctoria,Indigofera tinctoria,herb_006,1,1,EXACT,ACCEPTED,105.0,107.0,F02,provisional id(s) herb_006 curated to a species already on the list: reuse the list species in the field
+merge_provisional,Tephrosia purpurea,Tephrosia purpurea,herb_004 herb_055,102,22,EXACT,ACCEPTED,82.0,968.0,F04 F08,2 provisional ids resolve to one name
+merge_provisional,Evolvulus alsinoides,Evolvulus alsinoides,herb_001 herb_093,63,19,EXACT,ACCEPTED,111.0,1147.0,F04 F08,2 provisional ids resolve to one name
+merge_provisional,Aristida scabrivalvis,Aristida scabrivalvis,herb_040 herb_067,50,12,EXACT,ACCEPTED,0.0,507.0,F04 F08,2 provisional ids resolve to one name
+merge_provisional,Ipomea dichroa,Ipomoea dichroa,herb_019 herb_021 herb_025 herb_049,13,7,FUZZY,SYNONYM,14.0,149.0,F04 F08,4 provisional ids resolve to one name
+merge_provisional,Crotolaria pisicarpa,Crotalaria pisicarpa,herb_014 herb_031,8,5,FUZZY,ACCEPTED,0.0,171.0,F04 F08,2 provisional ids resolve to one name
+merge_provisional,Rhynchosia minima,Rhynchosia minima,herb_032 herb_070,3,2,EXACT,ACCEPTED,379.0,932.0,F04 F08,2 provisional ids resolve to one name
+merge_provisional,Justicia divaricata,Justicia divaricata,herb_059 herb_104,2,2,HIGHERRANK,ACCEPTED,,,F04 F08,2 provisional ids resolve to one name
+check_range,Aristida scabrivalvis,Aristida scabrivalvis,herb_040 herb_067,50,12,EXACT,ACCEPTED,0.0,507.0,F10,no GBIF record in KE; 507 in BW/NA/ZA/ZW: verify the identification
+check_range,Pogonarthria fleckii,Pogonarthria fleckii,herb_041,37,12,EXACT,ACCEPTED,0.0,289.0,F10,no GBIF record in KE; 289 in BW/NA/ZA/ZW: verify the identification
+check_range,Erlangea misera,Erlangea misera,herb_057,30,9,EXACT,ACCEPTED,0.0,229.0,F10,no GBIF record in KE; 229 in BW/NA/ZA/ZW: verify the identification
+check_range,Oxygonum alatum,Oxygonum alatum,,25,15,EXACT,ACCEPTED,0.0,418.0,F10,no GBIF record in KE; 418 in BW/NA/ZA/ZW: verify the identification
+check_range,Phyllanthus pentandrus,Phyllanthus pentandrus,herb_022,15,7,EXACT,ACCEPTED,0.0,167.0,F10,no GBIF record in KE; 167 in BW/NA/ZA/ZW: verify the identification
+check_range,Ipomea chloroneura,Ipomoea chloroneura,herb_088,11,4,FUZZY,ACCEPTED,0.0,69.0,F10,no GBIF record in KE; 69 in BW/NA/ZA/ZW: verify the identification
+check_range,Crotolaria heidmannii,Crotalaria heidmannii,herb_018,8,2,FUZZY,ACCEPTED,0.0,92.0,F10,no GBIF record in KE; 92 in BW/NA/ZA/ZW: verify the identification
+check_range,Crotolaria pisicarpa,Crotalaria pisicarpa,herb_014 herb_031,8,5,FUZZY,ACCEPTED,0.0,171.0,F10,no GBIF record in KE; 171 in BW/NA/ZA/ZW: verify the identification
+check_range,Kyphocarpa angustifolia,Kyphocarpa angustifolia,herb_007,6,5,EXACT,DOUBTFUL,0.0,264.0,F10,no GBIF record in KE; 264 in BW/NA/ZA/ZW: verify the identification
+check_range,Merremia verecunda,Merremia verecunda,,6,3,EXACT,ACCEPTED,0.0,159.0,F10,no GBIF record in KE; 159 in BW/NA/ZA/ZW: verify the identification
+check_range,Pechuel-loeschea leubnitziae,Pechuel-loeschea leubnitziae,herb_053,4,2,EXACT,ACCEPTED,0.0,737.0,F10,no GBIF record in KE; 737 in BW/NA/ZA/ZW: verify the identification
+check_range,Hermannia eenii,Hermannia eenii,herb_091,3,1,EXACT,ACCEPTED,0.0,159.0,F10,no GBIF record in KE; 159 in BW/NA/ZA/ZW: verify the identification
+check_range,Hermannia tomentosa,Hermannia tomentosa,,3,3,EXACT,ACCEPTED,0.0,468.0,F10,no GBIF record in KE; 468 in BW/NA/ZA/ZW: verify the identification
+check_range,Citrullus naudinianus,Citrullus naudinianus,herb_060,2,1,EXACT,ACCEPTED,0.0,692.0,F10,no GBIF record in KE; 692 in BW/NA/ZA/ZW: verify the identification
+check_range,Hermbstaedtia linearis,Hermbstaedtia linearis,herb_074,2,2,EXACT,ACCEPTED,0.0,102.0,F10,no GBIF record in KE; 102 in BW/NA/ZA/ZW: verify the identification
+check_range,Ipomea leucanthemum,Ipomoea leucanthemum,herb_092,2,1,FUZZY,ACCEPTED,0.0,26.0,F10,no GBIF record in KE; 26 in BW/NA/ZA/ZW: verify the identification
+check_range,Leucas lavandulifolia,Leucas lavandulifolia,herb_044,2,1,EXACT,ACCEPTED,0.0,149.0,F10,no GBIF record in KE; 149 in BW/NA/ZA/ZW: verify the identification
+check_range,Pavonia clathrata,Pavonia clathrata,herb_083,2,2,EXACT,ACCEPTED,0.0,116.0,F10,no GBIF record in KE; 116 in BW/NA/ZA/ZW: verify the identification
+check_range,Crotolaria platysepala,Crotalaria platysepala,herb_081,1,1,FUZZY,ACCEPTED,0.0,224.0,F10,no GBIF record in KE; 224 in BW/NA/ZA/ZW: verify the identification
+check_range,Indigofera filipes,Indigofera filipes,herb_073,1,1,EXACT,ACCEPTED,0.0,344.0,F10,no GBIF record in KE; 344 in BW/NA/ZA/ZW: verify the identification

@@ -12,6 +12,7 @@ import { BirdsDiurnal } from './components/BirdsDiurnal'
 import { BirdsEDA } from './components/BirdsEDA'
 import { BirdsQuality } from './components/BirdsQuality'
 import { BirdsThresholds } from './components/BirdsThresholds'
+import { VegetationQA } from './components/VegetationQA'
 import { BirdsSummary, VegetationSummary, type OpenView } from './components/Summary'
 import { Icon } from './components/ui'
 import { describeColumn } from './data/dictionary'
@@ -56,11 +57,12 @@ const QUALITY = 'quality:birds'
 const DIURNAL = 'diurnal:birds'
 const EDA = 'eda:birds'
 const THRESHOLDS = 'thresholds:birds'
+const VEGQA = 'qa:vegetation'
 /** Pages that are not datasets: summary:<challenge>, method:birds. */
 const challengeOf = (id: string): Challenge | null => {
   // Pages that exist: a summary per challenge; the other pages only for birds.
-  const m = /^(?:summary:(birds|vegetation)|(?:method|quality|diurnal|eda|thresholds):(birds))$/.exec(id)
-  return m ? ((m[1] ?? m[2]) as Challenge) : null
+  const m = /^(?:summary:(birds|vegetation)|(?:method|quality|diurnal|eda|thresholds):(birds)|qa:(vegetation))$/.exec(id)
+  return m ? ((m[1] ?? m[2] ?? m[3]) as Challenge) : null
 }
 
 function readHash(): { id?: string; tab?: Tab } {
@@ -335,6 +337,14 @@ export default function App() {
               <span className="nav-item-sub">results</span>
             </button>
           )}
+          {challenge === 'vegetation' && (
+            <button type="button" className={`nav-item summary ${current === VEGQA ? 'on' : ''}`} {...tip('nav.vegqa')} onClick={() => { setCurrent(VEGQA); setNavOpen(false) }}>
+              <span className="nav-item-title">
+                <Icon name="info" size={14} /> QA/QC dashboard
+              </span>
+              <span className="nav-item-sub">results</span>
+            </button>
+          )}
           <div className="search" {...tip('nav.find')}>
             <Icon name="search" size={14} />
             <input className="input bare" placeholder="Find a table…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -387,6 +397,7 @@ export default function App() {
           {reg && current === EDA && <BirdsEDA reg={reg} tokens={tokens} />}
           {reg && current === THRESHOLDS && <BirdsThresholds reg={reg} tokens={tokens} />}
           {reg && current === SUMMARY('vegetation') && <VegetationSummary reg={reg} tokens={tokens} onOpen={openView} />}
+          {reg && current === VEGQA && <VegetationQA tokens={tokens} />}
           {ds && view && (
             <>
               <div className="ds-head">

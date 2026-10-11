@@ -2,7 +2,7 @@
 
 This log records the decisions behind the vegetation QA/QC. Each entry gives what we observed, what we decided, and how the decision changes the results. **No source value is ever changed.** Every decision acts on how values are interpreted, joined or flagged.
 
-The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-51d04ffae4815cf9` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
+The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-798e59b8855cb9d1` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
 
 - **V-01 to V-11** are decisions.
 - **"Differences from the exploration"** lists where the pipeline deliberately disagrees with the earlier exploratory review.

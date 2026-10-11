@@ -2,7 +2,8 @@
 
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
-**Prepared by:** Carlos Hoyos · run `qa-51d04ffae4815cf9` · reproducible with `python challenge2/src/run_challenge2.py`
+**Interactive version:** the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`, Vegetation → QA/QC dashboard): every flag with its source row, the map with per-plot transect panels, the curation queue and the effort views.
+**Prepared by:** Carlos Hoyos · run `qa-798e59b8855cb9d1` · reproducible with `python challenge2/src/run_challenge2.py`
 
 ---
 
@@ -423,7 +424,7 @@ The full log is in [`docs/challenge2_decisions.md`](../docs/challenge2_decisions
 - **C-2** What is the backup-selection rule?
 - **C-3** Are east–west transects and out-and-back walking accepted local practice?
 - **C-4** What positional tolerance does NS use?
-- **C-5** Is `species_extra_ids` authoritative, and can its merges and exclusions become structured columns?
+- **C-5** Is `species_extra_ids` authoritative, and can its merges and exclusions become structured columns? A ready list of suggested changes is in `outputs/species_list_suggestions.csv`.
 - **C-6** Is the shrubland stratum still planned?
 - **C-7** Where were the data collected, and is the species list the right one for Lewa? GPS altitudes are about 705 m below the terrain, a fifth of the taxa have no Kenyan record, and the transport list includes "Mokoro".
 - **C-8** Can the device time zone be set to Africa/Nairobi?
@@ -549,5 +550,7 @@ Every rule evaluated in this run, with its source and result counts. "Not checke
 | `outputs/occurrences.csv` | One row per record, with raw and resolved taxon and curation note |
 | `outputs/effort_*.csv` | Planned vs done, per-plot statistics and curves, project level, repeatability, richness sensitivity |
 | `outputs/canonical_choice.csv` | Which submission is canonical, and why |
+| `outputs/species_list_suggestions.csv` | Suggested species-list and curation updates for NS's curators: spellings to confirm (GBIF's spelling), taxa to add, merges, range checks. Suggestions only |
+| `outputs/dashboard_results.json` | Everything the QA/QC dashboard page embeds |
 | `outputs/run_manifest.json` | Run id, input file hashes, catalogue version, row counts |
 | `outputs/qa_results.csv` | Every rule × entity result, pass included; git-ignored because the run regenerates it in seconds |

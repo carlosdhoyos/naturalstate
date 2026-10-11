@@ -160,7 +160,7 @@ Show coverage first. Chao2 intervals are wide with 20 quadrats (V-10).
 
 ## 6. The dashboard
 
-Every view reads the marts and `qa_results`. Every flag links to its source row through `source_table` + `source_key`. Shared filters, in one row: replicate, stratum, plot, device, recorder, date range, severity, rule group, and canonical only (on by default).
+A working reference of every view is the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`). It embeds `outputs/dashboard_results.json`, which `vegqa/dashboard.py` writes on every run, and never recomputes a rule, so the page shows exactly what the job publishes. Every view reads the marts and `qa_results`. Every flag links to its source row through `source_table` + `source_key`. Shared filters, in one row: replicate, stratum, plot, device, recorder, date range, severity, rule group, and canonical only (on by default).
 
 | View | Shows | Source |
 |---|---|---|
@@ -168,7 +168,7 @@ Every view reads the marts and `qa_results`. Every flag links to its source row 
 | **Submissions** | Timeline per device (form open → upload), upload delay, duration against the median, review state, canonical choice, flags per submission | `submissions`, `canonical_choice` |
 | **Map** | Prescribed points by status (surveyed / not viable / never registered / backup); click a plot to see its registered A–M–B line, the 5 m belt, the 25 m circle, and quadrats coloured by flag | `plots`, `quadrats` |
 | **Plots** | One row per plot: geometry (offset, length, bearing), richness raw / resolved, all-unknown quadrats, coverage, flag counts; a heatmap of plots × rule groups | `plots`, `effort_plots` |
-| **Taxonomy** | A curation queue: names to check (F03), curation-table issues (F13), unresolved unknowns by record count (F07), out-of-range taxa (F10), duplicate entities (F04); raw → resolved mapping per occurrence | `occurrences`, `qa_results` |
+| **Taxonomy** | A curation queue: names to check (F03), curation-table issues (F13), unresolved unknowns by record count (F07), out-of-range taxa (F10), duplicate entities (F04); suggested species-list updates (downloadable); raw → resolved mapping per taxon | `occurrences`, `qa_results`, `species_list_suggestions` |
 | **Effort** | Planned vs done per stratum, accumulation curves, coverage per plot, project-level completeness, repeatability | `effort_*` |
 | **Rules** | The catalogue with fail / pass / not-checked counts and its thresholds, so reviewers see what *was* checked | `rule_summary` |
 | **Field feedback** | "Check tonight": the day's submissions with errors and warnings the team can still fix in the field (missing rows, empty occurrences, position outliers, late uploads), plus process reminders (upload, refresh lists) | `qa_results` filtered by date |
@@ -214,7 +214,7 @@ create table flag_reviews (id bigserial primary key, rule_id text not null, enti
 
 ## 8. Acceptance tests and verification status
 
-`challenge2/tests` (131 tests, run with `pytest`) holds the acceptance and mutation suites to port:
+`challenge2/tests` (132 tests, run with `pytest`) holds the acceptance and mutation suites to port:
 
 | Area | What the tests pin |
 |---|---|
@@ -228,11 +228,11 @@ create table flag_reviews (id bigserial primary key, rule_id text not null, enti
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-51d04ffae4815cf9`) |
-| Acceptance, mutation and unit tests | 131 passing |
+| All rules implemented and run on the provided data | Done (run `qa-798e59b8855cb9d1`) |
+| Acceptance, mutation and unit tests | 132 passing |
 | GBIF cache | 99 names, retrieved 2026-10-10 |
 | Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |
-| Dashboard views | Specified here; reference figures in `outputs/figures/` |
+| Dashboard views | Reference page built: Data Explorer → Vegetation → QA/QC dashboard (`dashboard/src/components/VegetationQA.tsx`), reading `outputs/dashboard_results.json`. All nine views below run on the provided data |
 | Flag-review workflow | Specified (DDL above); not implemented in the reference |
 | Platform integration (triggers, storage) | To build |
 
@@ -271,6 +271,9 @@ These are flagged by the K rules, but a QA dashboard cannot fix them:
 | `challenge2/src/vegqa/gbif.py` | GBIF cache refresh (network) |
 | `challenge2/src/vegqa/dem.py` | Elevation cache refresh (network) |
 | `challenge2/src/vegqa/report_tables.py` | Refreshes the report's generated tables |
+| `challenge2/src/vegqa/suggestions.py` | Suggested species-list and curation updates |
+| `challenge2/src/vegqa/dashboard.py` | Writes `outputs/dashboard_results.json` for the dashboard |
+| `dashboard/src/components/VegetationQA.tsx` | Reference dashboard page (React + Plotly) |
 | `challenge2/reference/gbif_cache.json` | Cached GBIF reference |
 | `challenge2/reference/elevation_cache.json` | Cached SRTM elevations |
 | `challenge2/tests/` | Acceptance and unit tests |
@@ -282,5 +285,6 @@ These are flagged by the K rules, but a QA dashboard cannot fix them:
 python -m venv challenge2/.venv && challenge2/.venv/bin/pip install -r challenge2/requirements.txt
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py          # outputs/ and figures (--exports/--entities/--out for other data)
 cd challenge2/src && ../.venv/bin/python -m vegqa.report_tables       # refresh the report's tables
-cd challenge2/tests && ../.venv/bin/python -m pytest -q              # acceptance suite
+cd challenge2/tests && ../.venv/bin/python -m pytest -q              # acceptance, mutation and unit tests
+cd dashboard && npm install && npm run build                         # rebuild the dashboard with the new outputs
 ```

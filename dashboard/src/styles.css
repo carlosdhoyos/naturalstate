@@ -2690,3 +2690,135 @@ ol.conclusions {
   padding-top: 8px;
   border-top: 1px dashed var(--line);
 }
+
+/* ── vegetation QA/QC dashboard ────────────────────────────────────────────── */
+.qa-error {
+  background: color-mix(in srgb, #e34948 16%, transparent);
+  color: #c4302f;
+}
+:root[data-theme='dark'] .qa-error {
+  color: #ff8a89;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .qa-error {
+    color: #ff8a89;
+  }
+}
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent-ink) 35%, transparent);
+  text-underline-offset: 2px;
+}
+.link-btn:hover {
+  text-decoration-color: currentColor;
+}
+.data-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.qa-headlines {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+.qa-headline {
+  display: flex;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  box-shadow: var(--shadow);
+}
+.qa-headline-num {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ns-navy, #00354d);
+  color: #fff;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+}
+.qa-headline-title {
+  font-weight: 700;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.qa-headline p {
+  margin: 4px 0 6px;
+}
+.qa-headline-rules {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+}
+.qa-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 8px 0 10px;
+}
+.qa-filters .select,
+.qa-filters .input {
+  max-width: 260px;
+}
+.qa-pass-list,
+.qa-thresholds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.qa-pass-list .qa-chip,
+.qa-thresholds .qa-chip {
+  font-weight: 600;
+  white-space: normal;
+}
+.qa-plot-panel {
+  padding: 12px 14px;
+}
+.qa-plot-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.qa-plot-head h3 {
+  margin: 0;
+}
+.qa-plot-flags {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: grid;
+  gap: 4px;
+}
+.qa-tonight {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 12px;
+}
+.qa-tonight-card {
+  padding: 10px 14px;
+}
+.qa-tonight-card ul {
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
