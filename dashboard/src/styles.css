@@ -2840,3 +2840,280 @@ ol.conclusions {
   white-space: nowrap;
   width: 1%;
 }
+
+/* ── interactive schematics (How it works) ─────────────────────────────────── */
+.sch {
+  --k-input: #2b5672;
+  --k-step: #1f9e8c;
+  --k-decision: #b97f00;
+  --k-output: #00354d;
+  --k-store: #6b5ca5;
+  --k-external: #74868f;
+  --k-module: #1f9e8c;
+  --k-test: #8a6d3b;
+  --k-stop: #445965;
+  --t-package: #1f9e8c;
+  --t-research: #7b5fc7;
+  --t-data: #2b5672;
+  --t-platform: #74868f;
+  --t-dashboard: #2a78d6;
+  --t-pipeline: #1f9e8c;
+  --t-reference: #b97f00;
+  --t-config: #6b5ca5;
+  --t-spec: #e34948;
+}
+:root[data-theme='dark'] .sch {
+  --k-input: #6fa8cc;
+  --k-output: #86d1c7;
+  --k-stop: #b4c4cb;
+  --t-data: #6fa8cc;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .sch {
+    --k-input: #6fa8cc;
+    --k-output: #86d1c7;
+    --k-stop: #b4c4cb;
+    --t-data: #6fa8cc;
+  }
+}
+.sch-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.sch-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .sch-wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.sch-canvas {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-height: 78vh;
+}
+.sch-canvas svg {
+  display: block;
+}
+.sch-band rect {
+  fill: var(--surface-2);
+  stroke: var(--line);
+  stroke-dasharray: 3 4;
+}
+.sch-band-title {
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+  pointer-events: none;
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.sch-edge path {
+  fill: none;
+  stroke: var(--axis);
+  stroke-width: 1.6;
+  transition: opacity 0.15s, stroke 0.15s;
+}
+.sch-edge.dashed path {
+  stroke-dasharray: 5 4;
+}
+.sch-edge text {
+  fill: var(--ink-2);
+  font-size: 11px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+}
+.sch-edge.on path {
+  stroke: var(--accent);
+  stroke-width: 2.4;
+}
+.sch-edge.dim {
+  opacity: 0.18;
+}
+.sch-arrow {
+  fill: var(--axis);
+}
+.sch-node {
+  cursor: pointer;
+  outline: none;
+}
+.sch-node rect,
+.sch-node polygon {
+  fill: var(--surface);
+  stroke-width: 1.6;
+  transition: opacity 0.15s, fill 0.15s;
+}
+.sch-node.k-input rect { stroke: var(--k-input); fill: color-mix(in srgb, var(--k-input) 10%, var(--surface)); }
+.sch-node.k-step rect { stroke: var(--k-step); fill: color-mix(in srgb, var(--k-step) 9%, var(--surface)); }
+.sch-node.k-decision polygon { stroke: var(--k-decision); fill: color-mix(in srgb, var(--k-decision) 12%, var(--surface)); }
+.sch-node.k-output rect { stroke: var(--k-output); fill: color-mix(in srgb, var(--k-output) 12%, var(--surface)); }
+.sch-node.k-store rect { stroke: var(--k-store); fill: color-mix(in srgb, var(--k-store) 10%, var(--surface)); stroke-dasharray: 6 3; }
+.sch-node.k-external rect { stroke: var(--k-external); fill: var(--surface-2); stroke-dasharray: 2 3; }
+.sch-node.k-module rect { stroke: var(--k-module); fill: color-mix(in srgb, var(--k-module) 7%, var(--surface)); }
+.sch-node.k-test rect { stroke: var(--k-test); fill: color-mix(in srgb, var(--k-test) 10%, var(--surface)); }
+.sch-node.k-stop rect { stroke: var(--k-stop); fill: color-mix(in srgb, var(--k-stop) 12%, var(--surface)); }
+.sch-node.t-package rect,
+.sch-node.t-pipeline rect { stroke: var(--t-package); }
+.sch-node.t-research rect { stroke: var(--t-research); }
+.sch-node.t-dashboard rect { stroke: var(--t-dashboard); }
+.sch-node.t-spec rect { stroke: var(--t-spec); stroke-dasharray: 4 3; }
+.sch-node:hover rect,
+.sch-node:hover polygon,
+.sch-node:focus-visible rect,
+.sch-node:focus-visible polygon {
+  stroke-width: 2.6;
+}
+.sch-node.sel rect,
+.sch-node.sel polygon {
+  stroke-width: 3.2;
+  filter: drop-shadow(0 2px 6px rgba(0, 53, 77, 0.25));
+}
+.sch-node.up rect,
+.sch-node.up polygon {
+  stroke-width: 2.4;
+}
+.sch-node.dim {
+  opacity: 0.28;
+}
+.sch-label {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  line-height: 1.15;
+  color: var(--ink);
+  font-size: 12px;
+  overflow: hidden;
+}
+.sch-label b {
+  font-weight: 700;
+}
+.sch-label span {
+  color: var(--ink-2);
+  font-size: 10.5px;
+  margin-top: 2px;
+}
+.sch-label.dec {
+  font-size: 11px;
+  line-height: 1.1;
+}
+.sch-label.dec span {
+  font-size: 9.5px;
+}
+.sch-detail {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 12px;
+  max-height: 78vh;
+  overflow: auto;
+}
+.sch-detail h3 {
+  margin: 6px 0 2px;
+}
+.sch-detail-head {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.sch-chip {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.sch-what {
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 8px 0;
+}
+.sch-list {
+  margin: 8px 0;
+}
+.sch-list-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sch-list ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+}
+.sch-list code {
+  font-size: 11.5px;
+  word-break: break-all;
+}
+.sch-numbers {
+  font-size: 12.5px;
+  background: var(--accent-wash);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.sch-conn {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: 6px;
+}
+.sch-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  color: var(--ink-2);
+}
+.sch-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+  vertical-align: -1px;
+  margin-right: 4px;
+  border: 1.6px solid var(--axis);
+}
+.sch-swatch.k-input { border-color: var(--k-input); background: color-mix(in srgb, var(--k-input) 15%, transparent); }
+.sch-swatch.k-step { border-color: var(--k-step); background: color-mix(in srgb, var(--k-step) 15%, transparent); }
+.sch-swatch.k-decision { border-color: var(--k-decision); background: color-mix(in srgb, var(--k-decision) 18%, transparent); transform: rotate(45deg) scale(0.75); }
+.sch-swatch.k-output { border-color: var(--k-output); background: color-mix(in srgb, var(--k-output) 18%, transparent); }
+.sch-swatch.k-store { border-color: var(--k-store); border-style: dashed; }
+.sch-swatch.k-external { border-color: var(--k-external); border-style: dotted; }
+.sch-swatch.k-module { border-color: var(--k-module); }
+.sch-swatch.k-test { border-color: var(--k-test); }
+.sch-swatch.k-stop { border-color: var(--k-stop); border-radius: 8px; }
+.sch-swatch.outline { background: transparent; }
+.sch-swatch.t-package, .sch-swatch.t-pipeline { border-color: var(--t-package); }
+.sch-swatch.t-research { border-color: var(--t-research); }
+.sch-swatch.t-data { border-color: var(--t-data); }
+.sch-swatch.t-platform { border-color: var(--t-platform); }
+.sch-swatch.t-dashboard { border-color: var(--t-dashboard); }
+.sch-swatch.t-reference { border-color: var(--t-reference); }
+.sch-swatch.t-config { border-color: var(--t-config); }
+.sch-swatch.t-spec { border-color: var(--t-spec); border-style: dashed; }

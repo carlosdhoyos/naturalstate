@@ -88,6 +88,14 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   9. **Field feedback:** “check tonight” for a chosen field day, with the issues a team can still fix near the plots, plus process reminders.
 
   Tabs can be deep-linked, e.g. `#/qa:vegetation/map`.
+- **How it works (both challenges):** interactive schematics of the code that solves each challenge. Each challenge has three kinds of diagram:
+  - **Architecture:** how data flows through the modules, from inputs to published outputs.
+  - **Logic:** the decision flows of the core rules.
+    - Birds: does a species get a threshold; the label of one prediction.
+    - Vegetation: how one rule decides about one entity; which survey counts (V-01); the resolved taxon of a record (V-02); when effort metrics may be read as evidence (V-12).
+  - **Code map:** the modules and who imports whom.
+
+  Click a box to light up everything upstream and downstream of it. Its panel shows the code files, key functions, inputs and outputs, decisions and the numbers on the take-home data, with links to the boxes that feed it and the boxes it feeds. *Walk through* steps through the boxes in pipeline order. Deep links: `#/how:birds/birds-logic`, `#/how:vegetation/veg-canon`. The diagrams are hand-maintained in `src/components/howitworks/birds.ts` and `vegetation.ts`, and their import edges were checked against the packages.
 - **Derived time columns:**
   - Birds: `clock_correction_h`, `detection_time_local`, `hour_local`, `date_local`; validations: `hour_local`. The correction is inferred from bird activity in `src/data/clocks.ts`, not hard-coded.
   - Vegetation: `start_hour_eat`.
@@ -177,6 +185,7 @@ src/
   components/Methodology.tsx  paper tabs; components/methods/* one file per paper + Overview
   components/BirdsThresholds.tsx  Challenge 1 results page (reads ../challenge1/outputs/dashboard_results.json)
   components/VegetationQA.tsx  Challenge 2 QA/QC dashboard (reads ../challenge2/outputs/dashboard_results.json)
+  components/howitworks/  "How it works" pages: Schematic.tsx (SVG renderer, tracing, walk-through) + birds.ts / vegetation.ts diagrams
   data/dictionary.ts column meanings (ODK form questions + documented formats)
   lib/help.ts        every tooltip and Guide entry (single source)
   components/        Overview, Explore, Table, Map, FilterBar, Plot wrapper, UI atoms

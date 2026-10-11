@@ -13,6 +13,7 @@ import { BirdsEDA } from './components/BirdsEDA'
 import { BirdsQuality } from './components/BirdsQuality'
 import { BirdsThresholds } from './components/BirdsThresholds'
 import { VegetationQA } from './components/VegetationQA'
+import { HowItWorks } from './components/howitworks/HowItWorks'
 import { BirdsSummary, VegetationSummary, type OpenView } from './components/Summary'
 import { Icon } from './components/ui'
 import { describeColumn } from './data/dictionary'
@@ -58,11 +59,12 @@ const DIURNAL = 'diurnal:birds'
 const EDA = 'eda:birds'
 const THRESHOLDS = 'thresholds:birds'
 const VEGQA = 'qa:vegetation'
+const HOW = (c: Challenge) => `how:${c}`
 /** Pages that are not datasets: summary:<challenge>, method:birds. */
 const challengeOf = (id: string): Challenge | null => {
   // Pages that exist: a summary per challenge; the other pages only for birds.
-  const m = /^(?:summary:(birds|vegetation)|(?:method|quality|diurnal|eda|thresholds):(birds)|qa:(vegetation))$/.exec(id)
-  return m ? ((m[1] ?? m[2] ?? m[3]) as Challenge) : null
+  const m = /^(?:summary:(birds|vegetation)|(?:method|quality|diurnal|eda|thresholds):(birds)|qa:(vegetation)|how:(birds|vegetation))$/.exec(id)
+  return m ? ((m[1] ?? m[2] ?? m[3] ?? m[4]) as Challenge) : null
 }
 
 function readHash(): { id?: string; tab?: Tab } {
@@ -345,6 +347,12 @@ export default function App() {
               <span className="nav-item-sub">results</span>
             </button>
           )}
+          <button type="button" className={`nav-item summary ${current === HOW(challenge) ? 'on' : ''}`} {...tip('nav.how')} onClick={() => { setCurrent(HOW(challenge)); setNavOpen(false) }}>
+            <span className="nav-item-title">
+              <Icon name="grid" size={14} /> How it works
+            </span>
+            <span className="nav-item-sub">architecture · logic · code</span>
+          </button>
           <div className="search" {...tip('nav.find')}>
             <Icon name="search" size={14} />
             <input className="input bare" placeholder="Find a table…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -397,6 +405,8 @@ export default function App() {
           {reg && current === EDA && <BirdsEDA reg={reg} tokens={tokens} />}
           {reg && current === THRESHOLDS && <BirdsThresholds reg={reg} tokens={tokens} />}
           {reg && current === SUMMARY('vegetation') && <VegetationSummary reg={reg} tokens={tokens} onOpen={openView} />}
+          {reg && current === HOW('birds') && <HowItWorks challenge="birds" />}
+          {reg && current === HOW('vegetation') && <HowItWorks challenge="vegetation" />}
           {reg && current === VEGQA && <VegetationQA tokens={tokens} reg={reg} onOpen={(id) => openView(id, { tab: 'table' })} />}
           {ds && view && (
             <>
