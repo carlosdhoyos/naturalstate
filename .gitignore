@@ -29,3 +29,6 @@ challenge2/outputs/qa_results.csv
 
 # Challenge 2: output folder of container runs
 challenge2/out/
+
+# local Claude Code state (not part of the submission)
+.claude/
