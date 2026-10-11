@@ -264,6 +264,18 @@ m <- glm(v$outcome ~ x, family = binomial)
 plogis((qlogis(0.99) - coef(m)[1]) / coef(m)[2])        # 0.6666381 (statsmodels, same estimator); stored rounded up: 0.666639
 ```
 
+### What has and has not been run
+
+Everything the Tech team would deploy was written and tested here. Three parts could not be run on the development machine. None of them affects the results, but each should be checked once on the platform side:
+
+| Part | Status | Evidence / how to check |
+|---|---|---|
+| Decision rules, label rule, threshold-set artifact, CLI | **Verified** | 24 package tests, including the end-to-end acceptance test on the take-home data. The CLI's labelled file and threshold set are byte-identical to the research pipeline's |
+| Packaging (wheel, entry point, bundled schemas) | **Verified** | The wheel was built and installed into a fresh Python 3.13 environment outside the repo. `ns-observations run` gave byte-identical output there, with the same threshold-set id |
+| Docker image | **Written, not built** | The Docker daemon was not running on the development machine. The image installs the same package with `pip install ".[schema]"`. To check: `docker build -t ns-observations:1.0.0 challenge1/ns_observations`, then the `docker run` command in the package README |
+| PostgreSQL adapter (`io_postgres.py`, `sql/schema.sql`) | **Stub** | The SQL and functions match the handover's tables. Their calls are checked with a fake connection, but they have **never run against a database**. Before production: apply `schema.sql` to a staging database and add integration tests |
+| R cross-check snippet (section 9) | **Not run** | R is not installed on the development machine. The expected value, 0.6666381, was confirmed with statsmodels' binomial GLM, the same estimator as R's `glm` |
+
 ## 10. Optional downstream uses (not part of labelling)
 
 - **Site-level presence** (Wood & Kahl): require observations on two or more days before marking a species present at a site.

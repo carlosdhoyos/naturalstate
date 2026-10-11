@@ -20,6 +20,13 @@ This folder contains a reproducible workflow. It does three things:
   - It imports the package's decision rules, linking and label rule, so the two cannot drift apart.
   - Its labelled file and threshold set are byte-identical to the package CLI's (tested).
 
+**Verification status.** The package logic, CLI and wheel were run and tested here. Three parts were not:
+- **The Docker image** is written but not built: the Docker daemon was not running.
+- **The PostgreSQL adapter** is a stub, checked with a fake connection, never against a database.
+- **The R cross-check snippet** has not been run: R is not installed. Its value was confirmed with the equivalent Python fit.
+
+Details and how to check each one: [Q2, section 9](Q2_tech_handover.md#what-has-and-has-not-been-run).
+
 Related documents:
 
 - [docs/challenge1_data_decisions.md](../docs/challenge1_data_decisions.md): every decision (D-01 to D-13), with what was measured.

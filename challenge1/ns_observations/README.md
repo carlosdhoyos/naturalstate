@@ -74,11 +74,21 @@ docker run --rm -v "$PWD/Data Birds:/data" -v "$PWD/out:/out" ns-observations:1.
 | `src/ns_observations/label.py` | Job B: the label rule, vectorised |
 | `src/ns_observations/artifact.py` | `ThresholdSet`: deterministic JSON, content-derived id, validation-snapshot hash, schema validation |
 | `src/ns_observations/io_csv.py` | Adapter for the take-home exports. With no shared prediction id, it links clips by score and de-duplicates them (D-01, D-02) and writes the Q1-format file |
-| `src/ns_observations/io_postgres.py` | **Stub** adapter for the tables in `sql/schema.sql`. It takes any DB-API connection, and its calls are checked with a fake connection, but it has **not been run against a live database** |
+| `src/ns_observations/io_postgres.py` | **Stub** adapter for the tables in `sql/schema.sql`. It takes any DB-API connection, and its calls are checked with a fake connection, but it has **not been run against a live database** (see Verification status) |
 | `src/ns_observations/schemas/` | JSON Schemas for the threshold set and the label rows |
 | `sql/schema.sql` | PostgreSQL DDL: predictions, validations, threshold sets, species thresholds, prediction labels |
 | `tests/` | Unit tests, the PostgreSQL stub tests, and the end-to-end acceptance test |
-| `Dockerfile` | The worker image |
+| `Dockerfile` | The worker image (written; not yet built, see Verification status) |
+
+## Verification status
+
+| Part | Status | Evidence / how to check |
+|---|---|---|
+| Decision rules, label rule, threshold-set artifact, CLI | **Verified** | 24 package tests, including the end-to-end acceptance test on the take-home data. The CLI's labelled file and threshold set are byte-identical to the research pipeline's |
+| Packaging (wheel, entry point, bundled schemas) | **Verified** | The wheel was built and installed into a fresh Python 3.13 environment outside the repo. `ns-observations run` gave byte-identical output there, with the same threshold-set id |
+| Docker image | **Written, not built** | The Docker daemon was not running on the development machine. The image installs the same package with `pip install ".[schema]"`. To check: `docker build -t ns-observations:1.0.0 challenge1/ns_observations`, then the `docker run` command in the package README |
+| PostgreSQL adapter (`io_postgres.py`, `sql/schema.sql`) | **Stub** | The SQL and functions match the handover's tables. Their calls are checked with a fake connection, but they have **never run against a database**. Before production: apply `schema.sql` to a staging database and add integration tests |
+| R cross-check snippet (section 9) | **Not run** | R is not installed on the development machine. The expected value, 0.6666381, was confirmed with statsmodels' binomial GLM, the same estimator as R's `glm` |
 
 ## Guarantees, and the tests that hold them
 

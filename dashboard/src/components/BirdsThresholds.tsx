@@ -567,6 +567,8 @@ function ResultsTab({ repro }: Ctx) {
         </ul>
       </Note>
 
+      <DeployablePackage />
+
       <ConfirmationItems />
     </>
   )
@@ -583,6 +585,55 @@ const CONFIRMATIONS: { id: string; item: string; assumed: string; ifNot: string 
   { id: 'C-6', item: 'How the two exports name the same audio (hour rounding, clip index)', assumed: 'Linked on species + recorder + date + hour + score: 476 unique, 69 tied, 2 not found (D-02)', ifNot: 'A few verdicts could attach to the wrong prediction; a stable prediction id removes the issue' },
   { id: 'C-7', item: 'Outcome coding: 1 = BirdNET was right', assumed: 'As stated; consistent with the data (share correct rises with score)', ifNot: 'Everything would invert (sanity check)' },
 ]
+
+// ── the deployable package and what has been verified (same table as Q2 section 9 and the package README) ──
+
+const VERIFICATION: { part: string; status: 'verified' | 'written' | 'stub' | 'not run'; evidence: string }[] = [
+  { part: 'Decision rules, label rule, threshold-set artifact, CLI', status: 'verified', evidence: '24 package tests, including an end-to-end acceptance test on the take-home data. The CLI’s labelled file and threshold set are byte-identical to the research pipeline’s.' },
+  { part: 'Packaging (wheel, entry point, bundled schemas)', status: 'verified', evidence: 'The wheel was built and installed into a fresh Python 3.13 environment; the ns-observations run command gave byte-identical output, with the same threshold-set id.' },
+  { part: 'Docker image', status: 'written', evidence: 'Not built: the Docker daemon was not running on the development machine. It installs the same package; check with: docker build -t ns-observations:1.0.0 challenge1/ns_observations' },
+  { part: 'PostgreSQL adapter (io_postgres.py, sql/schema.sql)', status: 'stub', evidence: 'The SQL and functions match the handover’s tables; calls are checked with a fake connection, never against a database. Before production: a staging database and integration tests.' },
+  { part: 'R cross-check snippet (handover)', status: 'not run', evidence: 'R is not installed on the development machine. The expected value 0.6666381 was confirmed with statsmodels’ binomial GLM, the same estimator as R’s glm.' },
+]
+
+function DeployablePackage() {
+  return (
+    <Section
+      title="For the Tech team: the deployable package"
+      sub={
+        <>
+          <code>challenge1/ns_observations/</code> is an installable Python 3.13 package. <code>ns-observations calibrate</code> turns validations into a versioned, schema-checked threshold set; <code>ns-observations label</code> applies it to predictions, with no fitting. It ships with a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 24 tests. The research analysis behind this page imports the same decision rules, so the two cannot drift apart. Details: <code>challenge1/Q2_tech_handover.md</code>.
+        </>
+      }
+    >
+      <div className="table-wrap auto">
+        <table className="data-table sum-table qa-table">
+          <thead>
+            <tr>
+              <th>Part</th>
+              <th>Status</th>
+              <th>Evidence / how to check</th>
+            </tr>
+          </thead>
+          <tbody>
+            {VERIFICATION.map((v) => (
+              <tr key={v.part}>
+                <td>
+                  <b>{v.part}</b>
+                </td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <span className={`qa-chip ${v.status === 'verified' ? 'qa-pass' : 'qa-info'}`}>{v.status === 'verified' ? '✓ verified' : v.status === 'written' ? 'written, not built' : v.status === 'stub' ? 'stub' : 'not run'}</span>
+                </td>
+                <td className="small">{v.evidence}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted small">None of the unverified parts affects the labels or thresholds on this page; each should be checked once on the platform side.</p>
+    </Section>
+  )
+}
 
 function ConfirmationItems() {
   return (
