@@ -1,0 +1,92 @@
+rule_id,group,level,severity,metric_impact,source,title,why,action,fail,pass,could_not_check,fail_error,fail_info,fail_warning
+A01,A,quadrat,error,yes,data model (PARENT_KEY),Quadrat or additional-species row without a parent,Orphans cannot be attributed to a plot; they would be lost or misplaced,Check the export / submission integrity,0,1936,0,0,0,0
+A02,A,survey,error,indirect,"data model (KEY, entity __id)",Duplicate key,Joins would duplicate records,Investigate the export,0,15,0,0,0,0
+A03,A,survey,error,yes,form repeat_count=20; Herbaceous SOP 3.1,Survey does not have exactly 20 quadrats,Richness and frequency assume 20 quadrats per plot,Check for lost or extra quadrats,0,32,0,0,0,0
+A04,A,survey,error,indirect,form calculation position(..),Quadrat numbers not exactly 1..20,Missing or repeated positions break the layout,Check the submission,0,32,0,0,0,0
+A05,A,occurrence,error,yes,"entity lists (species, species_extra, team, transport, surveys, vegplots, centroids, ecosystem types)",Reference does not resolve to its list,An unresolvable species or lookup cannot be named or counted,Check the entity list version used on the device,0,2783,0,0,0,0
+A06,A,occurrence,error,yes,form choice_filter groups='herbaceous',List species not in the herbaceous group,Woody species would inflate herbaceous richness,Review the species list,0,947,0,0,0,0
+A07,A,survey,warning,no,form settings version,Submission made with a non-current form version,Older logic may differ,Check the form version deployed,0,63,0,0,0,0
+A08,A,survey,error,indirect,ODK Central AttachmentsPresent/Expected,Attachments missing,Photos are the evidence for verification and identification,Re-upload attachments,0,63,0,0,0,0
+A09,A,survey,warning,no,form instance_name,Instance name does not match the plot,Mislabelled submissions are hard to trace,Check the plot selection,0,63,0,0,0,0
+A10,A,entity,info,no,entity lists (centroids),Entity hygiene: missing or inconsistent entity fields,Planning views and link flags become unreliable,Clean the entity list upstream,19,32,0,0,19,0
+B01,B,survey,warning,yes,ODK Central ReviewState,Submission rejected or has issues,Rejected data are excluded from metrics but still exist (and may have written entities),Confirm the review decision,2,61,0,0,0,2
+B02,B,plot,warning,yes,design: one survey per plot per replicate,More than one submission for a plot in the same replicate,Double counting; needs a canonical survey,Confirm which submission is canonical,2,28,0,0,0,2
+B03,B,survey,error,yes,form choice_filter (survey target_group='herbs'; plot in survey and viable),"Survey not linked to a registered, viable plot of the herbaceous survey",Observations cannot be placed,Check plot registration / selection,0,32,0,0,0,0
+B04,B,survey,warning,no,Herbaceous SOP step 1 (register first),Survey started before its plot registration was available (cross-device),The plot list on the device must include the plot; same-device is normal (local entities),Check device sync,0,32,0,0,0,0
+B05,B,survey,warning,indirect,judgement (relative to the median duration),Implausible survey duration,Very short surveys may be incomplete; very long ones may include breaks,Review the survey,13,50,0,0,9,4
+B06,B,survey,warning,no,Herbaceous SOP 6: submit as soon as possible,Late submission,Late uploads leave other devices with stale entity lists (see B10),Upload daily,4,59,0,0,4,0
+B07,B,survey,error,no,"survey entity (baseline year, campaign window)",Survey date outside the campaign window,Wrong dates break replicate logic,Check device clock,0,63,0,0,0,0
+B08,B,survey,warning,no,judgement,Same team member on two overlapping surveys,A person cannot be in two places,Check team selection / clocks,0,63,0,0,0,0
+B09,B,survey,info,no,judgement,Implausible travel speed between consecutive surveys of one device,Points to clock or location errors,Check device clock,0,60,0,0,0,0
+B10,B,survey,warning,yes,form calculation base_active_herb_count; entity list lifecycle,Device's species_extra list missed slots already activated by earlier surveys (any device),Two devices can claim the same new-species slot; provisional IDs collide,Refresh forms before each survey; upload daily,4,28,0,0,0,4
+B11,B,survey,error,no,form choice_filter recorder in selected team,Recorder not among the selected team / inactive team member,Accountability for identifications,Check team selection,0,63,0,0,0,0
+B12,B,survey,info,no,ODK timestamps,Timestamps carry +02:00 while project local time is +03:00 (EAT),Instants are correct but local wall-clock times read off the stamps are 1 h behind,Set the device time zone to Africa/Nairobi,63,0,0,0,63,0
+C01,C,quadrat,error,yes,form relevant herb_species: herbs_present='yes',herbs_present = no but species recorded,Contradictory record,Review the quadrat,0,7,0,0,0,0
+C02,C,quadrat,error,yes,form required selected_herb_species_uuids when all_unknown='no',herbs_present = yes but no species (list or additional),A present herb must be recorded,Review the quadrat,0,633,0,0,0,0
+C03,C,quadrat,error,yes,form constraint selected_herb_species_uuids: . = '' or all_unknown = 'no',all_unknown = yes but list species selected,Contradictory record,Review the quadrat,0,139,0,0,0,0
+C04,C,quadrat,error,yes,form relevant additional_species_repeat: additional_species_present='yes',additional_species_present and additional rows disagree,Species may have been lost,Review the quadrat,10,630,0,10,0,0
+C05,C,quadrat,error,yes,form calculation count_herb_species = count-selected(...),count_herb_species != number of selected list species,Stored summary inconsistent,Investigate export,0,633,0,0,0,0
+C06,C,quadrat,warning,no,form calculations known/additional/all_species_list,Stored species label lists differ from recomputed,Display lists used in review are wrong,Investigate form logic,0,633,0,0,0,0
+C07,C,survey,warning,no,form calculation survey_end.quadrats_with_species; Herbaceous SOP step 13,In-form 'quadrats with species' differs from recomputed,The team's end-of-survey plausibility check (SOP step 13) relies on it,"Fix the form calculation (platform/form issue, see K02)",23,9,0,0,0,23
+C08,C,occurrence,error,yes,form required species_entry_mode / select_reuse_*,Additional-species row with no species,An occurrence with no taxon,Review the quadrat,1,1295,0,1,0,0
+C09,C,occurrence,error,indirect,form required macro_1 when species_entry_mode='new_unknown',New unknown without its macro photo,The photo is needed to identify the unknown later,Re-upload / re-photograph,0,107,0,0,0,0
+C10,C,occurrence,error,yes,"form constraint new_missing_canonical: not(regex(., '[,;()]'))","Typed canonical contains , ; ( or )",The form forbids it: such a value could not come from the app,Investigate the record (possible manual edit),0,45,0,0,0,0
+C11,C,survey,error,no,form constraint confirm_submission = 'yes',Submission not confirmed,The form forbids it: such a value could not come from the app,Investigate the record,0,32,0,0,0,0
+C12,C,survey,error,no,"form required (start, end, transport, team, recorder, survey, plot)",Required survey field missing,The form requires it,Investigate the record,0,32,0,0,0,0
+C13,C,quadrat,error,indirect,"form required herbs_present, quadrat_image, location_quadrat",Required quadrat field missing,The form requires it,Investigate the record,0,640,0,0,0,0
+C14,C,survey,error,no,"form calculations survey_year, replicate_index, replicate, labels",Stored calculated survey fields differ from recomputed,Replicate attribution would be wrong,Investigate form logic,32,0,0,0,32,0
+C15,C,quadrat,error,yes,form constraint additional_species_present: . = 'yes' or all_unknown != 'yes',all_unknown = yes but additional species = no,The form forbids it: an all-unknown quadrat must list its unknowns,Investigate the record,0,139,0,0,0,0
+C16,C,plot,error,no,registration form required/relevant/constraints,Registration field missing or violating its form rule,The form forbids it,Investigate the record,0,31,0,0,0,0
+D01,D,plot,error,indirect,Registration SOP step 5 (midpoint <= 25 m from prescribed),Midpoint too far from the prescribed point,The plot is not where the design placed it (sampling bias),Confirm the location; re-register if needed,3,27,0,1,2,0
+D02,D,plot,warning,indirect,Registration SOP fig. 1 (A-M = M-B = 25 m),Half-transect length inconsistent with 25 m (beyond GPS error),Transect laid out off-standard or endpoints recorded in the wrong place,Review endpoints,10,20,0,4,0,6
+D03,D,plot,warning,indirect,Registration SOP fig. 1 (A-B = 50 m),Transect length inconsistent with 50 m (beyond GPS error),Quadrat spacing and coverage depend on it,Review endpoints,5,25,0,2,0,3
+D04,D,plot,warning,indirect,Registration SOP fig. 1 (straight transect),Midpoint off the A-B line (beyond GPS error),A bent transect changes the sampled area,Review the layout,5,25,0,1,0,4
+D05,D,plot,warning,indirect,Registration SOP steps 4-5 (lay out along N-S; rotate only for obstacles),Transect not oriented north-south,Systematic orientation can bias sampling relative to gradients,Confirm whether rotation was justified (confirmation item),31,0,0,0,0,31
+D06,D,plot,error,no,form capture-accuracy=5; SOP 4.2,Registration point accuracy worse than 5 m,Geometry checks become unreliable,Re-record,0,30,0,0,0,0
+D07,D,plot,error,no,form save_to vegplots#geometry,vegplot entity geometry differs from the registered midpoint,The entity used by later forms points elsewhere,Investigate entity update,0,30,0,0,0,0
+D08,D,plot,warning,indirect,Registration SOP step 3 (stratum mismatch can justify non-viable),Recorded ecosystem inconsistent with the assigned stratum,The plot may not represent its stratum,Confirm stratum / viability,1,29,0,0,0,1
+D09,D,plot,info,indirect,Registration SOP step 5 (backup when no viable area within 25 m),Backup used; not the nearest available backup,Backup choice affects the sample; the rule is undocumented,Confirm the backup-selection rule,1,0,0,0,1,0
+D10,D,plot,warning,indirect,Registration SOP step 3 (justify non-viable; temporary reasons are not grounds),Non-viable plot without a valid justification,Non-viability removes a plot from the sample,Review the justification,0,1,0,0,0,0
+D11,D,plot,warning,indirect,survey entity / centroids,Plot registration attached to a different survey/replicate than expected,The plot would not appear in the herbaceous form,Check registration,0,31,0,0,0,0
+E01,E,quadrat,error,no,form capture-accuracy=5; SOP 4.2,Quadrat accuracy worse than 5 m,Position checks unreliable,Re-record,0,640,0,0,0,0
+E02,E,quadrat,warning,indirect,Herbaceous SOP step 5 (frame 1.5-2.5 m from the line),Quadrat off the 5 m belt (beyond GPS error),The quadrat may not be in the plot,Review position,93,547,0,0,50,43
+E03,E,survey,error,indirect,Herbaceous SOP step 2/5 (quadrats along the registered tape),Whole transect offset from the registered line,The survey sampled a different line than the registered plot,Confirm where the survey happened,9,23,0,1,6,2
+E04,E,quadrat,warning,indirect,judgement (residual from the survey's own fitted line),Quadrat far from the survey's own line,"Single-point position error or misplacement, independent of registration error",Review position,29,611,0,0,18,11
+E05,E,survey,warning,indirect,Herbaceous SOP step 12 (quadrats every 5 m along 50 m),Quadrats cover too little of the transect,Part of the plot was not sampled,Review the layout,2,30,0,0,0,2
+E06,E,quadrat,warning,no,judgement,Two quadrats of a survey with identical coordinates,A GPS point was probably not re-recorded,Review,2,638,0,0,0,2
+E07,E,quadrat,info,no,judgement (robust z within survey),Altitude outlier,GPS quality indicator,None (context),35,605,0,0,35,0
+E08,E,quadrat,error,no,ODK timing,Quadrat photo taken outside the survey's start-end window,The photo may belong to another visit,Investigate,0,640,0,0,0,0
+E09,E,quadrat,warning,no,"Herbaceous SOP step 8 (photo per quadrat, in order)",Photo time order differs from quadrat order,Quadrats may have been filled out of sequence or retro-actively,Review,1,607,0,0,0,1
+E10,E,quadrat,warning,no,judgement,Implausibly short time between consecutive quadrats,May indicate rushed or batch-entered quadrats,Review,0,608,0,0,0,0
+E11,E,quadrat,error,no,judgement,Same photo file used more than once,One photo cannot document two quadrats,Investigate,0,880,0,0,0,0
+E12,E,survey,info,no,form background-geopoint,"Confirmation location far from the plot, or missing",Where the form was confirmed,None (context),1,43,19,0,1,0
+E13,E,survey,info,no,Herbaceous SOP steps 11-12 (both sides at each 5 m mark),Walking order differs from the SOP (e.g. out-and-back),Spatial design equivalent; position checks must not assume SOP order,Confirm accepted local practice (confirmation item),33,0,0,0,33,0
+F01,F,occurrence,warning,yes,Herbaceous SOP step 7 (canonical Genus_species),Typed canonical not in canonical format,Whitespace/case/format variants create duplicate taxa,Correct upstream / in curation,2,43,0,0,0,2
+F02,F,occurrence,warning,yes,Herbaceous SOP step 7 (use the list; free text only if missing),Typed 'missing' species is on the project list,Should have been selected from the list; splits one taxon into two keys,Merge in curation,9,113,0,0,8,1
+F03,F,occurrence,warning,yes,judgement (fuzzy match to list/curation names),Likely misspelled name,A misspelling becomes a separate taxon,Confirm spelling in curation,23,74,0,0,0,23
+F04,F,entity,warning,yes,species_extra lifecycle,Same canonical registered under more than one entity,One species counted as two,Merge in curation,4,41,0,0,0,4
+F05,F,occurrence,warning,yes,presence/absence design,Same taxon recorded twice in one quadrat,Presence is binary; duplicates inflate counts,Review,7,2236,0,0,0,7
+F06,F,occurrence,error,yes,Herbaceous SOP glossary (non-woody only),Woody taxon in herbaceous data,Inflates herbaceous richness,Exclude in the resolved layer (curation),4,2239,0,4,0,0
+F07,F,entity,info,yes,Herbaceous SOP 6 (identify vouchers),Provisional taxon still unresolved after curation,Unknowns limit diversity metrics,Identify vouchers,23,1,0,0,23,0
+F08,F,entity,info,yes,species_extra_ids notes,Curation merges or excludes this taxon,Raw richness differs from resolved richness,None (applied in the resolved layer),13,103,0,0,13,0
+F09,F,entity,warning,yes,ODK entity lifecycle,"Entity written by more than one submission, or by a rejected submission",Rejection does not roll back entity writes; slot collisions,"Review entity history (platform issue, see K03)",3,101,0,0,0,3
+F10,F,entity,info,yes,GBIF occurrence data (extra; cached),Taxon without GBIF records in the country (range check),Possible misidentification,Verify identification,21,70,2,0,20,1
+F11,F,plot,info,yes,judgement,High share of unknowns / all-unknown quadrats,Identification burden; richness uncertain,Prioritise voucher identification,11,19,0,0,11,0
+F12,F,plot,warning,no,registration form (unknown dominant woody species is free text),'Unknown' dominant woody species recorded with a species name,An unknown should not carry a name,Review,1,0,0,0,0,1
+F13,F,entity,warning,yes,species_extra_ids (curation table QA),"Curation table issue (typo, kept misspelling, merge only in free text, label/number mismatch)",The resolved layer inherits curation errors,Clean the curation table; use structured merge/exclude columns,30,79,0,0,0,30
+F14,F,entity,error,yes,form calculation assigned_unknown_index,Provisional index sequence broken or reused,Two taxa could share an index,Investigate,0,108,0,0,0,0
+G01,G,plot,info,yes,judgement (robust z across plots),Richness outlier,Possible recording or identification problem,Review,0,60,0,0,0,0
+G02,G,quadrat,info,yes,Herbaceous SOP step 13,Quadrat with no herbs,"Valid observation, but implausible in grassland if frequent",Context,7,633,0,0,7,0
+G03,G,project,info,yes,judgement,Recorder imbalance / recorder effect,Observer effects on identification,Balance recorders; cross-check,2,0,0,0,2,0
+G04,G,plot,info,yes,judgement,Agreement between repeat surveys of the same plot,Measures observer / detection noise,Context,1,1,0,0,1,0
+J01,J,plot,warning,yes,centroids (prescribed primary points),Prescribed primary point not registered or not surveyed,Planned sample incomplete,Confirm whether still planned (confirmation item),9,29,0,0,0,9
+J02,J,plot,info,indirect,centroids (backup points),Backup point used,Context for coverage,None,1,0,0,0,1,0
+J03,J,plot,warning,yes,design,Viable registered plot without an accepted survey,Planned sample incomplete,Survey the plot,0,30,0,0,0,0
+K01,K,project,info,no,Herbaceous SOP glossary vs form,SOP and form disagree on conventions,"Teams follow one, data follow the other",Align SOP and form,2,0,0,0,2,0
+K02,K,project,warning,no,form calculation,A form calculation gives wrong results,In-field checks mislead the team,Fix the form,1,0,0,0,0,1
+K03,K,project,warning,yes,ODK Central entity lifecycle,Rejecting a submission does not roll back its entity writes,Rejected data still shape provisional IDs,Platform process,1,0,0,0,0,1
+K04,K,project,info,no,XLSForm design,"Form design issue (e.g. choice names with spaces, duplicated field names)",Fragile exports and analysis,Fix the form,5,0,0,0,5,0
+X01,X,entity,warning,indirect,"form save_to columns (species_extra, vegplots)",Entity value differs from what the form wrote,"Later forms read the entity, not the submission; a mismatch means an edit outside the form or a lost update",Investigate the entity history,1,135,0,0,1,0
+P01,P,column,info,no,profiling sweep,"Column profile anomaly (missingness, type, range, duplicates)",Unexpected values can indicate edits or export problems,Review,10,253,0,0,10,0
+P02,P,quadrat,info,no,profiling sweep,Junk free text (punctuation-only or whitespace comments),Noise in context fields,None (context),15,3,0,0,15,0
+P03,P,column,warning,no,profiling sweep,Value outside its choice list,The form restricts choices: such a value could not come from the app,Investigate (possible manual edit),0,15,0,0,0,0

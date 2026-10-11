@@ -1,0 +1,60 @@
+{
+ "run_id": "qa-89f6067444a485d6",
+ "code_version": "c63f959",
+ "catalogue_version": "1.0",
+ "inputs": {
+  "Data Vegetation/Entity lists/areas.csv": "48e56055a5d5694f",
+  "Data Vegetation/Entity lists/centroids.csv": "cf5b1cfe7e79194e",
+  "Data Vegetation/Entity lists/ecosystem_types.csv": "406b2e5f7a49ec9d",
+  "Data Vegetation/Entity lists/project_team.csv": "ca8976a3fc266cf6",
+  "Data Vegetation/Entity lists/projects.csv": "ddaeef58bb6c97a9",
+  "Data Vegetation/Entity lists/species.csv": "4c59a508d0a87db6",
+  "Data Vegetation/Entity lists/species_extra.csv": "58b417d2fdad19aa",
+  "Data Vegetation/Entity lists/species_extra_ids.csv": "0051df6458bafaac",
+  "Data Vegetation/Entity lists/surveys.csv": "45d06f55eca0069a",
+  "Data Vegetation/Entity lists/transport.csv": "bcccaf464c740b31",
+  "Data Vegetation/Entity lists/vegplots.csv": "e6e1ad765948ce6d",
+  "Data Vegetation/ODK Data Collection Forms/herbaceous_veg_survey.xlsx": "cc4b5cb8869f5ee0",
+  "Data Vegetation/ODK Data Collection Forms/register_vegetation_plots.xlsx": "faf9af4467a689fa",
+  "Data Vegetation/ODK Data Exports/herbaceous_veg_survey-additional_species_repeat.csv": "58ddbaa9abe939a3",
+  "Data Vegetation/ODK Data Exports/herbaceous_veg_survey-quadrat_repeat.csv": "bd7269f6a802f6b8",
+  "Data Vegetation/ODK Data Exports/herbaceous_veg_survey.csv": "3f085dc97ca4e1df",
+  "Data Vegetation/ODK Data Exports/register_vegetation_plots.csv": "91f8aa18019a6443",
+  "challenge2/reference/gbif_cache.json": "d0550e73c4f00bc8",
+  "challenge2/rules/rules.yaml": "7f0bed55dc2ae859"
+ },
+ "rows": {
+  "qa_results": 24647,
+  "qa_flags": 640,
+  "submissions": 32,
+  "plots": 51,
+  "quadrats": 640,
+  "occurrences": 2243,
+  "survey_overview": 1,
+  "canonical_choice": 32,
+  "effort_plan": 3,
+  "effort_plots": 60,
+  "effort_curves": 1200,
+  "effort_project": 2,
+  "effort_repeatability": 4,
+  "effort_richness_sensitivity": 5
+ },
+ "status_counts": {
+  "pass": 23986,
+  "fail": 640,
+  "could_not_check": 21
+ },
+ "fail_by_severity": {
+  "info": 392,
+  "warning": 224,
+  "error": 24
+ },
+ "figures": [
+  "accumulation.png",
+  "flags_heatmap.png",
+  "map_overview.png",
+  "orientation.png",
+  "timeline_26may.png",
+  "transects_grid.png"
+ ]
+}

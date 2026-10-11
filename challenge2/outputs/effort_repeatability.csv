@@ -1,0 +1,5 @@
+plot_name,layer,first,second,taxa_first,taxa_second,shared,plot_jaccard,mean_quadrat_jaccard,min_quadrat_jaccard,duration_first_min,duration_second_min
+SavMon_LW_Plot_18,raw,demo-device-01 26 May 06:23Z,demo-device-02 26 May 12:13Z,28,26,23,0.742,0.516,0.125,53.0,26.0
+SavMon_LW_Plot_18,resolved,demo-device-01 26 May 06:23Z,demo-device-02 26 May 12:13Z,27,24,22,0.759,0.536,0.2,53.0,26.0
+SavMon_LW_Plot_21,raw,demo-device-01 26 May 07:44Z,demo-device-02 26 May 12:48Z,30,30,23,0.622,0.458,0.0,68.0,25.0
+SavMon_LW_Plot_21,resolved,demo-device-01 26 May 07:44Z,demo-device-02 26 May 12:48Z,30,30,23,0.622,0.458,0.0,68.0,25.0

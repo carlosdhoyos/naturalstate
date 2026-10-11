@@ -1,0 +1,33 @@
+KEY,plot_name,replicate,ReviewState,_device,canonical,n_submissions,canonical_reason
+uuid:9ec95900-d4e8-4825-be75-07834b98cc6c,SavMon_LW_Plot_19,lw_baseline,,demo-device-01,True,1,only submission
+uuid:ce4f999d-8849-42a9-a870-1205d47b1903,SavMon_LW_Plot_22,lw_baseline,,demo-device-01,True,1,only submission
+uuid:938c15e5-c942-49aa-8e6d-9633189870ff,SavMon_LW_Plot_29,lw_baseline,,demo-device-02,True,1,only submission
+uuid:967cb42c-f21a-4ba6-92be-81cd6d2b0e8d,SavMon_LW_Plot_03,lw_baseline,,demo-device-01,True,1,only submission
+uuid:95cde0b4-8b49-4f5d-a3c7-6765e1c06466,SavMon_LW_Plot_09,lw_baseline,,demo-device-01,True,1,only submission
+uuid:4137458f-31e5-4355-b4ad-47858fb11503,SavMon_LW_Plot_04,lw_baseline,,demo-device-01,True,1,only submission
+uuid:e63b6ad6-7893-4cca-a1db-00fbde18a2aa,SavMon_LW_Plot_02,lw_baseline,,demo-device-01,True,1,only submission
+uuid:430e85a3-44ce-45f4-9974-c6a61569e78b,SavMon_LW_Plot_07,lw_baseline,,demo-device-01,True,1,only submission
+uuid:9fd08bb2-7c3f-49f5-8ad8-dd6f45da94da,SavMon_LW_Plot_01,lw_baseline,,demo-device-01,True,1,only submission
+uuid:ebe93f04-c927-4af3-9668-21b6540c01ea,SavMon_LW_Plot_13,lw_baseline,,demo-device-01,True,1,only submission
+uuid:49d73df9-2d36-4a1e-aa29-6f94f23a7513,SavMon_LW_Plot_21,lw_baseline,,demo-device-01,True,2,kept: not rejected / latest
+uuid:c6cc7231-7af6-4bc5-b281-565c53f21763,SavMon_LW_Plot_21,lw_baseline,rejected,demo-device-02,False,2,not canonical: rejected or older
+uuid:54452130-d92e-4996-a0d7-9401811b9ed7,SavMon_LW_Plot_15,lw_baseline,,demo-device-01,True,1,only submission
+uuid:b940a5e4-f4ed-4120-ba4e-70f858b86dfd,SavMon_LW_Plot_17,lw_baseline,,demo-device-01,True,1,only submission
+uuid:c17516f9-53dd-4fda-b4e6-e257068198b9,SavMon_LW_Plot_30,lw_baseline,,demo-device-02,True,1,only submission
+uuid:c4ea3469-7e1c-474a-9ce6-fc1926e590e2,SavMon_LW_Plot_28,lw_baseline,,demo-device-01,True,1,only submission
+uuid:cf362fbc-991a-4db1-8d49-6c1d29fd49c8,SavMon_LW_Plot_18,lw_baseline,,demo-device-01,True,2,kept: not rejected / latest
+uuid:81e3bc36-700f-465d-a1aa-48ebed04a78c,SavMon_LW_Plot_18,lw_baseline,rejected,demo-device-02,False,2,not canonical: rejected or older
+uuid:8e5f5c9d-d697-4358-b766-db4a41f28c3e,SavMon_LW_Plot_25,lw_baseline,,demo-device-01,True,1,only submission
+uuid:b816a9b4-f338-432a-83d7-1cf354583f0f,SavMon_LW_Plot_20,lw_baseline,,demo-device-01,True,1,only submission
+uuid:599e04cf-832f-4535-8305-967918d12026,SavMon_LW_Plot_16,lw_baseline,,demo-device-01,True,1,only submission
+uuid:e7de35f0-a715-47f1-885f-fd5a0d9a2907,SavMon_LW_Plot_12,lw_baseline,,demo-device-01,True,1,only submission
+uuid:ef5c5535-1739-481b-af66-71061de5dcd2,SavMon_LW_Plot_24,lw_baseline,,demo-device-01,True,1,only submission
+uuid:3865525f-1d45-40fc-83ca-7e30fafe6b54,SavMon_LW_Plot_10,lw_baseline,,demo-device-01,True,1,only submission
+uuid:c803a008-7014-4a4e-a485-68e1d90d767c,SavMon_LW_Plot_27,lw_baseline,,demo-device-01,True,1,only submission
+uuid:5d242bf2-8888-4eb0-9082-431482177425,SavMon_LW_Plot_05,lw_baseline,,demo-device-01,True,1,only submission
+uuid:9e1251bb-84c1-4b7a-a8bb-bafcf7afc82c,SavMon_LW_Plot_11,lw_baseline,,demo-device-03,True,1,only submission
+uuid:dae71a1b-a6f9-4a6d-a7e5-8ffbb89fad6f,SavMon_LW_Plot_46,lw_baseline,,demo-device-01,True,1,only submission
+uuid:359a5da6-d237-4203-b838-8596bdbd4935,SavMon_LW_Plot_08,lw_baseline,,demo-device-01,True,1,only submission
+uuid:fdf5f121-0a7f-4769-85bb-4717e0361eb4,SavMon_LW_Plot_14,lw_baseline,,demo-device-01,True,1,only submission
+uuid:7ae61d55-3663-422e-aad2-9104b56c9a47,SavMon_LW_Plot_06,lw_baseline,,demo-device-01,True,1,only submission
+uuid:2439f628-f86d-4770-98d1-ae7b99a4d91f,SavMon_LW_Plot_26,lw_baseline,,demo-device-01,True,1,only submission

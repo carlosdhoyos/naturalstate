@@ -1,0 +1,159 @@
+# Vegetation QA/QC rule catalogue (Challenge 2). Owned by Biometrics; versioned with the code.
+# Every rule has a SOURCE (SOP step, ODK form row, entity list, or "judgement" when the threshold is
+# ours), a severity, and whether it can change species richness / diversity (metric_impact).
+# Severity: error = violates a documented requirement or prevents reliable interpretation;
+#           warning = plausible, needs review; info = context.
+# A rule's result per entity is fail / pass / could_not_check ("could not check" is never "pass").
+# Thresholds below are read by the checks; change them here, not in code.
+
+version: "1.0"
+
+thresholds:
+  quadrats_per_survey: 20                 # form repeat_count; Herbaceous SOP sec. 3.1
+  midpoint_max_offset_m: 25               # Registration SOP step 5
+  midpoint_watch_offset_m: 20             # judgement: report plots within 5 m of the limit (info)
+  transect_length_m: 50                   # Registration SOP figure 1
+  half_length_m: 25
+  gps_z_warning: 2                        # judgement: deviation / combined reported GPS accuracy
+  gps_z_error: 3
+  max_accuracy_m: 5                       # Herbaceous SOP 4.2; form capture-accuracy=5
+  ns_deviation_deg: 30                    # judgement: "laid out along the north-south axis" (Reg. SOP 4–5)
+  quadrat_lateral_min_m: 1.5              # Herbaceous SOP step 5: frame flush at the end of a 2.5 m stick
+  quadrat_lateral_max_m: 2.5
+  coverage_min_share: 0.7                 # judgement: along-axis span of quadrats vs 50 m
+  min_seconds_between_quadrats: 30        # judgement
+  duration_short_factor: 0.5              # judgement: shorter than half the median survey duration
+  duration_long_factor: 2.5               # judgement: longer than 2.5x the median (info)
+  max_submission_delay_h: 24              # judgement; SOP: "submit as soon as a stable connection is available"
+  watch_submission_delay_h: 8             # judgement (info)
+  altitude_mad_z: 4                       # judgement, robust z within a survey
+  altitude_jump_m: 15                     # judgement: altitude change between consecutive quadrats (5 m apart)
+  walked_line_rotation_deg: 30            # judgement: survey's own line vs the registered line
+  background_point_max_m: 50              # judgement: confirmation location vs plot midpoint
+  campaign_start: "2026-05-15"            # survey entities created 2026-05-15
+  campaign_end: "2026-06-30"
+  fuzzy_name_ratio: 0.85                  # judgement: similarity for "likely typo of a list name"
+  max_travel_speed_kmh: 60                # judgement: between consecutive timed GPS fixes of one device
+  unknown_share_info: 0.30                # judgement: share of a plot's occurrences that are unresolved unknowns
+  all_unknown_quadrats_info: 5            # judgement: all-unknown quadrats per survey (of 20)
+  richness_robust_z: 3.5                  # judgement: robust z of plot richness across plots
+  recorder_share_info: 0.75               # judgement: one recorder doing more than this share of surveys
+  repeat_jaccard_info: 0.70               # judgement: plot-level species agreement between repeat surveys
+  registration_overnight_hours: 6         # judgement: a registration form open longer than this spans a break
+  stratum_ecosystems:                     # judgement + Registration SOP step 3; confirmation item
+    savanna: [Grassland, Scrub]
+    shrubland: [Scrub]
+
+rules:
+  # ── A. Structural and referential ────────────────────────────────────────
+  A01: {group: A, level: quadrat, severity: error, metric_impact: "yes", source: "data model (PARENT_KEY)", title: "Quadrat or additional-species row without a parent", why: "Orphans cannot be attributed to a plot; they would be lost or misplaced", action: "Check the export / submission integrity"}
+  A02: {group: A, level: survey, severity: error, metric_impact: indirect, source: "data model (KEY, entity __id)", title: "Duplicate key", why: "Joins would duplicate records", action: "Investigate the export"}
+  A03: {group: A, level: survey, severity: error, metric_impact: "yes", source: "form repeat_count=20; Herbaceous SOP 3.1", title: "Survey does not have exactly 20 quadrats", why: "Richness and frequency assume 20 quadrats per plot", action: "Check for lost or extra quadrats"}
+  A04: {group: A, level: survey, severity: error, metric_impact: indirect, source: "form calculation position(..)", title: "Quadrat numbers not exactly 1..20", why: "Missing or repeated positions break the layout", action: "Check the submission"}
+  A05: {group: A, level: occurrence, severity: error, metric_impact: "yes", source: "entity lists (species, species_extra, team, transport, surveys, vegplots, centroids, ecosystem types)", title: "Reference does not resolve to its list", why: "An unresolvable species or lookup cannot be named or counted", action: "Check the entity list version used on the device"}
+  A06: {group: A, level: occurrence, severity: error, metric_impact: "yes", source: "form choice_filter groups='herbaceous'", title: "List species not in the herbaceous group", why: "Woody species would inflate herbaceous richness", action: "Review the species list"}
+  A07: {group: A, level: survey, severity: warning, metric_impact: "no", source: "form settings version", title: "Submission made with a non-current form version", why: "Older logic may differ", action: "Check the form version deployed"}
+  A08: {group: A, level: survey, severity: error, metric_impact: indirect, source: "ODK Central AttachmentsPresent/Expected", title: "Attachments missing", why: "Photos are the evidence for verification and identification", action: "Re-upload attachments"}
+  A09: {group: A, level: survey, severity: warning, metric_impact: "no", source: "form instance_name", title: "Instance name does not match the plot", why: "Mislabelled submissions are hard to trace", action: "Check the plot selection"}
+  A10: {group: A, level: entity, severity: info, metric_impact: "no", source: "entity lists (centroids)", title: "Entity hygiene: missing or inconsistent entity fields", why: "Planning views and link flags become unreliable", action: "Clean the entity list upstream"}
+
+  # ── B. Submission lifecycle ─────────────────────────────────────────────
+  B01: {group: B, level: survey, severity: warning, metric_impact: "yes", source: "ODK Central ReviewState", title: "Submission rejected or has issues", why: "Rejected data are excluded from metrics but still exist (and may have written entities)", action: "Confirm the review decision"}
+  B02: {group: B, level: plot, severity: warning, metric_impact: "yes", source: "design: one survey per plot per replicate", title: "More than one submission for a plot in the same replicate", why: "Double counting; needs a canonical survey", action: "Confirm which submission is canonical"}
+  B03: {group: B, level: survey, severity: error, metric_impact: "yes", source: "form choice_filter (survey target_group='herbs'; plot in survey and viable)", title: "Survey not linked to a registered, viable plot of the herbaceous survey", why: "Observations cannot be placed", action: "Check plot registration / selection"}
+  B04: {group: B, level: survey, severity: warning, metric_impact: "no", source: "Herbaceous SOP step 1 (register first)", title: "Survey started before its plot registration was available (cross-device)", why: "The plot list on the device must include the plot; same-device is normal (local entities)", action: "Check device sync"}
+  B05: {group: B, level: survey, severity: warning, metric_impact: indirect, source: "judgement (relative to the median duration)", title: "Implausible survey duration", why: "Very short surveys may be incomplete; very long ones may include breaks", action: "Review the survey"}
+  B06: {group: B, level: survey, severity: warning, metric_impact: "no", source: "Herbaceous SOP 6: submit as soon as possible", title: "Late submission", why: "Late uploads leave other devices with stale entity lists (see B10)", action: "Upload daily"}
+  B07: {group: B, level: survey, severity: error, metric_impact: "no", source: "survey entity (baseline year, campaign window)", title: "Survey date outside the campaign window", why: "Wrong dates break replicate logic", action: "Check device clock"}
+  B08: {group: B, level: survey, severity: warning, metric_impact: "no", source: "judgement", title: "Same team member on two overlapping surveys", why: "A person cannot be in two places", action: "Check team selection / clocks"}
+  B09: {group: B, level: survey, severity: info, metric_impact: "no", source: "judgement", title: "Implausible travel speed between consecutive surveys of one device", why: "Points to clock or location errors", action: "Check device clock"}
+  B10: {group: B, level: survey, severity: warning, metric_impact: "yes", source: "form calculation base_active_herb_count; entity list lifecycle", title: "Device's species_extra list missed slots already activated by earlier surveys (any device)", why: "Two devices can claim the same new-species slot; provisional IDs collide", action: "Refresh forms before each survey; upload daily"}
+  B11: {group: B, level: survey, severity: error, metric_impact: "no", source: "form choice_filter recorder in selected team", title: "Recorder not among the selected team / inactive team member", why: "Accountability for identifications", action: "Check team selection"}
+  B12: {group: B, level: survey, severity: info, metric_impact: "no", source: "ODK timestamps", title: "Timestamps carry +02:00 while project local time is +03:00 (EAT)", why: "Instants are correct but local wall-clock times read off the stamps are 1 h behind", action: "Set the device time zone to Africa/Nairobi"}
+
+  # ── C. Form-internal consistency (form rules re-checked) ────────────────
+  C01: {group: C, level: quadrat, severity: error, metric_impact: "yes", source: "form relevant herb_species: herbs_present='yes'", title: "herbs_present = no but species recorded", why: "Contradictory record", action: "Review the quadrat"}
+  C02: {group: C, level: quadrat, severity: error, metric_impact: "yes", source: "form required selected_herb_species_uuids when all_unknown='no'", title: "herbs_present = yes but no species (list or additional)", why: "A present herb must be recorded", action: "Review the quadrat"}
+  C03: {group: C, level: quadrat, severity: error, metric_impact: "yes", source: "form constraint selected_herb_species_uuids: . = '' or all_unknown = 'no'", title: "all_unknown = yes but list species selected", why: "Contradictory record", action: "Review the quadrat"}
+  C04: {group: C, level: quadrat, severity: error, metric_impact: "yes", source: "form relevant additional_species_repeat: additional_species_present='yes'", title: "additional_species_present and additional rows disagree", why: "Species may have been lost", action: "Review the quadrat"}
+  C05: {group: C, level: quadrat, severity: error, metric_impact: "yes", source: "form calculation count_herb_species = count-selected(...)", title: "count_herb_species != number of selected list species", why: "Stored summary inconsistent", action: "Investigate export"}
+  C06: {group: C, level: quadrat, severity: warning, metric_impact: "no", source: "form calculations known/additional/all_species_list", title: "Stored species label lists differ from recomputed", why: "Display lists used in review are wrong", action: "Investigate form logic"}
+  C07: {group: C, level: survey, severity: warning, metric_impact: "no", source: "form calculation survey_end.quadrats_with_species; Herbaceous SOP step 13", title: "In-form 'quadrats with species' differs from recomputed", why: "The team's end-of-survey plausibility check (SOP step 13) relies on it", action: "Fix the form calculation (platform/form issue, see K02)"}
+  C08: {group: C, level: occurrence, severity: error, metric_impact: "yes", source: "form required species_entry_mode / select_reuse_*", title: "Additional-species row with no species", why: "An occurrence with no taxon", action: "Review the quadrat"}
+  C09: {group: C, level: occurrence, severity: error, metric_impact: indirect, source: "form required macro_1 when species_entry_mode='new_unknown'", title: "New unknown without its macro photo", why: "The photo is needed to identify the unknown later", action: "Re-upload / re-photograph"}
+  C10: {group: C, level: occurrence, severity: error, metric_impact: "yes", source: "form constraint new_missing_canonical: not(regex(., '[,;()]'))", title: "Typed canonical contains , ; ( or )", why: "The form forbids it: such a value could not come from the app", action: "Investigate the record (possible manual edit)"}
+  C11: {group: C, level: survey, severity: error, metric_impact: "no", source: "form constraint confirm_submission = 'yes'", title: "Submission not confirmed", why: "The form forbids it: such a value could not come from the app", action: "Investigate the record"}
+  C12: {group: C, level: survey, severity: error, metric_impact: "no", source: "form required (start, end, transport, team, recorder, survey, plot)", title: "Required survey field missing", why: "The form requires it", action: "Investigate the record"}
+  C13: {group: C, level: quadrat, severity: error, metric_impact: indirect, source: "form required herbs_present, quadrat_image, location_quadrat", title: "Required quadrat field missing", why: "The form requires it", action: "Investigate the record"}
+  C14: {group: C, level: survey, severity: error, metric_impact: "no", source: "form calculations survey_year, replicate_index, replicate, labels", title: "Stored calculated survey fields differ from recomputed", why: "Replicate attribution would be wrong", action: "Investigate form logic"}
+  C15: {group: C, level: quadrat, severity: error, metric_impact: "yes", source: "form constraint additional_species_present: . = 'yes' or all_unknown != 'yes'", title: "all_unknown = yes but additional species = no", why: "The form forbids it: an all-unknown quadrat must list its unknowns", action: "Investigate the record"}
+  C16: {group: C, level: plot, severity: error, metric_impact: "no", source: "registration form required/relevant/constraints", title: "Registration field missing or violating its form rule", why: "The form forbids it", action: "Investigate the record"}
+
+  # ── D. Registration geometry ────────────────────────────────────────────
+  D01: {group: D, level: plot, severity: error, metric_impact: indirect, source: "Registration SOP step 5 (midpoint <= 25 m from prescribed)", title: "Midpoint too far from the prescribed point", why: "The plot is not where the design placed it (sampling bias)", action: "Confirm the location; re-register if needed"}
+  D02: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "Registration SOP fig. 1 (A-M = M-B = 25 m)", title: "Half-transect length inconsistent with 25 m (beyond GPS error)", why: "Transect laid out off-standard or endpoints recorded in the wrong place", action: "Review endpoints"}
+  D03: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "Registration SOP fig. 1 (A-B = 50 m)", title: "Transect length inconsistent with 50 m (beyond GPS error)", why: "Quadrat spacing and coverage depend on it", action: "Review endpoints"}
+  D04: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "Registration SOP fig. 1 (straight transect)", title: "Midpoint off the A-B line (beyond GPS error)", why: "A bent transect changes the sampled area", action: "Review the layout"}
+  D05: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "Registration SOP steps 4-5 (lay out along N-S; rotate only for obstacles)", title: "Transect not oriented north-south", why: "Systematic orientation can bias sampling relative to gradients", action: "Confirm whether rotation was justified (confirmation item)"}
+  D06: {group: D, level: plot, severity: error, metric_impact: "no", source: "form capture-accuracy=5; SOP 4.2", title: "Registration point accuracy worse than 5 m", why: "Geometry checks become unreliable", action: "Re-record"}
+  D07: {group: D, level: plot, severity: error, metric_impact: "no", source: "form save_to vegplots#geometry", title: "vegplot entity geometry differs from the registered midpoint", why: "The entity used by later forms points elsewhere", action: "Investigate entity update"}
+  D08: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "Registration SOP step 3 (stratum mismatch can justify non-viable)", title: "Recorded ecosystem inconsistent with the assigned stratum", why: "The plot may not represent its stratum", action: "Confirm stratum / viability"}
+  D09: {group: D, level: plot, severity: info, metric_impact: indirect, source: "Registration SOP step 5 (backup when no viable area within 25 m)", title: "Backup used; not the nearest available backup", why: "Backup choice affects the sample; the rule is undocumented", action: "Confirm the backup-selection rule"}
+  D10: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "Registration SOP step 3 (justify non-viable; temporary reasons are not grounds)", title: "Non-viable plot without a valid justification", why: "Non-viability removes a plot from the sample", action: "Review the justification"}
+  D11: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "survey entity / centroids", title: "Plot registration attached to a different survey/replicate than expected", why: "The plot would not appear in the herbaceous form", action: "Check registration"}
+
+  # ── E. Quadrat geometry and timing ──────────────────────────────────────
+  E01: {group: E, level: quadrat, severity: error, metric_impact: "no", source: "form capture-accuracy=5; SOP 4.2", title: "Quadrat accuracy worse than 5 m", why: "Position checks unreliable", action: "Re-record"}
+  E02: {group: E, level: quadrat, severity: warning, metric_impact: indirect, source: "Herbaceous SOP step 5 (frame 1.5-2.5 m from the line)", title: "Quadrat off the 5 m belt (beyond GPS error)", why: "The quadrat may not be in the plot", action: "Review position"}
+  E03: {group: E, level: survey, severity: error, metric_impact: indirect, source: "Herbaceous SOP step 2/5 (quadrats along the registered tape)", title: "Whole transect offset from the registered line", why: "The survey sampled a different line than the registered plot", action: "Confirm where the survey happened"}
+  E04: {group: E, level: quadrat, severity: warning, metric_impact: indirect, source: "judgement (residual from the survey's own fitted line)", title: "Quadrat far from the survey's own line", why: "Single-point position error or misplacement, independent of registration error", action: "Review position"}
+  E05: {group: E, level: survey, severity: warning, metric_impact: indirect, source: "Herbaceous SOP step 12 (quadrats every 5 m along 50 m)", title: "Quadrats cover too little of the transect", why: "Part of the plot was not sampled", action: "Review the layout"}
+  E06: {group: E, level: quadrat, severity: warning, metric_impact: "no", source: "judgement", title: "Two quadrats of a survey with identical coordinates", why: "A GPS point was probably not re-recorded", action: "Review"}
+  E07: {group: E, level: quadrat, severity: info, metric_impact: "no", source: "judgement (robust z within survey)", title: "Altitude outlier", why: "GPS quality indicator", action: "None (context)"}
+  E08: {group: E, level: quadrat, severity: error, metric_impact: "no", source: "ODK timing", title: "Quadrat photo taken outside the survey's start-end window", why: "The photo may belong to another visit", action: "Investigate"}
+  E09: {group: E, level: quadrat, severity: warning, metric_impact: "no", source: "Herbaceous SOP step 8 (photo per quadrat, in order)", title: "Photo time order differs from quadrat order", why: "Quadrats may have been filled out of sequence or retro-actively", action: "Review"}
+  E10: {group: E, level: quadrat, severity: warning, metric_impact: "no", source: "judgement", title: "Implausibly short time between consecutive quadrats", why: "May indicate rushed or batch-entered quadrats", action: "Review"}
+  E11: {group: E, level: quadrat, severity: error, metric_impact: "no", source: "judgement", title: "Same photo file used more than once", why: "One photo cannot document two quadrats", action: "Investigate"}
+  E12: {group: E, level: survey, severity: info, metric_impact: "no", source: "form background-geopoint", title: "Confirmation location far from the plot, or missing", why: "Where the form was confirmed", action: "None (context)"}
+  E13: {group: E, level: survey, severity: info, metric_impact: "no", source: "Herbaceous SOP steps 11-12 (both sides at each 5 m mark)", title: "Walking order differs from the SOP (e.g. out-and-back)", why: "Spatial design equivalent; position checks must not assume SOP order", action: "Confirm accepted local practice (confirmation item)"}
+
+  # ── F. Species and taxonomy ─────────────────────────────────────────────
+  F01: {group: F, level: occurrence, severity: warning, metric_impact: "yes", source: "Herbaceous SOP step 7 (canonical Genus_species)", title: "Typed canonical not in canonical format", why: "Whitespace/case/format variants create duplicate taxa", action: "Correct upstream / in curation"}
+  F02: {group: F, level: occurrence, severity: warning, metric_impact: "yes", source: "Herbaceous SOP step 7 (use the list; free text only if missing)", title: "Typed 'missing' species is on the project list", why: "Should have been selected from the list; splits one taxon into two keys", action: "Merge in curation"}
+  F03: {group: F, level: occurrence, severity: warning, metric_impact: "yes", source: "judgement (fuzzy match to list/curation names)", title: "Likely misspelled name", why: "A misspelling becomes a separate taxon", action: "Confirm spelling in curation"}
+  F04: {group: F, level: entity, severity: warning, metric_impact: "yes", source: "species_extra lifecycle", title: "Same canonical registered under more than one entity", why: "One species counted as two", action: "Merge in curation"}
+  F05: {group: F, level: occurrence, severity: warning, metric_impact: "yes", source: "presence/absence design", title: "Same taxon recorded twice in one quadrat", why: "Presence is binary; duplicates inflate counts", action: "Review"}
+  F06: {group: F, level: occurrence, severity: error, metric_impact: "yes", source: "Herbaceous SOP glossary (non-woody only)", title: "Woody taxon in herbaceous data", why: "Inflates herbaceous richness", action: "Exclude in the resolved layer (curation)"}
+  F07: {group: F, level: entity, severity: info, metric_impact: "yes", source: "Herbaceous SOP 6 (identify vouchers)", title: "Provisional taxon still unresolved after curation", why: "Unknowns limit diversity metrics", action: "Identify vouchers"}
+  F08: {group: F, level: entity, severity: info, metric_impact: "yes", source: "species_extra_ids notes", title: "Curation merges or excludes this taxon", why: "Raw richness differs from resolved richness", action: "None (applied in the resolved layer)"}
+  F09: {group: F, level: entity, severity: warning, metric_impact: "yes", source: "ODK entity lifecycle", title: "Entity written by more than one submission, or by a rejected submission", why: "Rejection does not roll back entity writes; slot collisions", action: "Review entity history (platform issue, see K03)"}
+  F10: {group: F, level: entity, severity: info, metric_impact: "yes", source: "GBIF occurrence data (extra; cached)", title: "Taxon without GBIF records in the country (range check)", why: "Possible misidentification", action: "Verify identification"}
+  F11: {group: F, level: plot, severity: info, metric_impact: "yes", source: "judgement", title: "High share of unknowns / all-unknown quadrats", why: "Identification burden; richness uncertain", action: "Prioritise voucher identification"}
+  F12: {group: F, level: plot, severity: warning, metric_impact: "no", source: "registration form (unknown dominant woody species is free text)", title: "'Unknown' dominant woody species recorded with a species name", why: "An unknown should not carry a name", action: "Review"}
+  F13: {group: F, level: entity, severity: warning, metric_impact: "yes", source: "species_extra_ids (curation table QA)", title: "Curation table issue (typo, kept misspelling, merge only in free text, label/number mismatch)", why: "The resolved layer inherits curation errors", action: "Clean the curation table; use structured merge/exclude columns"}
+  F14: {group: F, level: entity, severity: error, metric_impact: "yes", source: "form calculation assigned_unknown_index", title: "Provisional index sequence broken or reused", why: "Two taxa could share an index", action: "Investigate"}
+
+  # ── G. Distribution and plausibility ────────────────────────────────────
+  G01: {group: G, level: plot, severity: info, metric_impact: "yes", source: "judgement (robust z across plots)", title: "Richness outlier", why: "Possible recording or identification problem", action: "Review"}
+  G02: {group: G, level: quadrat, severity: info, metric_impact: "yes", source: "Herbaceous SOP step 13", title: "Quadrat with no herbs", why: "Valid observation, but implausible in grassland if frequent", action: "Context"}
+  G03: {group: G, level: project, severity: info, metric_impact: "yes", source: "judgement", title: "Recorder imbalance / recorder effect", why: "Observer effects on identification", action: "Balance recorders; cross-check"}
+  G04: {group: G, level: plot, severity: info, metric_impact: "yes", source: "judgement", title: "Agreement between repeat surveys of the same plot", why: "Measures observer / detection noise", action: "Context"}
+
+  # ── J. Plan vs execution ────────────────────────────────────────────────
+  J01: {group: J, level: plot, severity: warning, metric_impact: "yes", source: "centroids (prescribed primary points)", title: "Prescribed primary point not registered or not surveyed", why: "Planned sample incomplete", action: "Confirm whether still planned (confirmation item)"}
+  J02: {group: J, level: plot, severity: info, metric_impact: indirect, source: "centroids (backup points)", title: "Backup point used", why: "Context for coverage", action: "None"}
+  J03: {group: J, level: plot, severity: warning, metric_impact: "yes", source: "design", title: "Viable registered plot without an accepted survey", why: "Planned sample incomplete", action: "Survey the plot"}
+
+  # ── K. Form / platform / documentation issues (feedback to NS, not field errors) ──
+  K01: {group: K, level: project, severity: info, metric_impact: "no", source: "Herbaceous SOP glossary vs form", title: "SOP and form disagree on conventions", why: "Teams follow one, data follow the other", action: "Align SOP and form"}
+  K02: {group: K, level: project, severity: warning, metric_impact: "no", source: "form calculation", title: "A form calculation gives wrong results", why: "In-field checks mislead the team", action: "Fix the form"}
+  K03: {group: K, level: project, severity: warning, metric_impact: "yes", source: "ODK Central entity lifecycle", title: "Rejecting a submission does not roll back its entity writes", why: "Rejected data still shape provisional IDs", action: "Platform process"}
+  K04: {group: K, level: project, severity: info, metric_impact: "no", source: "XLSForm design", title: "Form design issue (e.g. choice names with spaces, duplicated field names)", why: "Fragile exports and analysis", action: "Fix the form"}
+
+  # ── X. Cross-reference sweep (entity state vs what the forms wrote) ─────
+  X01: {group: X, level: entity, severity: warning, metric_impact: indirect, source: "form save_to columns (species_extra, vegplots)", title: "Entity value differs from what the form wrote", why: "Later forms read the entity, not the submission; a mismatch means an edit outside the form or a lost update", action: "Investigate the entity history"}
+
+  # ── P. Column profiling sweep (generic) ─────────────────────────────────
+  P01: {group: P, level: column, severity: info, metric_impact: "no", source: "profiling sweep", title: "Column profile anomaly (missingness, type, range, duplicates)", why: "Unexpected values can indicate edits or export problems", action: "Review"}
+  P02: {group: P, level: quadrat, severity: info, metric_impact: "no", source: "profiling sweep", title: "Junk free text (punctuation-only or whitespace comments)", why: "Noise in context fields", action: "None (context)"}
+  P03: {group: P, level: column, severity: warning, metric_impact: "no", source: "profiling sweep", title: "Value outside its choice list", why: "The form restricts choices: such a value could not come from the app", action: "Investigate (possible manual edit)"}
