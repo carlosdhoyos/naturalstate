@@ -10,7 +10,6 @@ around the rules does not assume the very invariants the rules are there to chec
 from __future__ import annotations
 
 import shutil
-from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -113,13 +112,14 @@ def test_missing_species_records_suppress_metrics(tmp_path):
     assert p.plots_suppressed == 1 and "1 of 30 plots suppressed" in p.metrics_status and p.units_ok_plots < p.units
 
 
-def test_project_status_inherits_plot_status():
-    """On the supplied data: 7 provisional plots (C04) make the project row provisional, and the
-    ok-plots-only columns are computed on the other 23."""
-    e = pd.read_csv(Path(__file__).resolve().parents[1] / "outputs" / "effort_project.csv")
+def test_project_status_inherits_plot_status(b):
+    """On the supplied data: 8 provisional plots (7 for C04, Plot 28 for C08) make the project row
+    provisional, and the ok-plots-only columns are computed on the other 22. Computed fresh, not read
+    from the committed outputs."""
+    e = b["tables"]["effort_project"]
     for _, r in e.iterrows():
-        assert r.metrics_status == "provisional: 7 of 30 plots provisional (C04)"
-        assert r.units_ok_plots == 23 and r.S_obs_ok_plots < r.S_obs
+        assert r.metrics_status == "provisional: 8 of 30 plots provisional (C04 C08)"
+        assert r.units_ok_plots == 22 and r.S_obs_ok_plots < r.S_obs
 
 
 def test_missing_registration_geometry_is_could_not_check(tmp_path):
@@ -324,3 +324,44 @@ def test_second_replicate_is_kept_apart(tmp_path):
     sens = pd.read_csv(out / "effort_richness_sensitivity.csv")
     assert set(sens.replicate) == {"lw_baseline", "lw_yr1"}
     assert set(pd.read_csv(out / "effort_curves.csv").query("plot_name == @plot").replicate) == {"lw_baseline", "lw_yr1"}
+
+
+def test_re_registered_plot_uses_one_registration_everywhere(tmp_path):
+    """A plot registered twice, the first time without a midpoint latitude: plots.csv, the GIS file and
+    the report table all describe the same (complete) registration, with no null coordinate."""
+    import json
+
+    reg = read_text(EXPORTS / REG)
+    first = reg.iloc[[0]].copy()
+    plot = first["plot_selection-plot_name"].iloc[0] if "plot_selection-plot_name" in first else None
+    redo = first.copy()
+    redo["KEY"] = redo.KEY + "-redo"
+    redo["meta-instanceID"] = redo.KEY
+    mid = [c for c in reg.columns if c.endswith("midpoint-Latitude")][0]
+    first[mid] = ""
+
+    def edit(df):
+        df = df.copy()
+        df.iloc[0] = first.iloc[0]
+        return pd.concat([df, redo], ignore_index=True)
+
+    _, out = run_workflow(tmp_path, {REG: edit})
+    gj = json.loads((out / "transects.geojson").read_text())
+    lines = [f for f in gj["features"] if f["properties"]["kind"] == "transect"]
+    assert all(v is not None for f in lines for c in f["geometry"]["coordinates"] for v in c)
+    keys = [f["properties"]["registration_key"] for f in lines]
+    assert len(keys) == len(set(keys)) == 30 and redo.KEY.iloc[0] in keys
+    p = pd.read_csv(out / "plots.csv")
+    assert p[p.registration_key == redo.KEY.iloc[0]].midpoint_lat.notna().all()
+    assert plot is None or plot in set(p.plot_name)
+
+
+def test_verify_reports_files_from_another_run(tmp_path):
+    import run_challenge2
+
+    _, out = run_workflow(tmp_path, {})
+    (out / "figures" / "old_map.png").write_bytes(b"x")
+    (out / ".staging-qa-0000000000000000").mkdir()
+    problems = run_challenge2.verify_outputs(out)
+    assert any("old_map.png is not part of this run" in p for p in problems)
+    assert any("leftover staging folder" in p for p in problems)

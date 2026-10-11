@@ -139,10 +139,13 @@ def sha(p: Path) -> str:
 
 
 def verify_outputs(out: Path) -> list[str]:
-    """Problems with a published output folder: an unfinished publication, or any file that is missing or
-    differs from the hashes in run_manifest.json. An empty list means `out` holds exactly one complete run."""
+    """Problems with a published output folder: an unfinished publication or a leftover staging folder,
+    any file that is missing or differs from the hashes in run_manifest.json, and any file the manifest does
+    not list (left by another run). An empty list means `out` holds exactly one complete run. Hidden files
+    (.DS_Store and the like) are ignored."""
     out = Path(out)
     problems = [f"unfinished publication: {m.name}" for m in sorted(out.glob(".publishing-*"))]
+    problems += [f"leftover staging folder {d.name} (an interrupted run)" for d in sorted(out.glob(".staging-*"))]
     mpath = out / "run_manifest.json"
     if not mpath.exists():
         return problems + ["no run_manifest.json"]
@@ -155,6 +158,10 @@ def verify_outputs(out: Path) -> list[str]:
             problems.append(f"missing {rel}")
         elif sha(p) != h:
             problems.append(f"{rel} does not match the manifest (another run's file?)")
+    for p in sorted(out.rglob("*")):
+        rel = p.relative_to(out).as_posix()
+        if p.is_file() and rel != "run_manifest.json" and not any(part.startswith(".") for part in p.relative_to(out).parts) and rel not in listed:
+            problems.append(f"{rel} is not part of this run (left by another run?)")
     return problems
 
 
@@ -201,12 +208,16 @@ def main(exports: Path = EXPORTS, entities: Path = ENTITIES, out: Path | None = 
         manifest["outputs"] = {p.relative_to(stage).as_posix(): sha(p) for p in files}  # what verify_outputs checks
         (stage / "run_manifest.json").write_text(json.dumps(manifest, indent=1, default=str))
         # publish: file by file (each move atomic), the manifest last; the marker exists only while moving
+        old_m = OUT / "run_manifest.json"
+        previous = set(json.loads(old_m.read_text()).get("outputs", {})) if old_m.exists() else set()
         marker = OUT / f".publishing-{b['run_id']}"
         marker.write_text("publication in progress; if this file remains, the run was interrupted: re-run\n")
         for p in files + [stage / "run_manifest.json"]:
             dest = OUT / p.relative_to(stage)
             dest.parent.mkdir(parents=True, exist_ok=True)
             p.replace(dest)
+        for rel in sorted(previous - set(manifest["outputs"])):  # our own files from the previous run that this run does not write
+            (OUT / rel).unlink(missing_ok=True)
         for m in OUT.glob(".publishing-*"):  # this one, and any left by an earlier crashed run: out is whole again
             m.unlink()
     finally:

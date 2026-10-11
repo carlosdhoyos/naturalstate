@@ -15,16 +15,16 @@
 - `vegqa:1.0.0` reads the raw ODK tables, entity lists and forms.
 - It evaluates 94 rules and writes every output the dashboard needs: results, marts, effort tables, dashboard JSON, GIS file and manifest.
 - It runs in about 3 seconds, offline, and gives the same run id for the same data.
-- 162 tests define correct behaviour.
+- 165 tests define correct behaviour.
 - The QA/QC dashboard page of the Data Explorer is a working reference for every view.
 
 **Build plan.** Each step has a check that says it is done.
 
 | # | Step | Done when | Details |
 |---|---|---|---|
-| 1 | Run the container as a platform job on the three raw-table folders, triggered by new submissions, review-state changes, entity updates and nightly | On the take-home data, `run_challenge2.py --out <dir> --verify` passes and the run id is `qa-f40167b5f7e510c5` | §7, `challenge2/README.md` |
+| 1 | Run the container as a platform job on the three raw-table folders, triggered by new submissions, review-state changes, entity updates and nightly | On the take-home data, the run writes the run id below, and a separate check, `run_challenge2.py --out <dir> --verify`, passes. Run id: `qa-55a7f222034e5654` | §7, `challenge2/README.md` |
 | 2 | Load the outputs into the warehouse: `qa_runs`, `qa_results` and the marts | Row counts equal `run_manifest.json` → `rows` | §1, §6 (DDL) |
-| 3 | Build the nine dashboard views from the marts | Each view reproduces the reference page on the take-home data (for example 697 flags, 24 of them errors, and 7 of 30 plots with provisional effort metrics) | §6 |
+| 3 | Build the nine dashboard views from the marts | Each view reproduces the reference page on the take-home data (for example 697 flags, 24 of them errors, and 8 of 30 plots with provisional effort metrics) | §6 |
 | 4 | Add flag reviews: an append-only `flag_reviews` table keyed by `flag_id` + `evidence_hash` | A review survives a rerun, and the flag reopens when its evidence or rule changes | §6 |
 | 5 | Publish runs atomically and keep run history | Readers never see a mix of two runs; two runs can be compared | §7 |
 | 6 | Only if you re-implement the rules in another stack: port the acceptance and mutation suites | The ported suites pass | §8 |
@@ -212,7 +212,7 @@ These use incidence data per canonical plot (T = 20 quadrats), on both the raw a
   - `provisional: <rules>`: shown, but conditional on records that a structural or record rule found incomplete (A01–A04, C02, C04, C08, C13).
   - `suppressed`: records are missing or none is analytical, so there is nothing to read. Suppressed takes precedence over provisional.
 - **Project level:** the same statistics with plots as the sampling units, per replicate (rounds are never pooled).
-  - Its `metrics_status` inherits from its plots: provisional when any plot is provisional or suppressed (here "7 of 30 plots provisional (C04)").
+  - Its `metrics_status` inherits from its plots: provisional when any plot is provisional or suppressed (here "8 of 30 plots provisional (C04 C08)").
   - The `*_ok_plots` columns repeat the estimate on the ok plots only. This is a sensitivity comparison, not a correction: it changes the sampled plots as well as dropping incomplete records, so it does not estimate the bias from the missing records.
 - **Planned vs done:** per stratum, from `centroids` (primary/backup), registrations and canonical surveys.
 - **Repeatability:** plot and mean quadrat Jaccard for any plot with two or more submissions in a replicate.
@@ -293,7 +293,7 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 - **Atomic publication (specified for the platform):** write each run to its own folder, `runs/<run_id>/`, and switch one pointer to it as the last step (a symlink replaced with `rename`, or a `current_run_id` row updated in one transaction). Readers then always see one complete run. This was not built here because `out/` may be a mounted folder that cannot itself be renamed, and the committed outputs are read in place by the report and the dashboard.
 - **Runtime provenance (implemented):** the manifest records the Python, platform, package versions and the image tag (`VEGQA_IMAGE`). The run id covers inputs, catalogue and code, not the environment.
 - **Idempotent:** the same inputs give the same `run_id`, so a rerun replaces nothing.
-- **Keep runs:** retain `qa_runs` with input hashes; the dashboard shows the latest and can diff two runs.
+- **Keep runs:** retain `qa_runs` with input hashes; the dashboard should show the latest and be able to diff two runs (specified, not built).
 - **External references stay outside the run:**
   - A separate job refreshes `reference/gbif_cache.json`: the backbone match plus presence-only (`occurrenceStatus=PRESENT`) counts by country, with a retrieval date and query version per name. It fetches new names, entries from an older query, and entries older than `--max-age-days` (suggested: 180). The same applies to `reference/elevation_cache.json` (`python -m vegqa.dem`) for new points; SRTM is static, so one dataset-level date suffices.
   - The QA run reads only the cache, so it is offline and reproducible.
@@ -303,7 +303,7 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 
 ## 8. Acceptance tests and verification status
 
-`challenge2/tests` (162 tests, run with `pytest`) holds the acceptance and mutation suites to port:
+`challenge2/tests` (165 tests, run with `pytest`) holds the acceptance and mutation suites to port:
 
 | Area | What the tests pin |
 |---|---|
@@ -318,13 +318,13 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-f40167b5f7e510c5`) |
-| Acceptance, mutation, robustness and unit tests | 162 passing |
-| GBIF cache | 99 names, retrieved 2026-10-10 |
+| All rules implemented and run on the provided data | Done (run `qa-55a7f222034e5654`) |
+| Acceptance, mutation, robustness and unit tests | 165 passing |
+| GBIF cache | 99 names, retrieved 2026-10-11 (presence-only re-fetch) |
 | Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |
 | Container job | **Built and run** (`docker build -t vegqa:1.0.0 challenge2`). On the take-home data (rebuilt 2026-10-11): same run id; every table and the dashboard JSON are byte-identical to a local run. The figure PNGs are re-rendered on Linux and are not byte-identical. Its `out/` passes `--verify` |
 | Dashboard views | Reference page built: Data Explorer → Vegetation → QA/QC dashboard (`dashboard/src/components/VegetationQA.tsx`), reading `outputs/dashboard_results.json`. All nine views of section 6 run on the provided data |
-| Effort-metric qualification | Shown where the numbers are read: per-plot and project `metrics_status` in the Effort and Plots views (7 of 30 plots provisional, C04) |
+| Effort-metric qualification | Shown where the numbers are read: per-plot and project `metrics_status` in the Effort and Plots views (8 of 30 plots provisional: 7 for C04, Plot 28 for C08) |
 | Publication | Staged; a failure before publication leaves the previous run intact; a crash during publication is detected (`--verify`) and repaired by a re-run (tested). **One atomic pointer switch: specified only** (§7) |
 | Multiple monitoring rounds | Marts kept apart per replicate (tested with a synthetic second round); the Effort view filters by replicate, but its multi-round display has not been browser-checked (one round in the data) |
 | Flag-review workflow | **Specified only** (DDL above): review keys exist on every result; decisions are not stored or shown |
@@ -337,7 +337,7 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 
 These are flagged by the K rules, but a QA dashboard cannot fix them:
 
-1. **Rejected submissions keep their entity writes** (K03). ODK Central does not roll back entity updates on rejection: herb_100–102 still carry what the rejected Plot 21 survey wrote. The review process needs a manual revert step, or a platform check.
+1. **Rejected submissions keep their entity writes** (K03). ODK Central does not roll back entity updates on rejection: herb_100–102 still carry what the rejected repeat surveys wrote (herb_100 from Plot 18, herb_101 and herb_102 from Plot 21). The review process needs a manual revert step, or a platform check.
 2. **Upload discipline** (B06, B10). Devices must upload after each survey and refresh entity lists before the next. Otherwise two devices can give the same provisional id to different plants. On 26 May this happened only for repeats of the same plants, so no record is wrong, but the process allowed it. Add a dashboard alert when `base_active_herb_count` is below the server's active count at form start.
 3. **Form fix** (K02). `quadrats_with_species` should use `herb_species/selected_herb_species_uuids`.
 4. **Form hygiene** (K01, K04):

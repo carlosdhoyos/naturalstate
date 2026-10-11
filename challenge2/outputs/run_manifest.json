@@ -1,6 +1,6 @@
 {
- "run_id": "qa-f40167b5f7e510c5",
- "code_version": "code-fd22b45efbf2",
+ "run_id": "qa-55a7f222034e5654",
+ "code_version": "code-fc534d3cee92",
  "catalogue_version": "1.0",
  "inputs": {
   "exports/herbaceous_veg_survey-additional_species_repeat.csv": "58ddbaa9abe939a3",
@@ -73,11 +73,11 @@
  ],
  "outputs": {
   "canonical_choice.csv": "a168f2e7c7db6dd3",
-  "dashboard_results.json": "13b9d462bcb1f437",
+  "dashboard_results.json": "44cf800c8994e0b2",
   "effort_curves.csv": "173603e68b752d59",
   "effort_plan.csv": "fc53936390cf2760",
-  "effort_plots.csv": "59d05342251666c8",
-  "effort_project.csv": "bbfeac1332fcde96",
+  "effort_plots.csv": "aa4b82479b87f56d",
+  "effort_project.csv": "ec22ce8b67ae9675",
   "effort_repeatability.csv": "a719a390bceed857",
   "effort_richness_sensitivity.csv": "f97af61df4c52487",
   "figures/accumulation.png": "b6afaff88a9c47ad",
@@ -88,12 +88,12 @@
   "figures/transects_grid.png": "cecc14e1ca48b6cb",
   "occurrences.csv": "f5aaa999efe43283",
   "plots.csv": "f7e3d9fd2cf5a3a0",
-  "qa_flags.csv": "37a5c01dd64a860b",
-  "qa_results.csv": "9884daadcfd7fe19",
+  "qa_flags.csv": "0c10d05f0b578370",
+  "qa_results.csv": "f6486ce53297d974",
   "quadrats.csv": "9417fd85a6c7c237",
   "rule_summary.csv": "3cdb1f4e1666b587",
   "species_list_suggestions.csv": "f90ba061de3e7fa7",
-  "submissions.csv": "e42fb613756cbc5f",
+  "submissions.csv": "3e95b652b2819487",
   "survey_overview.csv": "fd88353bdd05812a",
   "transects.geojson": "195425c727d420b5"
  }

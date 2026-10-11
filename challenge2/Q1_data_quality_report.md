@@ -3,7 +3,7 @@
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
 **Interactive version:** the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`, Vegetation → QA/QC dashboard): every flag with its source row, the map with per-plot transect panels, the curation queue and the effort views.
-**Prepared by:** Carlos Hoyos · run `qa-f40167b5f7e510c5` · reproducible with `python challenge2/src/run_challenge2.py`
+**Prepared by:** Carlos Hoyos · run `qa-55a7f222034e5654` · reproducible with `python challenge2/src/run_challenge2.py`
 
 ---
 
@@ -23,7 +23,7 @@
   1. **Shrubland:** none of its 6 primary points was registered (J01).
   2. **Provenance:** altitudes are about 705 m below the terrain, including NS's own prescribed points (E14), and 20 identified taxa have no Kenyan GBIF record (F10).
   3. **Taxon names:** 132 raw taxa become 115 after NS's curation. 23 names are probably misspelled, and 23 unknowns (15% of records) are unresolved.
-  4. **Missing species rows:** 10 quadrats say "additional species present" but have none, so the effort metrics of 7 plots are provisional (C04).
+  4. **Missing species records:** 10 quadrats say "additional species present" but have no species rows (C04), and one additional-species row has no taxon (C08). The effort metrics of the 8 plots involved are provisional.
   5. **Transect location or shape:** 6 transects have an error-level flag (Plots 05, 14, 15, 19, 22, 27).
 - **Headline numbers** (resolved taxa, provisional because of item 4): 115 taxa observed; Chao2 145 (95% CI 128–185); sample coverage 0.946 across the 30 plots.
 - **Flags:** 697 in total (24 errors, 222 warnings, 451 info). 241 of them are 10 project-wide findings repeated on every plot or submission.
@@ -34,7 +34,7 @@
 |---|---|---|---|---|
 | 1 | Confirm where the data were collected, and the altitude reference of the export | NS project lead / data manager | Any use of the results | C-7, E14, F10 |
 | 2 | Curate taxa: check the 23 probable misspellings, confirm the suggested merges and list additions (`outputs/species_list_suggestions.csv`), and resolve unknowns where photos or vouchers exist | NS botanist | Diversity metrics | F03, F07, F08, F13, C-5 |
-| 3 | Recover the species for the 10 quadrats with missing species rows (field sheets, photos), or accept the 7 plots as provisional | Field team lead | Effort metrics of 7 plots | C04, C08 |
+| 3 | Recover the species for the 10 quadrats with missing species rows and the additional-species row with no taxon (field sheets, photos), or accept the 8 plots as provisional | Field team lead | Effort metrics of 8 plots | C04, C08 |
 | 4 | Decide on shrubland: sample it in a later round, or drop it from reporting | NS project lead | Stratum-level reporting | J01, C-6 |
 | 5 | Review the 6 transects with error-level location or shape flags (section (d)): re-walk, re-register, or accept them | Field team lead | Comparable plots in later rounds | D01–D04, E03, E05 |
 | 6 | Fix the form's "quadrats with species" count, and confirm which form versions were deployed | ODK form owner | SOP step 13 check; future data | C07, K02, C17, C-12 |
@@ -64,14 +64,14 @@ The 30 surveyed plots are structurally complete:
 - every reference resolves;
 - every GPS point meets the SOP's instruction to record at 5 m or better.
 
-They are not free of record-level problems: 10 quadrats declare additional species without any species rows (item 4), so the effort metrics of 7 plots are marked provisional. The problems that matter for richness and diversity sit elsewhere: in **what was sampled**, **where the data come from**, **how taxa are named**, and **where transects are**.
+They are not free of record-level problems: 10 quadrats declare additional species without any species rows, and one additional-species row has no taxon (item 4). The effort metrics of the 8 plots involved are marked provisional. The problems that matter for richness and diversity sit elsewhere: in **what was sampled**, **where the data come from**, **how taxa are named**, and **where transects are**.
 
 **Issues that affect richness and diversity, in order of importance:**
 
 1. **The shrubland stratum was not sampled.** None of its 6 primary points was registered (J01), so the project cannot report herbaceous richness for shrubland. In the savanna stratum, 29 of 30 primary points were surveyed, plus 1 backup.
 2. **The data's provenance needs confirming.** The altitudes and the flora do not fit Lewa (C-7).
    - The whole dataset sits about **705 m below the terrain** at its coordinates (E14). Field GPS altitudes are 930–1,090 m, while SRTM gives 1,640–1,750 m at the same points. **Natural State's own prescribed points (the centroid list) show the same offset (−703 m)**, so this is not a field error. A vertical-reference difference cannot explain it on its own: Android can report altitude above the WGS84 ellipsoid rather than sea level, but the two differ by at most about ±100 m anywhere on Earth. The altitude reference of the export should still be confirmed.
-   - **20 of the 90 identified taxa GBIF could check have no Kenyan GBIF presence record** (92 identified in all; "no record found by this query", not absence: collection effort, synonymy and record quality all affect it), but hundreds in southern Africa (F10): Pogonarthria fleckii, Pechuel-loeschea leubnitziae, Erlangea misera, Aristida scabrivalvis, and others.
+   - **20 of the 90 identified taxa GBIF could check have no Kenyan GBIF presence record** (92 identified in all; "no record found by this query", not absence: collection effort, synonymy and record quality all affect it), but many in southern Africa (F10): Pogonarthria fleckii, Pechuel-loeschea leubnitziae, Erlangea misera, Aristida scabrivalvis, and others.
    - The transport list offers "Mokoro", an Okavango dugout canoe.
 
    Together these are a reason to question the dataset's provenance, not proof of it. They do not establish that the coordinates and altitudes come from different places, nor where the data originate. One hypothesis for Natural State to confirm is demonstration data relocated from a southern-African site near 1,000 m; there may be other explanations (for example altitudes referenced to a different datum, or test data).
@@ -204,33 +204,33 @@ The survey is the herbaceous survey entity of the Lewa baseline replicate as a w
 | plot | start (EAT) | device | recorder | review | canonical | min | upload h | taxa (resolved) | E/W/I | failed rules |
 |---|---|---|---|---|---|---:|---:|---:|---|---|
 | Plot_08 | 19 May 11:42 | d01 | Sam | not reviewed | yes | 236 | 4.0 | 26 | 0/6/18 | B05 B12 C07 C14 E02 E03 E04 E07 E13 F01 |
-| Plot_12 | 20 May 09:30 | d01 | Sam | not reviewed | yes | 165 | 6.9 | 33 | 0/4/8 | B05 B12 C14 E02 E04 E07 E13 F05 |
-| Plot_22 | 20 May 13:53 | d01 | Sam | not reviewed | yes | 73 | 4.8 | 20 | 0/2/7 | B12 C07 C14 E02 E04 E07 E13 F05 |
+| Plot_12 | 20 May 09:30 | d01 | Sam | not reviewed | yes | 165 | 6.9 | 33 | 0/4/9 | B05 B12 C14 E02 E04 E07 E13 F05 P02 |
+| Plot_22 | 20 May 13:53 | d01 | Sam | not reviewed | yes | 73 | 4.8 | 20 | 0/2/8 | B12 C07 C14 E02 E04 E07 E13 F05 P02 |
 | Plot_03 | 20 May 16:24 | d01 | Sam | not reviewed | yes | 59 | 3.1 | 15 | 0/2/8 | B12 C14 E02 E04 E09 E13 F11 G02 |
 | Plot_30 | 21 May 09:10 | d02 | Grace | not reviewed | yes | 101 | 0.4 | 24 | 1/3/4 | B12 C04 C07 C14 E02 E03 E04 E13 |
 | Plot_10 | 21 May 11:29 | d01 | Grace | not reviewed | yes | 63 | 2.0 | 21 | 1/1/4 | B12 C04 C07 C14 E02 E13 |
 | Plot_14 | 21 May 13:03 | d01 | Grace | not reviewed | yes | 58 | 0.8 | 17 | 1/5/9 | B12 C04 C07 C14 E02 E03 E04 E13 F02 |
 | Plot_09 | 21 May 14:50 | d01 | Grace | not reviewed | yes | 82 | 0.6 | 26 | 0/2/5 | B12 C07 C14 E02 E04 E07 E13 |
-| Plot_05 | 22 May 09:27 | d01 | Grace | not reviewed | yes | 102 | 1.0 | 16 | 1/14/9 | B12 C07 C14 E02 E03 E04 E13 G02 |
+| Plot_05 | 22 May 09:27 | d01 | Grace | not reviewed | yes | 102 | 1.0 | 16 | 1/14/11 | B12 C07 C14 E02 E03 E04 E13 G02 P02 |
 | Plot_26 | 22 May 12:05 | d01 | Grace | not reviewed | yes | 110 | 0.1 | 22 | 2/1/8 | B12 C07 C14 E02 E04 E07 E13 F06 F11 |
 | Plot_27 | 22 May 14:42 | d01 | Grace | not reviewed | yes | 66 | 0.4 | 22 | 0/8/13 | B12 C07 C14 E02 E03 E04 E07 E13 |
-| Plot_19 | 22 May 16:13 | d01 | Grace | not reviewed | yes | 60 | 0.5 | 19 | 1/7/13 | B12 C04 C07 C14 E02 E04 E07 E13 G02 |
+| Plot_19 | 22 May 16:13 | d01 | Grace | not reviewed | yes | 60 | 0.5 | 19 | 1/7/14 | B12 C04 C07 C14 E02 E04 E07 E13 G02 P02 |
 | Plot_46 | 22 May 17:41 | d01 | Grace | not reviewed | yes | 33 | 2.2 | 8 | 3/1/7 | B12 C04 C07 C14 E02 E07 E13 |
-| Plot_06 | 23 May 09:37 | d01 | Grace | not reviewed | yes | 92 | 0.5 | 24 | 0/5/6 | B12 C14 E02 E04 E13 |
-| Plot_17 | 23 May 11:36 | d01 | Grace | not reviewed | yes | 44 | 0.5 | 22 | 0/0/4 | B12 C14 E13 F11 |
-| Plot_13 | 23 May 12:46 | d01 | Grace | not reviewed | yes | 70 | 0.0 | 12 | 0/5/8 | B12 C14 E02 E03 E04 E13 F11 |
+| Plot_06 | 23 May 09:37 | d01 | Grace | not reviewed | yes | 92 | 0.5 | 24 | 0/5/9 | B12 C14 E02 E04 E13 P02 |
+| Plot_17 | 23 May 11:36 | d01 | Grace | not reviewed | yes | 44 | 0.5 | 22 | 0/0/6 | B12 C14 E13 F11 P02 |
+| Plot_13 | 23 May 12:46 | d01 | Grace | not reviewed | yes | 70 | 0.0 | 12 | 0/5/9 | B12 C14 E02 E03 E04 E13 F11 P02 |
 | Plot_01 | 23 May 15:03 | d01 | Grace | not reviewed | yes | 70 | 0.5 | 31 | 0/5/4 | B12 C07 C14 E02 E03 E06 E13 |
-| Plot_28 | 23 May 16:40 | d01 | Grace | not reviewed | yes | 64 | 1.5 | 22 | 0/0/7 | B12 C14 E04 E07 E13 F11 G02 |
+| Plot_28 | 23 May 16:40 | d01 | Grace | not reviewed | yes | 64 | 1.5 | 22 | 1/0/8 | B12 C08 C14 E04 E07 E13 F11 G02 P02 |
 | Plot_02 | 24 May 10:06 | d01 | Grace | not reviewed | yes | 100 | 0.3 | 18 | 0/1/6 | B12 C07 C14 E07 E13 F11 G02 |
 | Plot_24 | 24 May 12:05 | d01 | Grace | not reviewed | yes | 38 | 0.1 | 11 | 0/1/4 | B12 C07 C14 E13 F11 |
 | Plot_20 | 24 May 13:09 | d01 | Grace | not reviewed | yes | 54 | 0.5 | 17 | 0/1/6 | B12 C07 C14 E02 E03 E13 F11 |
 | Plot_15 | 24 May 15:00 | d01 | Grace | not reviewed | yes | 60 | 0.7 | 21 | 1/3/7 | B12 C04 C07 C14 E02 E05 E07 E13 F11 |
-| Plot_07 | 24 May 16:38 | d01 | Grace | not reviewed | yes | 56 | 3.7 | 18 | 0/3/12 | B12 C07 C14 E02 E03 E05 E07 E13 |
+| Plot_07 | 24 May 16:38 | d01 | Grace | not reviewed | yes | 56 | 3.7 | 18 | 0/3/14 | B12 C07 C14 E02 E03 E05 E07 E13 P02 |
 | Plot_04 | 25 May 15:06 | d01 | Grace | not reviewed | yes | 56 | 0.1 | 20 | 0/3/10 | B12 C07 C14 E02 E04 E07 E13 F11 G02 |
 | Plot_25 | 25 May 16:20 | d01 | Grace | not reviewed | yes | 63 | 0.1 | 31 | 0/1/5 | B12 C07 C14 E02 E13 |
 | Plot_18 | 26 May 09:23 | d01 | Grace | not reviewed | yes | 54 | 10.4 | 27 | 1/1/5 | B06 B12 C14 E02 E13 F05 F06 |
 | Plot_21 | 26 May 10:44 | d01 | Grace | not reviewed | yes | 68 | 8.9 | 30 | 0/1/5 | B06 B12 C07 C14 E02 E13 |
-| Plot_29 | 26 May 12:57 | d02 | Sam | not reviewed | yes | 42 | 0.9 | 24 | 1/2/5 | B10 B12 C04 C07 C14 E02 E04 E13 |
+| Plot_29 | 26 May 12:57 | d02 | Sam | not reviewed | yes | 42 | 0.9 | 24 | 1/2/6 | B10 B12 C04 C07 C14 E02 E04 E13 P02 |
 | Plot_18 | 26 May 15:13 | d02 | Grace | rejected | no | 26 | 2.5 | 24 | 1/4/6 | B01 B05 B10 B12 C14 E02 E04 E13 F05 F06 |
 | Plot_21 | 26 May 15:48 | d02 | Sam | rejected | no | 24 | 16.8 | 30 | 1/4/4 | B01 B05 B06 B10 B12 C04 C07 C14 E13 |
 | Plot_11 | 26 May 16:31 | d03 | Grace | not reviewed | yes | 54 | 0.8 | 25 | 0/4/5 | B10 B12 C14 E02 E04 E13 F05 F11 |
@@ -388,7 +388,7 @@ Sample coverage estimates how much of a plot's herbaceous community, weighted by
 - **Coverage is not quality.** Coverage can be high while taxa are misidentified, species are missed consistently, or the layout departs from the SOP.
 - **Spatial dependence.** Quadrats are paired and systematically spaced along one transect, so they are not independent samples. The intervals assume more independence than the design gives and should be read as optimistic.
 
-The effort metrics of 7 plots (Plots 10, 14, 15, 19, 29, 30 and 46) are marked **provisional** because they have quadrats that declare additional species without rows (C04).
+The effort metrics of 8 plots are marked **provisional**. Plots 10, 14, 15, 19, 29, 30 and 46 have quadrats that declare additional species without rows (C04), and Plot 28 has an additional-species row with no taxon (C08).
 
 Chao2 carries wide intervals at this sample size, and when no unseen taxa are estimated (one or no single-quadrat taxon and none in two quadrats) no upper bound is given at all, rather than a misleading zero-width interval. Plot 10, for example, has 21 observed taxa, 11 of them in a single quadrat and only 1 in two quadrats, so Chao2 = 47 (95% CI 27–129). We therefore lead with coverage (V-10). We do not give an interval for coverage: a simple bootstrap over quadrats is biased upwards, and a valid one needs the assemblage bootstrap of iNEXT.
 
@@ -403,17 +403,17 @@ Diversity is given as incidence-based Hill numbers: q1 is exp(Shannon), q2 is in
 
 The two scales are not comparable.
 
-The project figures inherit the qualification of their plots. Because 7 of the 30 plots are provisional (C04), the project row is provisional too. The last column repeats the estimate on the 23 plots whose own metrics are ok.
+The project figures inherit the qualification of their plots. Because 8 of the 30 plots are provisional (C04, C08), the project row is provisional too. The last column repeats the estimate on the 22 plots whose own metrics are ok.
 
-- **Resolved layer:** 104 taxa and Chao2 139 (119–186) on the 23 ok plots, against 115 and 145 (128–185) on all 30.
-- **What this is:** a sensitivity comparison. Dropping the 7 plots changes which plots are sampled as well as removing the incomplete records, so the two estimates differ for both reasons.
+- **Resolved layer:** 101 taxa and Chao2 129 (113–167) on the 22 ok plots, against 115 and 145 (128–185) on all 30.
+- **What this is:** a sensitivity comparison. Dropping the 8 plots changes which plots are sampled as well as removing the incomplete records, so the two estimates differ for both reasons.
 - **What it is not:** an estimate of the bias from the missing records. A similar Chao2 does not show that the missing records matter little. The species in the empty additional-species rows cannot be recovered from the data.
 
 <!-- table:effort_project -->
 | replicate | layer | plots | taxa observed | in 1 plot | in 2 plots | Chao2 (95% CI) | observed / Chao2 | coverage | Hill q1 / q2 | status | ok plots only: plots, taxa, Chao2 (95% CI) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| lw_baseline | raw | 30 | 132 | 51 | 20 | 191 (161–252) | 0.692 | 0.924 | 79 / 59 | provisional: 7 of 30 plots provisional (C04) | 23, 120, 192 (154–269) |
-| lw_baseline | resolved | 30 | 115 | 36 | 19 | 145 (128–185) | 0.791 | 0.946 | 72 / 56 | provisional: 7 of 30 plots provisional (C04) | 23, 104, 139 (119–186) |
+| lw_baseline | raw | 30 | 132 | 51 | 20 | 191 (161–252) | 0.692 | 0.924 | 79 / 59 | provisional: 8 of 30 plots provisional (C04 C08) | 22, 117, 177 (146–243) |
+| lw_baseline | resolved | 30 | 115 | 36 | 19 | 145 (128–185) | 0.791 | 0.946 | 72 / 56 | provisional: 8 of 30 plots provisional (C04 C08) | 22, 101, 129 (113–167) |
 <!-- /table -->
 
 ### How repeatable is a survey?
@@ -549,8 +549,9 @@ The full log is in [`docs/challenge2_decisions.md`](../docs/challenge2_decisions
 | V-08 | GBIF matches cached in the repo, so the run is offline and deterministic |
 | V-09 | Relative thresholds where the SOP gives none, all editable in `rules.yaml` |
 | V-10 | Coverage first; bias-corrected Chao2 with its interval; Hill numbers for diversity |
-| V-12 | The workflow never assumes what a rule checks (duplicates, empty surveys, replicates) |
 | V-11 | Walking order is not assumed by any position check |
+| V-12 | The workflow never assumes what a rule checks (duplicates, empty surveys, replicates); effort metrics are ok, provisional or suppressed |
+| V-13 | Deployment guarantees: input contract, staged publication checkable with `--verify`, runtime provenance, review keys on every result |
 
 **Confirmation items for Natural State:**
 

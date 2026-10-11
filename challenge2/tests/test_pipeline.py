@@ -235,3 +235,13 @@ def test_transect_geojson_matches_the_registrations(b, results):
         assert m == [round(float(r._midpoint_lon), 7), round(float(r._midpoint_lat), 7)]
     errors = sorted(f["properties"]["plot_name"][-2:] for f in gj["features"] if f["properties"].get("worst_geometry_flag") == "error")
     assert errors == ["05", "14", "15", "19", "22", "27"]
+
+
+def test_one_sampling_unit_gives_undefined_not_complete():
+    """With T = 1 every estimator's (T - 1) factor is 0: report undefined, never a 'complete' list."""
+    inc = pd.DataFrame({"quadrat_number": [1] * 5, "taxon": list("abcde")})
+    st = stats(inc, 1)
+    assert st["S_obs"] == 5
+    for k in ("coverage", "completeness", "chao2", "new_taxa_next_quadrat"):
+        assert math.isnan(st[k]), k
+    assert "one sampling unit" in st["note"]

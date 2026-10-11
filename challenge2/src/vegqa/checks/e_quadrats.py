@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from ..engine import rows, rule
-from ..model import geometry, positions
+from ..model import positions, transect_geometry
 from ..load import by_key
 
 
@@ -43,7 +43,7 @@ def _sadd(ctx, status, s, observed, expected, message="", severity=None):
 
 def _line_acc(ctx) -> pd.Series:
     """RMS accuracy of the registered endpoints, per centroid uuid (the error of the registered line)."""
-    g = by_key(geometry(ctx), "plot_uuid")
+    g = transect_geometry(ctx)
     return np.sqrt((g.endpoint_a_acc ** 2 + g.endpoint_b_acc ** 2) / 2)
 
 
@@ -79,7 +79,7 @@ def quadrat_accuracy(ctx):
 def quadrat_in_belt(ctx):
     th = ctx.th
     lo, hi = th["quadrat_lateral_min_m"], th["quadrat_lateral_max_m"]
-    g = by_key(geometry(ctx), "plot_uuid")
+    g = transect_geometry(ctx)
     la = _line_acc(ctx)
     offs = _survey_offsets(ctx)
     for r in rows(positions(ctx)):
@@ -102,7 +102,7 @@ def transect_offset(ctx):
     th = ctx.th
     offs = _survey_offsets(ctx)
     q = positions(ctx)
-    g = by_key(geometry(ctx), "plot_uuid")
+    g = transect_geometry(ctx)
     for s in rows(ctx.data.survey):
         if s.KEY not in offs.index or pd.isna(offs.z[s.KEY]):
             _sadd(ctx, "could_not_check", s, "", "", "no registered segment or too few positions")
@@ -146,7 +146,7 @@ def coverage(ctx):
     th = ctx.th
     share, L0 = th["coverage_min_share"], th["transect_length_m"]
     q = positions(ctx)
-    g = by_key(geometry(ctx), "plot_uuid")
+    g = transect_geometry(ctx)
     for s in rows(ctx.data.survey):
         sub = q[q.PARENT_KEY == s.KEY]
         if s._centroid_uuid not in g.index or sub.along_m.isna().all():
@@ -254,7 +254,7 @@ def duplicate_photos(ctx):
 @rule("E12")
 def confirmation_location(ctx):
     d, proj, lim = ctx.data, ctx.proj, ctx.th["background_point_max_m"]
-    g = by_key(geometry(ctx), "plot_uuid")
+    g = transect_geometry(ctx)
     items = [("survey", r.KEY, r.plot_name, r._centroid_uuid, r._bg_lat, r._bg_lon, r.KEY) for r in rows(d.survey)]
     items += [("registration", r.KEY, r.plot_name, r.plot_uuid, r._bg_lat, r._bg_lon, "") for r in rows(d.registration)]
     for form, key, plot, pu, lat, lon, skey in items:

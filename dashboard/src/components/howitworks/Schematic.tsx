@@ -75,22 +75,37 @@ function geom(n: SNode) {
   return { x, y, w, h: NH, cx: x + w / 2, cy: y + NH / 2 }
 }
 
+type Route = { d: string; lx: number; ly: number; anchor: 'start' | 'middle' | 'end' }
+type Box = { x: number; y: number; w: number; h: number }
+
+const cubic = (p0: number[], p1: number[], p2: number[], p3: number[]) =>
+  Array.from({ length: 25 }, (_, i) => {
+    const t = i / 24
+    const u = 1 - t
+    return [0, 1].map((k) => u * u * u * p0[k] + 3 * u * u * t * p1[k] + 3 * u * t * t * p2[k] + t * t * t * p3[k])
+  })
+/** True when a sampled path enters a box other than its own two ends (boxes shrunk by 3 px, so touching is fine). */
+const crosses = (pts: number[][], boxes: Box[]) => pts.some(([x, y]) => boxes.some((b) => x > b.x + 3 && x < b.x + b.w - 3 && y > b.y + 3 && y < b.y + b.h - 3))
+
 /** Curve between two nodes. Neighbours connect bottom→top (or side→side); an edge that drops several
- * rows AND shifts sideways leaves from the side of its source, so it does not cut through the boxes
- * stacked below it. Labels sit near the start, where edges are still apart. */
-function route(a: SNode, b: SNode): { d: string; lx: number; ly: number; anchor: 'start' | 'end' } {
+ * rows AND shifts sideways leaves from the side of its source. If that curve would pass behind another
+ * box, the edge is routed through the empty gutters between rows and columns instead, so no line ever
+ * runs under a box it does not belong to. `lane` spreads edges that share a gutter by a few pixels. */
+function route(a: SNode, b: SNode, others: Box[], lane: number): Route {
   const A = geom(a)
   const B = geom(b)
   const dx = B.cx - A.cx
   let d: string
+  let pts: number[][]
   let lx: number, ly: number
-  let anchor: 'start' | 'end' = 'start'
+  let anchor: Route['anchor'] = 'start'
   if (B.y >= A.y + A.h - 4 && Math.abs(dx) > CW * 0.6 && B.y - (A.y + A.h) > RH * 0.6) {
     const x1 = dx < 0 ? A.x : A.x + A.w
     const y1 = A.cy
     const x2 = B.cx
     const y2 = B.y
     d = `M${x1},${y1} C${x2},${y1} ${x2},${y1} ${x2},${y2}`
+    pts = cubic([x1, y1], [x2, y1], [x2, y1], [x2, y2])
     ;[lx, ly] = [x1 + (dx < 0 ? -8 : 8), y1 - 6]
     anchor = dx < 0 ? 'end' : 'start' // label just outside the box, reading away from it
   } else if (B.y >= A.y + A.h - 4 || B.y + B.h <= A.y + 4) {
@@ -99,8 +114,8 @@ function route(a: SNode, b: SNode): { d: string; lx: number; ly: number; anchor:
     const k = Math.max(24, Math.abs(y2 - y1) / 2)
     const sgn = Math.sign(y2 - y1)
     d = `M${x1},${y1} C${x1},${y1 + sgn * k} ${x2},${y2 - sgn * k} ${x2},${y2}`
-    // a straight drop gets its label beside the line, not on it
-    if (Math.abs(x2 - x1) < 10) [lx, ly] = [x1 + 7, y1 + (y2 - y1) * 0.5 + 4]
+    pts = cubic([x1, y1], [x1, y1 + sgn * k], [x2, y2 - sgn * k], [x2, y2])
+    if (Math.abs(x2 - x1) < 10) [lx, ly] = [x1 + 7, y1 + (y2 - y1) * 0.5 + 4] // a straight drop gets its label beside the line
     else {
       // a leftward edge's label reads leftwards, so it never crosses a line dropping from the same box
       ;[lx, ly] = [x1 + (x2 - x1) * 0.25 + (x2 < x1 ? -4 : 4), y1 + (y2 - y1) * 0.3]
@@ -112,9 +127,36 @@ function route(a: SNode, b: SNode): { d: string; lx: number; ly: number; anchor:
     const k = Math.max(30, Math.abs(x2 - x1) / 2)
     const sgn = Math.sign(x2 - x1)
     d = `M${x1},${y1} C${x1 + sgn * k},${y1} ${x2 - sgn * k},${y2} ${x2},${y2}`
+    pts = cubic([x1, y1], [x1 + sgn * k, y1], [x2 - sgn * k, y2], [x2, y2])
     ;[lx, ly] = [x1 + (x2 - x1) * 0.3, Math.min(y1, y2) - 6]
   }
-  return { d, lx, ly, anchor }
+  if (!crosses(pts, others)) return { d, lx, ly, anchor }
+  // gutter route: out of A into the row gap, along a column gutter, into the row gap next to B, into B
+  const gapY = (RH - NH) / 2
+  const off = ((lane % 5) - 2) * 3
+  const down = B.y > A.y
+  const xa = A.cx + off
+  const xb = B.cx + off
+  const ya = down ? A.y + A.h + gapY + off : A.y - gapY + off
+  const yb = down ? B.y - gapY + off : B.y + B.h + gapY + off
+  const y0 = down ? A.y + A.h : A.y
+  const y3 = down ? B.y : B.y + B.h
+  if (Math.abs(ya - yb) < 1 || (B.y === A.y && Math.abs(dx) > 0)) {
+    // adjacent rows, or the same row: one horizontal run in the shared gap (above both when on one row)
+    const yy = B.y === A.y ? A.y - gapY + off : ya
+    const yStart = B.y === A.y ? A.y : y0
+    const yEnd = B.y === A.y ? B.y : y3
+    d = `M${xa},${yStart} L${xa},${yy} L${xb},${yy} L${xb},${yEnd}`
+    return { d, lx: (xa + xb) / 2, ly: yy - 3, anchor: 'middle' }
+  }
+  const gutters = Array.from({ length: 12 }, (_, k) => PAD + k * CW - (CW - NW) / 2)
+  const mid = (A.cx + B.cx) / 2
+  // the nearest gutter whose vertical run is clear (a box two columns wide covers the gutter between them)
+  const clear = (x: number) => !crosses(Array.from({ length: 25 }, (_, i) => [x, ya + ((yb - ya) * i) / 24]), others)
+  const byDistance = [...gutters].sort((g1, g2) => Math.abs(g1 - mid) - Math.abs(g2 - mid))
+  const xg = (byDistance.find((g) => clear(g + off)) ?? byDistance[0]) + off
+  d = `M${xa},${y0} L${xa},${ya} L${xg},${ya} L${xg},${yb} L${xb},${yb} L${xb},${y3}`
+  return { d, lx: (xa + xg) / 2, ly: ya - 3, anchor: 'middle' }
 }
 
 function reach(edges: SEdge[], start: string, dir: 'up' | 'down'): Set<string> {
@@ -143,7 +185,7 @@ export function Schematic({ diagram }: { diagram: Diagram }) {
     setSel(diagram.order?.[0] ?? null)
     setPlaying(false)
   }, [diagram])
-  const order = diagram.order ?? nodes.map((n) => n.id)
+  const order = (diagram.order ?? nodes.map((n) => n.id)).filter((id) => byId[id]) // a stale id never becomes an empty step
   useEffect(() => {
     if (!playing) return
     const t = setInterval(() => {
@@ -182,7 +224,14 @@ export function Schematic({ diagram }: { diagram: Diagram }) {
   return (
     <div className="sch">
       <div className="sch-bar">
-        <button type="button" className="btn ghost sm" onClick={() => setPlaying(!playing)}>
+        <button
+          type="button"
+          className="btn ghost sm"
+          onClick={() => {
+            if (!playing && step >= order.length - 1) setSel(order[0]) // a finished tour starts again from step 1
+            setPlaying(!playing)
+          }}
+        >
           {playing ? '❚❚ Pause' : '▶ Walk through'}
         </button>
         <button type="button" className="btn ghost sm" disabled={step <= 0} onClick={() => setSel(order[Math.max(0, step - 1)])}>
@@ -197,7 +246,7 @@ export function Schematic({ diagram }: { diagram: Diagram }) {
       </div>
       <div className="sch-wrap">
         <div className="sch-canvas">
-          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: Math.min(W, 760), height: 'auto' }} role="img" aria-label={diagram.title} onClick={() => setSel(null)}>
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: Math.min(W, 760), height: 'auto' }} role="group" aria-label={diagram.title} onClick={() => { setSel(null); setPlaying(false) }}>
             <defs>
               <marker id={`arrow-${diagram.id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                 <path d="M0,0 L10,5 L0,10 z" className="sch-arrow" />
@@ -212,7 +261,7 @@ export function Schematic({ diagram }: { diagram: Diagram }) {
               const a = byId[e.from]
               const b = byId[e.to]
               if (!a || !b) return null
-              const r = route(a, b)
+              const r = route(a, b, nodes.filter((n) => n !== a && n !== b).map(geom), i)
               const on = lit ? edgeOn(e) : false
               return (
                 <g key={i} className={`sch-edge ${lit ? (on ? 'on' : 'dim') : ''} ${e.dashed ? 'dashed' : ''}`}>
@@ -246,7 +295,12 @@ export function Schematic({ diagram }: { diagram: Diagram }) {
                     setSel(n.id)
                     setPlaying(false)
                   }}
-                  onKeyDown={(ev) => (ev.key === 'Enter' || ev.key === ' ') && setSel(n.id)}
+                  onKeyDown={(ev) => {
+                    if (ev.key !== 'Enter' && ev.key !== ' ') return
+                    ev.preventDefault() // Space must not scroll the page
+                    setSel(n.id)
+                    setPlaying(false)
+                  }}
                   onMouseEnter={() => setHover(n.id)}
                   onMouseLeave={() => setHover(null)}
                 >

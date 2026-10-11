@@ -92,6 +92,13 @@ def stats(inc: pd.DataFrame, T: int) -> dict:
     next_q = q0_classic * (q1 / (T * q0_classic + q1)) if q0_classic else 0.0  # extrapolated S(T+1) - S(T)
     curve = [sum(1 - comb(T - yi, t) / comb(T, t) for yi in y) for t in range(1, T + 1)]
     h0, h1, h2 = hill(y)
+    if T < 2:
+        # every estimator above carries a (T - 1) factor: with one sampling unit they would report a
+        # "complete" list (coverage 1, Chao2 = S_obs). Undefined, not perfect.
+        return {"T": T, "S_obs": s_obs, "incidences": U, "Q1_uniques": q1, "Q2_duplicates": q2,
+                "chao2": np.nan, "chao2_lo95": np.nan, "chao2_hi95": np.nan, "completeness": np.nan, "coverage": np.nan,
+                "new_taxa_next_quadrat": np.nan, "hill_q0": h0, "hill_q1": round(h1, 2), "hill_q2": round(h2, 2),
+                "note": "one sampling unit: completeness, coverage and Chao2 undefined", "curve": curve}
     return {"T": T, "S_obs": s_obs, "incidences": U, "Q1_uniques": q1, "Q2_duplicates": q2,
             "chao2": round(chao2, 1), "chao2_lo95": round(lo, 1), "chao2_hi95": round(hi, 1),
             "completeness": round(s_obs / chao2, 3) if chao2 else np.nan, "coverage": round(coverage(y, T), 3),
@@ -245,6 +252,7 @@ def richness_sensitivity(ctx) -> pd.DataFrame:
         return norm_name(g["canonicalName"]) if g.get("matchType") in ("EXACT", "FUZZY") and g.get("rank") in ("SPECIES", "SUBSPECIES", "VARIETY") else key
 
     rep_of = by_key(ctx.data.survey, "KEY").replicate
+    n_subs = ctx.data.survey.drop_duplicates("KEY").groupby("replicate").KEY.nunique()  # surveys with no records count too
     out = []
     for rep, occ in ctx.occ.assign(_rep=ctx.occ.survey_key.map(rep_of)).groupby("_rep"):
         canon = occ[occ.canonical_survey]
@@ -252,7 +260,7 @@ def richness_sensitivity(ctx) -> pd.DataFrame:
         ident = res[res.resolved_status.str.startswith("identified")]
         unknown = res[res.resolved_status.str.startswith("unknown")].resolved_key.nunique()
         rows = [
-            (f"raw keys, all {occ.survey_key.nunique()} submissions", occ[occ.raw_key != ""].raw_key.nunique()),
+            (f"raw keys, all {int(n_subs.get(rep, occ.survey_key.nunique()))} submissions", occ[occ.raw_key != ""].raw_key.nunique()),
             ("raw keys, canonical surveys", canon[canon.raw_key != ""].raw_key.nunique()),
             ("resolved (curation merges, woody excluded)", res.resolved_key.nunique()),
             ("resolved, names matched to GBIF species (spelling variants collapsed)", len({gbif_key(n, k) for n, k in zip(ident.resolved_name, ident.resolved_key)}) + unknown),

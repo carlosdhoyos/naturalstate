@@ -37,7 +37,7 @@ The decisions that shape these results are in [`docs/challenge1_data_decisions.m
 
 ### Vegetation
 
-- **Record completeness:** the 30 surveyed plots are complete at record level, apart from 10 quadrats that declare additional species without species rows. That makes the effort metrics of 7 plots **provisional** (C04). The dashboard shows this status next to those numbers.
+- **Record completeness:** the 30 surveyed plots are complete at record level, apart from 10 quadrats that declare additional species without species rows. With one additional-species row that has no taxon, this makes the effort metrics of 8 plots **provisional** (C04, C08). The dashboard shows this status next to those numbers.
 - **Sampling design:** the shrubland stratum was not sampled.
 - **Provenance:** the dataset's provenance needs confirming.
   - The whole dataset, NS's prescribed points included, sits about 705 m below the terrain at its coordinates.
@@ -72,7 +72,7 @@ challenge1/.venv/bin/python -m pytest challenge1/ns_observations -q    # 50 pack
 python -m venv challenge2/.venv && challenge2/.venv/bin/pip install -r challenge2/requirements.txt
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py --verify   # outputs/ holds one complete run
-(cd challenge2/tests && ../.venv/bin/python -m pytest -q)               # 162 tests
+(cd challenge2/tests && ../.venv/bin/python -m pytest -q)               # 165 tests
 
 # Data Explorer (single HTML file)
 (cd dashboard && npm install && npm run build)
@@ -82,7 +82,7 @@ Both runs are offline and deterministic: the same inputs give the same outputs a
 
 | Verified | Not verified, or specified only |
 |---|---|
-| **Tests:** 38 + 50 (birds) and 162 (vegetation), all passing. | **iNEXT cross-check not run:** the custom Chao2 intervals and coverage were not compared with iNEXT (R unavailable here). This should be done before the numbers are used operationally. |
+| **Tests:** 38 + 50 (birds) and 165 (vegetation), all passing. | **iNEXT cross-check not run:** the custom Chao2 intervals and coverage were not compared with iNEXT (R unavailable here). This should be done before the numbers are used operationally. |
 | **Bird estimators** checked against statsmodels, an analytic Firth result and direct optimisation. | **Atomic publication not built:** one atomic switch over versioned run folders is specified only. Today's publication is staged and checkable, but not atomic across files (Challenge 2 Q2 §7). |
 | **Vegetation:** 35 rules mutation-tested; the whole workflow tested on invalid inputs; a crash during publication is detected and repaired. | **Multi-round dashboard not browser-checked:** the marts are kept per replicate and tested, but the data has one round, so the dashboard's multi-round display has not been seen in a browser. |
 | **Vegetation container** (`vegqa:1.0.0`) built and run: same run id, and its tables and dashboard JSON are byte-identical to a local run. | **Specified only, for the Tech team:** flag-review storage, structured curation fields, scheduling and database persistence. |
@@ -107,4 +107,4 @@ Both runs are offline and deterministic: the same inputs give the same outputs a
   - [`docs/challenge1_data_decisions.md`](docs/challenge1_data_decisions.md): D-01 to D-14. Each entry separates the policy from its measured consequences; superseded parts are marked, not deleted.
   - [`docs/challenge1_paper_alignment.md`](docs/challenge1_paper_alignment.md): Wood & Kahl's recommendations, point by point.
   - Challenge 1 confirmation items C-1 to C-7: [`challenge1/Q1_report.md`](challenge1/Q1_report.md), section 9.
-  - [`docs/challenge2_decisions.md`](docs/challenge2_decisions.md): V-01 to V-13, differences from the exploratory review, new findings N1–N13, four independent reviews, and confirmation items C-1 to C-12.
+  - [`docs/challenge2_decisions.md`](docs/challenge2_decisions.md): V-01 to V-13, differences from the exploratory review, new findings N1–N13, five independent reviews and a bug check, and confirmation items C-1 to C-12.

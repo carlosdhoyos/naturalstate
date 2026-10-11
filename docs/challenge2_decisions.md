@@ -2,7 +2,7 @@
 
 This log records the decisions behind the vegetation QA/QC. Each entry gives what we observed, what we decided, and how the decision changes the results. **No source value is ever changed.** Every decision acts on how values are interpreted, joined or flagged.
 
-The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-f40167b5f7e510c5` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
+The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-55a7f222034e5654` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
 
 - **V-01 to V-13** are decisions.
 - **"Differences from the exploration"** lists where the pipeline deliberately disagrees with the earlier exploratory review.
@@ -165,7 +165,7 @@ Every threshold of ours is labelled `judgement` in the catalogue and can be chan
 
 - **Duplicated survey KEY:** no copy is canonical, so that plot's metrics are suppressed and J03 reports it.
 - **Sampling units:** effort counts distinct quadrat KEYs, so a duplicated row is not a 21st quadrat.
-- **Provisional metrics:** a survey with structural or record failures (A01–A04, C02, C04, C08, C13) carries `metrics_status = provisional: <rules>`. Here 7 plots are provisional, all for C04.
+- **Provisional metrics:** a survey with structural or record failures (A01–A04, C02, C04, C08, C13) carries `metrics_status = provisional: <rules>`. Here 8 plots are provisional: 7 for C04 and Plot 28 for C08. C08 took effect only after the bug check, which gave additional-species results their survey key.
 - **Empty incidence table:** it is told apart as a valid ecological zero (every quadrat recorded no herbs), missing species records, or records that are not analytical taxa (excluded or unresolvable). The last two are marked "suppressed".
 - **Replicates:** project richness and planned-vs-done are computed per replicate, so monitoring rounds are never pooled and a missing later visit is never hidden by an earlier one.
 
@@ -222,7 +222,7 @@ The exploration's numbers were approximate. The pipeline re-derives them, and th
 | N6 | The non-viable Plot 23 was confirmed 157 m from its prescribed point, consistent with "on private property" | E12 |
 | N7 | Form design: macro photos at max-pixels 4096–4100 (copy-paste drift); quadrat GPS warning at 10 m against 5 m elsewhere; the registration plot list has no filter, so a plot can be registered twice | K01, K04 |
 | N8 | The curation table's label disagrees with its number for herb_039 (labelled herb_011) and herb_072 (labelled herb_036) | F13 |
-| N9 | 20 of the 90 identified taxa GBIF could check have no GBIF record in Kenya but hundreds in southern Africa. The species list (Acacia galpinii, Pechuel-loeschea) and the transport options ("Mokoro", an Okavango dugout) suggest the list was built for a southern-African project | F10 |
+| N9 | 20 of the 90 identified taxa GBIF could check have no GBIF record in Kenya but many in southern Africa. The species list (Acacia galpinii, Pechuel-loeschea) and the transport options ("Mokoro", an Okavango dugout) suggest the list was built for a southern-African project | F10 |
 | N10 | **The deployed registration form computes the geohash from the measured midpoint**, not from the centroid as the form file says: the stored geohash equals the midpoint's geohash-7 in 30/30 registrations, and `Edits` = 0 everywhere. It differs from the centroid list only for Plots 01, 04 and 15, whose midpoint lies in a neighbouring cell. (The first version of this log called these three "edited after collection"; the independent review showed that was wrong.) | C17 |
 | N11 | The whole dataset sits about 705 m below the SRTM terrain at its coordinates: field GPS −704 m (median of 62 submissions), and NS's own prescribed points −703 m (centroid altitudes). Not a field error. With the species-range pattern (N9) and the transport list, it is a reason to question the dataset's provenance; one hypothesis among others is relocated demonstration data from a site near 1,000 m. It does not establish where the coordinates or altitudes come from (C-7) | E14 |
 | N12 | The 51 prescribed points are 9–104 m (median 66 m) from the centres of their geohash cells, although the SOP defines the midpoint as the cell centre | J04 |
@@ -315,10 +315,24 @@ An independent reviewer, given no context, re-ran the pipeline and the tests, ex
 
 | Finding | Change |
 |---|---|
-| The dashboard's effort charts did not show `metrics_status`; the project level had no aggregate status | The project row inherits its plots' status ("7 of 30 plots provisional (C04)") and repeats the estimate on the 23 ok plots (resolved: 104 taxa, Chao2 139 (119–186), against 115 and 145 (128–185) on all 30). The Effort view shows a banner, a status card, provisional plots dashed or marked, and a table of qualified plots; the Plots view shows each plot's status (V-12) |
+| The dashboard's effort charts did not show `metrics_status`; the project level had no aggregate status | The project row inherits its plots' status and repeats the estimate on the ok plots only. After the bug check below, that is "8 of 30 plots provisional (C04 C08)" and 22 ok plots (resolved: 101 taxa, Chao2 129 (113–167), against 115 and 145 (128–185) on all 30). The Effort view shows a banner, a status card, provisional plots dashed or marked, and a table of qualified plots; the Plots view shows each plot's status (V-12) |
 | A survey with missing records that also failed C02 was labelled "provisional: C02" | Suppressed takes precedence over provisional (tested) |
 | Publication claimed to be atomic; the interruption test failed before publication | Claim narrowed. A crash during publication leaves a `.publishing-*` marker, the manifest lists a hash for every output, `--verify` reports mismatches, and a re-run repairs them (tested). One atomic pointer switch is specified for the platform, not built (V-13) |
 | Effort view assumed one round: first project row by layer, no replicate in planned-vs-done, curves pooled across rounds, "31st plot", the GBIF row called a "bound" | Replicate selector, and every table and chart filtered by replicate. The richness sensitivity is computed per replicate. Wording: "one more plot", "a sensitivity analysis, not bounds". The multi-round display is not browser-checked (one round in the data) |
 | Container "byte-identical" claim | Rebuilt: same run id, and the tables and dashboard JSON are identical; the figure PNGs are re-rendered on Linux and are not byte-identical. Wording narrowed |
 | README made the reader dig for the answers | Root README reordered: answers, findings and decisions, reproduction and verification status, then supporting material |
+
+### Bug check (three parallel reviews: pipeline, dashboard, documents)
+
+| Bug | Fix |
+|---|---|
+| C08 listed as making metrics provisional but never applied: additional-species results had no survey key | The engine fills `survey_key` from the parent chain for every quadrat and additional-species result. Plot 28 is now provisional (C08): 8 of 30 plots, 22 ok plots (resolved: 101 taxa, Chao2 129 (113–167)). Every document is updated |
+| A plot registered twice could mix registrations: GIS coordinates and key from the first, length from the second; a null coordinate in a LineString; the report table crashed | One rule picks the plot's registration everywhere (`model.chosen_registrations`: not rejected, then complete A/M/B, then latest). Tables, figures, GIS, quadrat positions and E rules all use it (tested with a re-registration) |
+| `--verify` passed with stale files from another run, or a leftover staging folder | Both are reported. Publication also removes our own files from the previous run that the new run does not write (tested) |
+| With one sampling unit, coverage 1, completeness 1 and Chao2 = observed (every estimator has a T − 1 factor) | Undefined (NaN) with a note (tested) |
+| Map: a registered plot with incomplete coordinates drew no marker or was counted as "not viable" | Its own category, "registered, transect coordinates incomplete" |
+| Map colours could include a rejected survey's flags | Survey-level flags count only for the canonical survey |
+| One test read the committed outputs | It uses the fresh build |
+| Dashboard: a walk-through step pointing at a missing node; banner always citing C04; empty chip text; Space scrolled the page; walk-through could not restart from the end; screen readers could not reach diagram boxes; 29 edges ran behind other boxes; error bar when Chao2 has no upper bound; median of an even count; duplicate rows and markers with several replicates | All fixed. Edges that would cross a box now run through the gaps between rows and columns |
+| Documents | Wrong survey named for K03 (herb_100 came from Plot 18); GBIF retrieval date; "declarative"; run comparison described as built; V-13 missing from the report's table; "hundreds" of southern-African records (some have 26); file size; review count |
 

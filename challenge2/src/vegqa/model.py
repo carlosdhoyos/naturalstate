@@ -99,9 +99,33 @@ def geometry(ctx) -> pd.DataFrame:
 
 
 def positions(ctx) -> pd.DataFrame:
-    return ctx.cached("positions", lambda: quadrat_positions(ctx.data, ctx.proj, geometry(ctx)))
+    return ctx.cached("positions", lambda: quadrat_positions(ctx.data, ctx.proj, transect_geometry(ctx)))
+
+
+REG_POINTS = [f"_{p}_{c}" for p in ("endpoint_a", "midpoint", "endpoint_b") for c in ("lat", "lon")]
+
+
+def chosen_registrations(reg: pd.DataFrame) -> pd.DataFrame:
+    """One registration per plot, the same everywhere (tables, figures, GIS, quadrat positions).
+
+    Preference: not rejected, then complete A/M/B coordinates, then the latest submitted. The D rules
+    still check EVERY registration; this only decides which one describes the plot. In the supplied data
+    each plot has one registration, so the choice changes nothing there (A02 / D10 report duplicates)."""
+    r = reg.assign(_not_rejected=reg.get("ReviewState", pd.Series("", index=reg.index)).astype(str).str.lower() != "rejected",
+                   _complete=reg[REG_POINTS].notna().all(axis=1))
+    r = r.sort_values(["_not_rejected", "_complete", "_submitted"], ascending=False, na_position="last", kind="stable")
+    return r.drop_duplicates("plot_uuid").drop(columns=["_not_rejected", "_complete"])
 
 
 def registration_for(ctx) -> pd.DataFrame:
-    """Registration rows indexed by centroid uuid (one registration per plot in this data; A02 checks it)."""
-    return ctx.cached("reg_by_plot", lambda: by_key(ctx.data.registration.drop_duplicates("plot_uuid"), "plot_uuid"))
+    """The chosen registration of each plot, indexed by centroid uuid."""
+    return ctx.cached("reg_by_plot", lambda: chosen_registrations(ctx.data.registration).set_index("plot_uuid", drop=False))
+
+
+def transect_geometry(ctx) -> pd.DataFrame:
+    """Geometry of the chosen registration of each plot: one row per plot, indexed by centroid uuid."""
+    def build():
+        g = geometry(ctx)
+        keys = set(registration_for(ctx).KEY)
+        return g[g.KEY.isin(keys)].drop_duplicates("plot_uuid").set_index("plot_uuid", drop=False)
+    return ctx.cached("transect_geometry", build)

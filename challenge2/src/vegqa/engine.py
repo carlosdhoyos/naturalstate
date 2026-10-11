@@ -94,6 +94,20 @@ def run_all(ctx: Ctx) -> pd.DataFrame:
         ctx._current = rid
         REGISTRY[rid](ctx)
     out = pd.DataFrame(ctx._rows, columns=RESULT_COLUMNS)
+    return _fill_survey_keys(ctx, out)
+
+
+def _fill_survey_keys(ctx: Ctx, out: pd.DataFrame) -> pd.DataFrame:
+    """A result about a quadrat or additional-species row belongs to that row's survey. Rules that left
+    survey_key empty get it from the parent chain (additional species -> quadrat -> survey), so every
+    consumer (effort status, dashboard filters, canonical-only views) sees the same survey."""
+    from .load import by_key
+
+    q_to_s = by_key(ctx.data.quadrat, "KEY").PARENT_KEY
+    e_to_s = by_key(ctx.data.extra, "KEY").PARENT_KEY.map(q_to_s)
+    for table, parent in (("quadrat_repeat", q_to_s), ("additional_species_repeat", e_to_s)):
+        m = (out.survey_key == "") & (out.source_table == table)
+        out.loc[m, "survey_key"] = out.loc[m, "source_key"].map(parent).fillna("")
     return out
 
 

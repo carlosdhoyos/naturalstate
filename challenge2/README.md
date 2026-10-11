@@ -3,7 +3,7 @@
 This folder holds a reproducible QA/QC pipeline for the ODK herbaceous vegetation data. It does three things:
 
 - cleans and joins the data **without changing any value**;
-- runs a declarative rule catalogue over it;
+- runs a catalogued set of rules over it (metadata and thresholds in YAML, the logic in Python);
 - writes the flags, the joined tables, the sampling-effort statistics and the report figures.
 
 **The two answers to the brief:**
@@ -31,7 +31,7 @@ python -m venv challenge2/.venv && challenge2/.venv/bin/pip install -r challenge
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py         # writes outputs/ and outputs/figures/ (about 3 s)
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py --verify  # checks outputs/ holds one complete run (manifest hashes)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.report_tables)    # refreshes the report's tables from outputs/
-(cd challenge2/tests && ../.venv/bin/python -m pytest -q)            # 162 tests (acceptance, mutation, robustness, unit)
+(cd challenge2/tests && ../.venv/bin/python -m pytest -q)            # 165 tests (acceptance, mutation, robustness, unit)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.gbif)             # optional: fetch GBIF data for new names (network)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.dem)              # optional: fetch terrain elevations for new points (network)
 (cd dashboard && npm install && npm run build)                        # rebuild the dashboard page with the new outputs

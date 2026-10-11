@@ -272,7 +272,7 @@ export function VegetationQA({ tokens: t, reg, onOpen }: { tokens: ThemeTokens; 
       {tab !== 'rules' && tab !== 'effort' ? (
         <SharedFilters g={g} setG={setG} />
       ) : (
-        <p className="small muted">This view covers the whole run; the shared filters apply to the other views.</p>
+        <p className="small muted">{tab === 'effort' ? 'This view has its own replicate selector; the shared filters apply to the other views.' : 'This view covers the whole run; the shared filters apply to the other views.'}</p>
       )}
       {rec && <RecordPanel rec={rec} reg={reg} onOpen={onOpen} onClose={() => setRec(null)} />}
       {tab === 'overview' && <OverviewTab {...ctx} />}
@@ -687,6 +687,14 @@ const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery
 const mapStyle = (b: Basemap, dark: boolean) =>
   b === 'light' ? { style: dark ? 'carto-darkmatter' : 'carto-positron' } : b === 'satellite' ? { style: 'white-bg', layers: [{ sourcetype: 'raster', source: [ESRI], below: 'traces', sourceattribution: 'Esri World Imagery' }] } : { style: 'white-bg' }
 
+/** One row per plot (PLOTS has one per plot AND replicate): a surveyed row wins, so a map marker or a
+ * heatmap row is never duplicated when a run holds several monitoring rounds. */
+function onePerPlot(rows: Row[]): Row[] {
+  const out = new Map<string, Row>()
+  for (const r of [...rows].sort((a, b) => Number(Boolean(b.surveyed)) - Number(Boolean(a.surveyed)))) if (!out.has(r.plot_name)) out.set(r.plot_name, r)
+  return [...out.values()]
+}
+
 function plotStatus(p: Row): string {
   if (p.surveyed) return p.sample_status === 'backup' ? 'surveyed (backup)' : 'surveyed'
   if (p.registered && p.viable === 'no') return 'registered, not viable'
@@ -716,12 +724,13 @@ function MapTab({ d, t, showFlags }: Ctx) {
     // a registered plot's marker sits on its registered midpoint (where the transect IS); the prescribed point stays as a small grey dot
     const mid = Object.fromEntries(TRANSECTS.map((tr) => [tr.plot_name, tr]))
     const at = (p: Row): [number, number] => (mid[p.plot_name] ? [mid[p.plot_name].midpoint_lat, mid[p.plot_name].midpoint_lon] : [p.prescribed_lat, p.prescribed_lon])
-    const reg = d.P.filter((p) => mid[p.plot_name])
+    const P1 = onePerPlot(d.P)
+    const reg = P1.filter((p) => mid[p.plot_name])
     data.push({ type: 'scattermap', mode: 'markers', name: 'prescribed point of a registered plot', lat: reg.map((p) => p.prescribed_lat), lon: reg.map((p) => p.prescribed_lon), marker: { color: '#9aa8ae', size: 5 }, text: reg.map((p) => `${p.plot_name}: prescribed point (registered midpoint ${fx(mid[p.plot_name].midpoint_offset_m, 1)} m away)`), hovertemplate: '%{text}<extra></extra>' })
     const groups = colorBy === 'status' ? Object.keys(STATUS_STYLE) : ['error', 'warning', 'info', 'none']
     const noneLabel = d.active ? 'no flags under the current filters' : 'no plot-level flags' // not the same as "passed every check"
     for (const g of groups) {
-      const ps = d.P.filter((p) => (colorBy === 'status' ? plotStatus(p) === g : (worstByPlot[p.plot_name] ?? 'none') === g))
+      const ps = P1.filter((p) => (colorBy === 'status' ? plotStatus(p) === g : (worstByPlot[p.plot_name] ?? 'none') === g))
       if (!ps.length) continue
       const st = colorBy === 'status' ? STATUS_STYLE[g] : { color: g === 'none' ? '#1f9e8c' : SEV_COLOR[g as Sev], symbol: 'circle', size: 11 }
       data.push({
@@ -845,17 +854,18 @@ function PlotPanel({ t, plot, flags, showFlags }: { t: ThemeTokens; plot: string
 
 function PlotsTab({ d, t, showFlags }: Ctx) {
   const reg = d.P.filter((p) => p.registered).sort((a, b) => String(a.plot_name).localeCompare(String(b.plot_name)))
+  const reg1 = onePerPlot(reg).sort((a, b) => String(a.plot_name).localeCompare(String(b.plot_name))) // the heatmap's rows: flags are per plot
   const cov = Object.fromEntries(EFF_PLOTS.filter((e) => e.layer === 'resolved').map((e) => [effKey(e.plot_name, e.replicate), e])) // per plot AND replicate
   const groups = Object.keys(GROUPS).filter((g) => g !== 'K')
   const heat = useMemo(() => {
-    const z = reg.map((p) => groups.map((g) => SEV_RANK[worstOf(plotFlags(d.F, p.plot_name).filter((f) => f.group === g)) ?? ''] ?? 0))
-    const txt = reg.map((p) => groups.map((g) => plotFlags(d.F, p.plot_name).filter((f) => f.group === g).length || ''))
+    const z = reg1.map((p) => groups.map((g) => SEV_RANK[worstOf(plotFlags(d.F, p.plot_name).filter((f) => f.group === g)) ?? ''] ?? 0))
+    const txt = reg1.map((p) => groups.map((g) => plotFlags(d.F, p.plot_name).filter((f) => f.group === g).length || ''))
     return [
       {
         type: 'heatmap',
         z,
         x: groups.map((g) => `${g} · ${GROUPS[g]}`),
-        y: reg.map((p) => short(p.plot_name)),
+        y: reg1.map((p) => short(p.plot_name)),
         text: txt,
         texttemplate: '%{text}',
         zmin: 0,
@@ -873,11 +883,11 @@ function PlotsTab({ d, t, showFlags }: Ctx) {
         showscale: false,
         xgap: 2,
         ygap: 2,
-        customdata: reg.map((p) => groups.map(() => p.plot_name)),
+        customdata: reg1.map((p) => groups.map(() => p.plot_name)),
         hovertemplate: '%{y} · %{x}: %{text} flags<extra></extra>',
       },
     ]
-  }, [t, d.F, reg])
+  }, [t, d.F, reg1])
   return (
     <>
       <Section title="Flags per plot and rule group" sub={`Colour = worst severity (blue info, amber warning, red error); number = count. Canonical surveys only; project-wide findings that hit every plot alike are left out (${[...SYSTEMIC].join(', ')}). Click a cell to list a plot's flags.`}>
@@ -1005,13 +1015,35 @@ function TaxonomyTab({ d, showFlags }: Ctx) {
 /** Monitoring rounds in this run. Every effort mart is per replicate; rounds are never pooled. */
 const REPLICATES = [...new Set(EFF_PROJECT.map((r) => String(r.replicate)))].sort()
 const effKey = (plot: unknown, rep: unknown) => `${plot}|${rep}`
-/** Rule ids named in a metrics_status ("provisional: C04", "provisional: 7 of 30 plots provisional (C04)"). */
+/** Rule ids named in a metrics_status ("provisional: C04", "provisional: 8 of 30 plots provisional (C04 C08)"). */
 const statusRules = (s: string) => (s.startsWith('provisional') ? [...new Set(s.match(/\b[A-KPX]\d{2}\b/g) ?? [])] : [])
+
+/** Plain-language reason a rule makes metrics provisional (falls back to the rule's catalogue title). */
+const WHY: Record<string, string> = {
+  A01: 'a record with a missing key',
+  A02: 'a duplicated key',
+  A03: 'a survey without its 20 quadrats',
+  A04: 'quadrat numbers that are not 1–20',
+  C02: 'herbs recorded as present but no species rows',
+  C04: 'quadrats that declare additional species without species rows',
+  C08: 'an additional-species row with no taxon',
+}
+const why = (r: string) => WHY[r] ?? ruleTitle[r] ?? r
+
+/** The banner sentence for a provisional project row: which plots, why, and any suppressed plots. */
+function provisionalReason(p: Row): string {
+  const rules = statusRules(String(p.metrics_status))
+  const parts: string[] = []
+  if (p.plots_provisional) parts.push(`${p.plots_provisional} of ${p.units} plots are provisional because of ${rules.map((r) => `${why(r)} (${r})`).join(' or ')}, so their species lists may be incomplete.`)
+  if (p.plots_suppressed) parts.push(`${p.plots_suppressed} of ${p.units} plots are suppressed (missing or non-analytical records) but still count as sampling units.`)
+  return parts.join(' ')
+}
 
 function MetricsStatus({ s }: { s: string | null | undefined }) {
   if (!s || s === 'ok') return <span className="qa-chip qa-pass">ok</span>
   if (s === 'suppressed') return <span className="qa-chip qa-flag" data-tip="Records are missing or none is an analytical taxon: there are no metrics to read. See the plot's note.">suppressed</span>
   const rules = statusRules(s)
+  if (!rules.length) return <span className="qa-chip qa-flag" data-tip={s}>provisional</span>
   return (
     <span className="qa-chip qa-flag" data-tip-title="Provisional" data-tip={`Shown, but conditional on records that a rule found incomplete:\n${rules.map((r) => `${r}: ${ruleTitle[r]}`).join('\n')}`}>
       provisional · {rules.join(' ')}
@@ -1069,7 +1101,7 @@ function EffortTab({ t, showFlags }: Ctx) {
         y,
         name: 'observed / Chao2 (95% CI)',
         marker: { color: '#2b5672', size: 8, symbol: prov.map((p) => (p ? 'square-open' : 'square')), line: { width: 2, color: '#2b5672' } },
-        error_x: { type: 'data', symmetric: false, array: e.map((x) => (x.chao2_lo95 ? x.S_obs / x.chao2_lo95 - x.completeness : 0)), arrayminus: e.map((x) => (x.chao2_hi95 ? x.completeness - x.S_obs / x.chao2_hi95 : 0)), color: '#2b5672', thickness: 1 },
+        error_x: { type: 'data', symmetric: false, array: e.map((x) => (x.chao2_lo95 ? x.S_obs / x.chao2_lo95 - x.completeness : 0)), arrayminus: e.map((x) => (x.chao2_hi95 ? x.completeness - x.S_obs / x.chao2_hi95 : x.completeness)) /* no upper Chao2 bound: the lower completeness bound is 0 */, color: '#2b5672', thickness: 1 },
         customdata: e.map((x, i) => [x.S_obs, x.chao2, x.chao2_lo95 ?? 'n/a', x.chao2_hi95 ?? 'no upper limit', st[i]]),
         hovertemplate: '%{y}: %{customdata[0]} of Chao2 %{customdata[1]} (%{customdata[2]}–%{customdata[3]}) · %{customdata[4]}<extra></extra>',
       },
@@ -1094,17 +1126,20 @@ function EffortTab({ t, showFlags }: Ctx) {
       {!projOk && (
         <div className="note">
           <span>
-            <b>These effort metrics are provisional.</b> {String(proj.metrics_status).replace(/^provisional:\s*/, '')}: those plots have quadrats that declare additional species without species rows, so their lists may be incomplete, and every project figure below includes them. As a sensitivity comparison (not an estimate of the missing-record bias, because it also changes which plots are sampled), on the {proj.units_ok_plots} plots whose own metrics are ok: {fmtInt(proj.S_obs_ok_plots)} taxa, Chao2 {fx(proj.chao2_ok_plots, 0)} (95% CI {fx(proj.chao2_lo95_ok_plots, 0)}–{fx(proj.chao2_hi95_ok_plots, 0)}), coverage {fx(proj.coverage_ok_plots, 3)}. Provisional plots are marked * and drawn dashed or open below.{' '}
-            {statusRules(String(proj.metrics_status)).map((r) => (
-              <button key={r} type="button" className="link-btn" onClick={() => showFlags({ rule: r })}>
-                {r} flags
-              </button>
+            <b>These effort metrics are provisional.</b> {provisionalReason(proj)} Every project figure below includes those plots. As a sensitivity comparison (not an estimate of the missing-record bias, because it also changes which plots are sampled), on the {proj.units_ok_plots} plots whose own metrics are ok: {fmtInt(proj.S_obs_ok_plots)} taxa, Chao2 {fx(proj.chao2_ok_plots, 0)} (95% CI {fx(proj.chao2_lo95_ok_plots, 0)}–{fx(proj.chao2_hi95_ok_plots, 0)}), coverage {fx(proj.coverage_ok_plots, 3)}. Provisional plots are marked * and drawn dashed or open below.{' '}
+            {statusRules(String(proj.metrics_status)).map((r, i) => (
+              <span key={r}>
+                {i > 0 && ' · '}
+                <button type="button" className="link-btn" onClick={() => showFlags({ rule: r })}>
+                  {r} flags
+                </button>
+              </span>
             ))}
           </span>
         </div>
       )}
       <div className="stats-row">
-        <Stat label="Metrics status" value={<MetricsStatus s={projOk ? 'ok' : `provisional: ${statusRules(String(proj.metrics_status)).join(' ')}`} />} sub={projOk ? `all ${proj.units} plots ok` : `${proj.plots_provisional} provisional, ${proj.plots_suppressed} suppressed of ${proj.units} plots`} />
+        <Stat label="Metrics status" value={<MetricsStatus s={projOk ? 'ok' : String(proj.metrics_status)} />} sub={projOk ? `all ${proj.units} plots ok` : `${proj.plots_provisional} provisional, ${proj.plots_suppressed} suppressed of ${proj.units} plots`} />
         <Stat label="Project taxa observed" value={fmtInt(proj.S_obs)} sub={`Chao2 ${fx(proj.chao2, 0)} (95% CI ${fx(proj.chao2_lo95, 0)}–${fx(proj.chao2_hi95, 0)})${projOk ? '' : ' · provisional'}`} />
         <Stat label="Project coverage" value={fx(proj.coverage, 3)} sub={`plots as sampling units · ${fx(proj.new_taxa_next_quadrat, 1)} new taxa expected in one more plot`} />
         <Stat label="Diversity (Hill)" value={`${fx(proj.hill_q1, 0)} / ${fx(proj.hill_q2, 0)}`} sub="q1 exp(Shannon) / q2 inverse Simpson, effective number of taxa (plot incidence)" />
@@ -1177,8 +1212,9 @@ function EffortTab({ t, showFlags }: Ctx) {
 }
 
 const median = (v: number[]) => {
-  const s = [...v].sort((a, b) => a - b)
-  return s.length ? s[Math.floor(s.length / 2)] : NaN
+  const s = v.filter((x) => Number.isFinite(x)).sort((a, b) => a - b)
+  const m = Math.floor(s.length / 2)
+  return !s.length ? NaN : s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
 }
 
 // ── rules ────────────────────────────────────────────────────────────────────

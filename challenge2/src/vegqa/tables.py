@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from .engine import rows as rows_
-from .model import geometry, positions
+from .model import positions, registration_for, transect_geometry
 from .load import by_key
 
 SEVERITIES = ["error", "warning", "info"]
@@ -62,8 +62,8 @@ def submissions(ctx, results) -> pd.DataFrame:
 def plots(ctx, results) -> pd.DataFrame:
     d = ctx.data
     c = d.ent["centroids"]
-    g = by_key(geometry(ctx), "plot_uuid")
-    reg = by_key(d.registration, "plot_uuid")
+    g = transect_geometry(ctx)  # the chosen registration of each plot (model.chosen_registrations)
+    reg = registration_for(ctx)
     canon = d.survey[d.survey.KEY.isin(ctx.canonical)]  # one per plot AND replicate
     team = by_key(d.ent["project_team"], "__id").label
     q = d.quadrat

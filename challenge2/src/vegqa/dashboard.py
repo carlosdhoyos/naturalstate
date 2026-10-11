@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .model import geometry, positions
+from .model import positions, registration_for, transect_geometry
 from .load import by_key
 
 SEV_ORDER = {"info": 1, "warning": 2, "error": 3}
@@ -58,8 +58,8 @@ def _timeline(ctx) -> pd.DataFrame:
 
 
 def _transects(ctx) -> pd.DataFrame:
-    g = geometry(ctx)
-    r = by_key(ctx.data.registration, "plot_uuid")
+    g = transect_geometry(ctx)
+    r = registration_for(ctx)
     out = g[g.has_geometry][["plot_uuid", "plot_name", "cx", "cy", "endpoint_a_x", "endpoint_a_y", "midpoint_x", "midpoint_y", "endpoint_b_x", "endpoint_b_y",
                              "endpoint_a_acc", "midpoint_acc", "endpoint_b_acc", "midpoint_offset_m", "ab_m", "angle_amb_deg", "bearing_deg"]].copy()
     for p in ("endpoint_a", "midpoint", "endpoint_b"):

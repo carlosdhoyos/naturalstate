@@ -14,8 +14,7 @@ import pandas as pd  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 
 from .engine import rows  # noqa: E402
-from .load import by_key  # noqa: E402
-from .model import geometry, positions  # noqa: E402
+from .model import positions, registration_for, transect_geometry  # noqa: E402
 
 NAVY, STEEL, TEAL, TEAL_LIGHT, MIST, INK, MUTED = "#00354d", "#2b5672", "#1f9e8c", "#86d1c7", "#dfe6e9", "#0f2430", "#74868f"
 STATUS = {"pass": TEAL, "info": "#2a78d6", "warning": "#eda100", "error": "#e34948"}
@@ -73,20 +72,25 @@ def map_transects(ctx, plots: pd.DataFrame, results: pd.DataFrame, path: Path):
     from .gis import GEOMETRY_RULES, prescribed_points, worst_flags
 
     pts = prescribed_points(plots)
-    g = geometry(ctx)
+    g = transect_geometry(ctx)
     g = g[g.has_geometry]
-    reg = by_key(ctx.data.registration, "plot_uuid")
+    reg = registration_for(ctx)
     t = pd.DataFrame({"plot_uuid": g.plot_uuid, "plot_name": g.plot_name, "x": g.plot_uuid.map(reg._midpoint_lon), "y": g.plot_uuid.map(reg._midpoint_lat)})
-    worst, _ = worst_flags(results, GEOMETRY_RULES, "plot_name")
+    worst, _ = worst_flags(results, GEOMETRY_RULES, "plot_name", ctx.canonical)
     t["worst"] = t.plot_name.map(worst).fillna("none")
     fig, ax = plt.subplots(figsize=(10.5, 6.6))
     # context: prescribed points that have no registered transect
     ctxp = pts[~pts.plot_uuid.isin(t.plot_uuid)]
+    never, unused, not_viable = (ctxp.status == "primary, never registered"), (ctxp.status == "backup, unused"), (ctxp.status == "registered, not viable")
     for label, m, kw in [
-        ("prescribed primary, never registered", (ctxp.status == "primary, never registered"), dict(marker="s", s=34, facecolors="white", edgecolors=STEEL, linewidths=1.3)),
-        ("prescribed backup, unused", (ctxp.status == "backup, unused"), dict(marker="D", s=20, facecolors="white", edgecolors=MUTED, linewidths=0.9)),
-        ("registered, not viable (no transect)", ctxp.status.str.startswith("registered"), dict(marker="X", s=60, c=STATUS["warning"], edgecolors="white", linewidths=0.6)),
+        ("prescribed primary, never registered", never, dict(marker="s", s=34, facecolors="white", edgecolors=STEEL, linewidths=1.3)),
+        ("prescribed backup, unused", unused, dict(marker="D", s=20, facecolors="white", edgecolors=MUTED, linewidths=0.9)),
+        ("registered, not viable (no transect)", not_viable, dict(marker="X", s=60, c=STATUS["warning"], edgecolors="white", linewidths=0.6)),
+        # anything else without a transect: registered (even surveyed) but its A/M/B coordinates are incomplete
+        ("registered, transect coordinates incomplete", ~(never | unused | not_viable), dict(marker="P", s=60, c=STATUS["error"], edgecolors="white", linewidths=0.6)),
     ]:
+        if not m.any():
+            continue
         sub = ctxp[m]
         ax.scatter(sub.prescribed_lon, sub.prescribed_lat, label=f"{label} ({len(sub)})", zorder=3, **kw)
     sty = {"none": ("no location or shape flag", TEAL), "info": ("info only", STATUS["info"]), "warning": ("warning", STATUS["warning"]), "error": ("error", STATUS["error"])}
@@ -120,14 +124,15 @@ def map_transects(ctx, plots: pd.DataFrame, results: pd.DataFrame, path: Path):
 
 
 def transects_grid(ctx, results: pd.DataFrame, path: Path):
-    g = geometry(ctx)
+    g = transect_geometry(ctx)
     g = g[g.has_geometry].sort_values("plot_name")
     q = positions(ctx)
     q = q[q.PARENT_KEY.isin(ctx.canonical)]
-    reg = by_key(ctx.data.registration, "plot_uuid")
+    reg = registration_for(ctx)
     reg_lat, reg_lon = reg._midpoint_lat, reg._midpoint_lon
     worst_q = _worst(results, ["E01", "E02", "E04", "E06"], "entity_key")
-    plot_flags = results[(results.status == "fail") & results.rule_id.isin(["D01", "D02", "D03", "D04", "E03", "E05"]) & (results.severity != "info")]
+    plot_flags = results[(results.status == "fail") & results.rule_id.isin(["D01", "D02", "D03", "D04", "E03", "E05"]) & (results.severity != "info")
+                         & ((results.survey_key == "") | results.survey_key.isin(ctx.canonical))]  # canonical survey only
     n = len(g)
     cols = 6
     rows_ = int(np.ceil(n / cols))
@@ -181,7 +186,7 @@ def transects_grid(ctx, results: pd.DataFrame, path: Path):
 
 
 def orientation(ctx, path: Path):
-    g = geometry(ctx)
+    g = transect_geometry(ctx)
     g = g[g.has_geometry]
     b = np.radians(np.concatenate([g.bearing_deg, g.bearing_deg + 180]))
     fig = plt.figure(figsize=(4.2, 4.2))

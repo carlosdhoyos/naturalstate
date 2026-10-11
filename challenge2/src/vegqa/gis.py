@@ -16,8 +16,7 @@ from pathlib import Path
 import pandas as pd
 
 from .engine import rows
-from .load import by_key
-from .model import geometry, positions
+from .model import positions, registration_for, transect_geometry
 
 GEOMETRY_RULES = ["D01", "D02", "D03", "D04", "E03", "E05"]  # where the transect is and what shape it has
 SEV = {"info": 1, "warning": 2, "error": 3}
@@ -38,8 +37,12 @@ def prescribed_points(plots: pd.DataFrame) -> pd.DataFrame:
     return pts
 
 
-def worst_flags(results: pd.DataFrame, rule_ids: list[str], key: str) -> tuple[pd.Series, pd.Series]:
+def worst_flags(results: pd.DataFrame, rule_ids: list[str], key: str, canonical: set | None = None) -> tuple[pd.Series, pd.Series]:
+    """Worst severity and rule ids per key. With `canonical`, survey-level results count only for the
+    canonical survey (a rejected repeat must not colour the plot); registration-level results always count."""
     f = results[(results.status == "fail") & results.rule_id.isin(rule_ids)]
+    if canonical is not None:
+        f = f[(f.survey_key == "") | f.survey_key.isin(canonical)]
     worst = f.assign(o=f.severity.map(SEV)).groupby(key).o.max().map({v: k for k, v in SEV.items()})
     which = f.groupby(key).rule_id.apply(lambda x: " ".join(sorted(set(x))))
     return worst, which
@@ -50,11 +53,11 @@ def _r(v):
 
 
 def transects_geojson(ctx, plots: pd.DataFrame, results: pd.DataFrame) -> dict:
-    g = geometry(ctx)
+    g = transect_geometry(ctx)  # one registration per plot, the same as plots.csv and the figures
     g = g[g.has_geometry]
-    reg = by_key(ctx.data.registration, "plot_uuid")
+    reg = registration_for(ctx)
     pts = prescribed_points(plots).set_index("plot_uuid")
-    worst, which = worst_flags(results, GEOMETRY_RULES, "plot_name")
+    worst, which = worst_flags(results, GEOMETRY_RULES, "plot_name", ctx.canonical)
     feats = []
     for r in rows(g):
         rr = reg.loc[r.plot_uuid]
