@@ -166,7 +166,7 @@ export function VegetationStory() {
         <Stat label="Quadrats" value={fmtInt(O.quadrats_canonical)} sub={`${O.canonical_surveys} surveys × 20 · ${O.field_days} field days`} />
         <Stat label="Species" value={fmtInt(O.taxa_resolved)} sub={`${O.taxa_raw} names as recorded · ${O.taxa_resolved_identified} identified`} />
         <Stat label="Individual issues" value={fmtInt(f.individual.all)} sub={`${f.individual.error} errors · plus ${fmtInt(f.repeated)} repeats of ${f.patterns} project-wide patterns`} />
-        <Stat label="Estimated total species" value={p ? `${n0(p.chao2)}` : '—'} sub={p ? `95% CI ${n0(p.chao2_lo95)}–${n0(p.chao2_hi95)} · coverage ${Number(p.coverage).toFixed(3)} · provisional` : ''} />
+        <Stat label="Estimated total species" value={p ? `${n0(p.chao2)}` : '—'} sub={p ? `Chao2, 95% CI ${n0(p.chao2_lo95)}–${n0(p.chao2_hi95)} · sample coverage ${Number(p.coverage).toFixed(3)} · provisional` : ''} />
       </div>
       <h3 className="story-h">Five things to know</h3>
       <ol className="story-list">

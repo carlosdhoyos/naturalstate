@@ -452,10 +452,10 @@ function OverviewTab({ d, t, showFlags }: Ctx) {
         <Stat
           label={d.active ? 'Plots surveyed (filtered)' : 'Plots surveyed'}
           value={`${new Set(canon.map((r) => r.plot_name)).size} of ${O.primary_points_planned}`}
-          sub={d.active ? `canonical surveys under the filters · ${O.plots_registered} registered in the whole run` : `primary points planned · ${O.plots_registered} registered, ${O.plots_viable} viable`}
+          sub={d.active ? `selected surveys under the filters · ${O.plots_registered} registered in the whole run` : `primary points planned · ${O.plots_registered} registered, ${O.plots_viable} viable`}
         />
-        <Stat label={d.active ? 'Quadrats (filtered)' : 'Quadrats'} value={fmtInt(canon.reduce((a, r) => a + (r.n_quadrats ?? 0), 0))} sub={`${canon.length} canonical surveys of ${d.S.length} submissions${d.active ? ' under the filters' : ''}`} />
-        <Stat label={d.active ? 'Taxa (whole run)' : 'Taxa'} value={`${O.taxa_raw} → ${O.taxa_resolved}`} sub={`raw → resolved · ${O.taxa_resolved_identified} identified${d.active ? ' · not filtered (a union of taxa needs the records)' : ''}`} />
+        <Stat label={d.active ? 'Quadrats (filtered)' : 'Quadrats'} value={fmtInt(canon.reduce((a, r) => a + (r.n_quadrats ?? 0), 0))} sub={`${canon.length} selected surveys (one per plot and round) of ${d.S.length} submissions${d.active ? ' under the filters' : ''}`} />
+        <Stat label={d.active ? 'Taxa (whole run)' : 'Taxa'} value={`${O.taxa_raw} → ${O.taxa_resolved}`} sub={`recorded labels → taxa after NS curation · ${O.taxa_resolved_identified} identified${d.active ? ' · not filtered (a union of taxa needs the records)' : ''}`} />
         <Stat
           label={d.active ? 'Flags (filtered)' : 'Flags'}
           value={<span>{fmtInt(sevCount('error'))} <span className="muted small">err</span> · {fmtInt(sevCount('warning'))} <span className="muted small">warn</span> · {fmtInt(sevCount('info'))} <span className="muted small">info</span></span>}
@@ -572,13 +572,13 @@ function FlagsTab({ d, showFlags, openRecord, initial }: Ctx & { initial: FlagFi
           ))}
         </select>
         <input className="input" placeholder="Search text…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <Toggle checked={canonOnly} onChange={setCanonOnly} label="Canonical surveys only" />
+        <Toggle checked={canonOnly} onChange={setCanonOnly} label="Selected surveys only" />
         <button type="button" className="btn ghost sm" onClick={() => downloadCsv('qa_flags_filtered.csv', rows, ['rule_id', 'severity', 'title', 'plot_name', 'entity_type', 'entity_key', 'source_table', 'source_key', 'observed', 'expected', 'message'])}>
           Download {fmtInt(rows.length)} rows (CSV)
         </button>
       </div>
       <p className="muted small">
-        {fmtInt(rows.length)} of {fmtInt(d.F.length)} flags. Click a source to see the original record (as exported) and copy its full key for ODK Central. “Canonical surveys only” hides flags on the two rejected repeat surveys.
+        {fmtInt(rows.length)} of {fmtInt(d.F.length)} flags. Click a source to see the original record (as exported) and copy its full key for ODK Central. “Selected surveys only” keeps the one survey selected for each plot and monitoring round, hiding flags on the two rejected repeat surveys.
       </p>
       <DataTable
         className="qa-table"
@@ -669,7 +669,7 @@ function SubmissionsTab({ d, t }: Ctx) {
             { key: 'device', label: 'Device', render: (r) => String(r.device).replace('demo-device-', 'd') },
             { key: 'recorder', label: 'Recorder' },
             { key: 'review_state', label: 'Review' },
-            { key: 'canonical', label: 'Canonical', render: (r) => (r.canonical ? 'yes' : 'no') },
+            { key: 'canonical', label: 'Selected', tip: 'The survey selected for this plot and monitoring round: the latest one not rejected or marked “has issues”.', render: (r) => (r.canonical ? 'yes' : 'no') },
             { key: 'duration_min', label: 'Minutes', num: true, render: (r) => fx(r.duration_min, 0) },
             { key: 'upload_delay_h', label: 'Upload h', num: true, render: (r) => fx(r.upload_delay_h, 1) },
             { key: 'base_active_herb_count', label: 'Active slots', num: true, render: (r) => fx(r.base_active_herb_count, 0), tip: 'base_active_herb_count: provisional species slots active on the device when the form opened' },
@@ -833,7 +833,7 @@ function PlotPanel({ t, plot, flags, showFlags }: { t: ThemeTokens; plot: string
       )}
       {tr && (
         <p className="small">
-          Midpoint {fx(p.midpoint_offset_m, 1)} m from the prescribed point · A–B {fx(p.transect_length_m, 1)} m · angle A–M–B {fx(p.angle_amb_deg, 0)}° · {fx(p.deviation_ns_deg, 0)}° off N–S · {p.richness_resolved ?? '—'} taxa (resolved)
+          Midpoint {fx(p.midpoint_offset_m, 1)} m from the prescribed point · A–B {fx(p.transect_length_m, 1)} m · angle A–M–B {fx(p.angle_amb_deg, 0)}° · {fx(p.deviation_ns_deg, 0)}° off N–S · {p.richness_resolved ?? '—'} taxa after NS curation
         </p>
       )}
       {fl.length > 0 && (
@@ -904,12 +904,12 @@ function PlotsTab({ d, t, showFlags }: Ctx) {
   }, [t, d.F, reg1])
   return (
     <>
-      <Section title="Flags per plot and rule group" sub={`Colour = worst severity (blue info, amber warning, red error); number = count. Canonical surveys only; project-wide findings that hit every plot alike are left out (${[...SYSTEMIC].join(', ')}). Click a cell to list a plot's flags.`}>
+      <Section title="Flags per plot and rule group" sub={`Colour = worst severity (blue info, amber warning, red error); number = count. Selected surveys only; project-wide findings that hit every plot alike are left out (${[...SYSTEMIC].join(', ')}). Click a cell to list a plot's flags.`}>
         <div className="chart-card">
           <Plot data={heat} layout={{ ...baseLayout(t), margin: { l: 70, r: 90, t: 10, b: 150 }, xaxis: { ...axisStyle(t), tickangle: -35, side: 'bottom' }, yaxis: { ...axisStyle(t), autorange: 'reversed' } }} height={760} onClickIndex={(p) => showFlags({ plot: p as string })} filename="flags_heatmap" />
         </div>
       </Section>
-      <Section title="Registered plots" sub="Geometry from the registration; richness and coverage from the canonical survey (resolved taxa); provisional effort metrics are marked.">
+      <Section title="Registered plots" sub="Geometry from the registration; richness and sample coverage from the plot’s selected survey (taxa after NS curation); provisional effort metrics are marked.">
         <DataTable
           rows={reg}
           limit={40}
@@ -922,11 +922,11 @@ function PlotsTab({ d, t, showFlags }: Ctx) {
             { key: 'midpoint_offset_m', label: 'Offset m', num: true, render: (r) => fx(r.midpoint_offset_m, 1), tip: 'Registered midpoint to prescribed point (SOP limit 25 m)' },
             { key: 'transect_length_m', label: 'A–B m', num: true, render: (r) => fx(r.transect_length_m, 1) },
             { key: 'deviation_ns_deg', label: '° off N–S', num: true, render: (r) => fx(r.deviation_ns_deg, 0) },
-            { key: 'richness_raw', label: 'Taxa raw', num: true, render: (r) => fx(r.richness_raw, 0) },
-            { key: 'richness_resolved', label: 'Taxa resolved', num: true, render: (r) => fx(r.richness_resolved, 0) },
+            { key: 'richness_raw', label: 'Labels as recorded', num: true, render: (r) => fx(r.richness_raw, 0) },
+            { key: 'richness_resolved', label: 'Taxa after curation', num: true, render: (r) => fx(r.richness_resolved, 0) },
             { key: 'quadrats_all_unknown', label: 'All-unknown q.', num: true, render: (r) => fx(r.quadrats_all_unknown, 0) },
-            { key: 'coverage', label: 'Coverage', num: true, render: (r) => fx(cov[effKey(r.plot_name, r.replicate)]?.coverage, 2), sortValue: (r) => cov[effKey(r.plot_name, r.replicate)]?.coverage ?? -1 },
-            { key: 'metrics_status', label: 'Effort metrics', render: (r) => (cov[effKey(r.plot_name, r.replicate)] ? <MetricsStatus s={cov[effKey(r.plot_name, r.replicate)].metrics_status} /> : <span className="muted small">no canonical survey</span>), sortValue: (r) => String(cov[effKey(r.plot_name, r.replicate)]?.metrics_status ?? 'z') },
+            { key: 'coverage', label: 'Sample coverage', tip: 'Estimated share of the plot’s species occurrences that belong to taxa already recorded: how close more sampling is to adding nothing new. It is not the percentage of species found.', num: true, render: (r) => fx(cov[effKey(r.plot_name, r.replicate)]?.coverage, 2), sortValue: (r) => cov[effKey(r.plot_name, r.replicate)]?.coverage ?? -1 },
+            { key: 'metrics_status', label: 'Effort metrics', render: (r) => (cov[effKey(r.plot_name, r.replicate)] ? <MetricsStatus s={cov[effKey(r.plot_name, r.replicate)].metrics_status} /> : <span className="muted small">no selected survey</span>), sortValue: (r) => String(cov[effKey(r.plot_name, r.replicate)]?.metrics_status ?? 'z') },
             { key: 'ewi', label: 'E/W/I', render: (r) => `${r.n_error ?? 0}/${r.n_warning ?? 0}/${r.n_info ?? 0}`, sortValue: (r) => (r.n_error ?? 0) * 1e4 + (r.n_warning ?? 0) * 100 + (r.n_info ?? 0) },
           ]}
         />
@@ -938,12 +938,12 @@ function PlotsTab({ d, t, showFlags }: Ctx) {
 // ── taxonomy ─────────────────────────────────────────────────────────────────
 
 const QUEUES: { key: string; label: string; rules: string[]; sub: string }[] = [
-  { key: 'spelling', label: 'Names to check', rules: ['F03'], sub: 'Likely misspellings, checked against the GBIF backbone (cached). The resolved layer keeps NS’s names; fix them in curation.' },
+  { key: 'spelling', label: 'Names to check', rules: ['F03'], sub: 'Likely misspellings, checked against the GBIF backbone (cached). The curated taxa keep NS’s names; fix them in curation.' },
   { key: 'curation', label: 'Curation table', rules: ['F13'], sub: 'Problems in species_extra_ids itself: introduced typos, kept field misspellings, merges only in free text, label ≠ number.' },
   { key: 'unknowns', label: 'Unresolved unknowns', rules: ['F07'], sub: 'Provisional taxa still “Unknown” after curation, by records: the voucher identification queue.' },
   { key: 'range', label: 'Range', rules: ['F10'], sub: 'Identified taxa with no GBIF record in Kenya (count in southern Africa shown). Weak evidence alone; a pattern across a fifth of the list.' },
   { key: 'duplicates', label: 'Duplicates', rules: ['F04', 'F08', 'F02', 'F05'], sub: 'One species under several ids, typed “missing” species that are on the list, the same taxon twice in a quadrat.' },
-  { key: 'woody', label: 'Woody & format', rules: ['F06', 'F01', 'F12'], sub: 'Woody taxa in herbaceous data (excluded in the resolved layer), canonical-format problems, named “unknown” woody species.' },
+  { key: 'woody', label: 'Woody & format', rules: ['F06', 'F01', 'F12'], sub: 'Woody taxa in herbaceous data (excluded after curation), name-format problems, named “unknown” woody species.' },
 ]
 
 function TaxonomyTab({ d, showFlags }: Ctx) {
@@ -959,8 +959,8 @@ function TaxonomyTab({ d, showFlags }: Ctx) {
   return (
     <>
       <div className="stats-row">
-        <Stat label="Taxa (resolved, whole run)" value={fmtInt(O.taxa_resolved)} sub={`${O.taxa_resolved_identified} identified · ${O.taxa_resolved - O.taxa_resolved_identified} unresolved unknowns`} />
-        <Stat label="Raw keys (whole run)" value={fmtInt(O.taxa_raw)} sub="list species + provisional slots as recorded" />
+        <Stat label="Taxa after NS curation (whole run)" value={fmtInt(O.taxa_resolved)} sub={`${O.taxa_resolved_identified} identified · ${O.taxa_resolved - O.taxa_resolved_identified} unresolved unknowns`} />
+        <Stat label="Taxon labels as recorded (whole run)" value={fmtInt(O.taxa_raw)} sub="list species + provisional slots, before curation" />
         <Stat label="Names to check (whole run)" value={fmtInt(FLAGS.filter((f) => f.rule_id === 'F03').length)} sub="GBIF fuzzy or no species match; a name is not tied to one visit" />
         <Stat label="No Kenyan record (whole run)" value={FLAGS.find((f) => f.rule_id === 'F10' && f.entity_type === 'project')?.observed.split(' ')[0] ?? '—'} sub="identified taxa (GBIF)" />
       </div>
@@ -1004,17 +1004,17 @@ function TaxonomyTab({ d, showFlags }: Ctx) {
           ]}
         />
       </Section>
-      <Section title="Raw → resolved taxa (whole run)" sub="Every resolved taxon in the canonical surveys and the raw keys (list labels or provisional slots) behind it. Several raw keys per row = a merge by NS’s curation." right={<input className="input" placeholder="Find a taxon…" value={q} onChange={(e) => setQ(e.target.value)} />}>
+      <Section title="Recorded labels → taxa after NS curation (whole run)" sub="Every taxon after Natural State’s curation, in the selected surveys, with the recorded labels (list species or provisional slots) behind it. Several labels in one row = a merge by NS’s curation." right={<input className="input" placeholder="Find a taxon…" value={q} onChange={(e) => setQ(e.target.value)} />}>
         <DataTable
           rows={taxa}
           limit={40}
           initialSort={{ key: 'records', desc: true }}
           cols={[
-            { key: 'taxon', label: 'Resolved taxon', render: (r) => <b>{r.taxon}</b> },
+            { key: 'taxon', label: 'Taxon after curation', render: (r) => <b>{r.taxon}</b> },
             { key: 'status', label: 'Status' },
             { key: 'records', label: 'Records', num: true, render: (r) => fmtInt(r.records) },
             { key: 'plots', label: 'Plots', num: true, render: (r) => fmtInt(r.plots) },
-            { key: 'raw_keys', label: 'Raw keys', render: (r) => <span className="small">{r.raw_keys}</span> },
+            { key: 'raw_keys', label: 'Recorded labels', render: (r) => <span className="small">{r.raw_keys}</span> },
             { key: 'raw_names', label: 'Names as recorded', render: (r) => <span className="small muted">{r.raw_names}</span> },
             { key: 'curation', label: 'Curation', render: (r) => <span className="small muted">{r.curation}</span> },
           ]}
@@ -1044,18 +1044,23 @@ const WHY: Record<string, string> = {
 }
 const why = (r: string) => WHY[r] ?? ruleTitle[r] ?? r
 
-/** The banner sentence for a provisional project row: which plots, why, and any suppressed plots. */
+/** The banner for a provisional project row: the finding first, then why, kept apart from the method detail. */
+function provisionalLead(p: Row): string {
+  const n = Number(p.plots_provisional ?? 0) + Number(p.plots_suppressed ?? 0)
+  const word = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'][n] ?? String(n)
+  return `${word} ${n === 1 ? 'plot' : 'plots'} may have incomplete species lists, so these estimates are provisional.`
+}
 function provisionalReason(p: Row): string {
   const rules = statusRules(String(p.metrics_status))
   const parts: string[] = []
-  if (p.plots_provisional) parts.push(`${p.plots_provisional} of ${p.units} plots are provisional because of ${rules.map((r) => `${why(r)} (${r})`).join(' or ')}, so their species lists may be incomplete.`)
-  if (p.plots_suppressed) parts.push(`${p.plots_suppressed} of ${p.units} plots are suppressed (missing or non-analytical records) but still count as sampling units.`)
+  if (p.plots_provisional) parts.push(`The cause: ${rules.map((r) => `${why(r)} (${r})`).join(' or ')}.`)
+  if (p.plots_suppressed) parts.push(`${p.plots_suppressed} of ${p.units} plots have no usable metrics (records missing or not analysable) but still count as sampling units.`)
   return parts.join(' ')
 }
 
 function MetricsStatus({ s }: { s: string | null | undefined }) {
   if (!s || s === 'ok') return <span className="qa-chip qa-pass">ok</span>
-  if (s === 'suppressed') return <span className="qa-chip qa-flag" data-tip="Records are missing or none is an analytical taxon: there are no metrics to read. See the plot's note.">suppressed</span>
+  if (s === 'suppressed') return <span className="qa-chip qa-flag" data-tip="Records are missing or none can be analysed, so no metrics are given. See the plot's note.">metrics unavailable</span>
   const rules = statusRules(s)
   if (!rules.length) return <span className="qa-chip qa-flag" data-tip={s}>provisional</span>
   return (
@@ -1113,16 +1118,16 @@ function EffortTab({ t, showFlags }: Ctx) {
         mode: 'markers',
         x: e.map((x) => x.completeness),
         y,
-        name: 'observed / Chao2 (95% CI)',
+        name: 'observed ÷ estimated total taxa (Chao2, 95% CI)',
         marker: { color: '#2b5672', size: 8, symbol: prov.map((p) => (p ? 'square-open' : 'square')), line: { width: 2, color: '#2b5672' } },
         error_x: { type: 'data', symmetric: false, array: e.map((x) => (x.chao2_lo95 ? x.S_obs / x.chao2_lo95 - x.completeness : 0)), arrayminus: e.map((x) => (x.chao2_hi95 ? x.completeness - x.S_obs / x.chao2_hi95 : x.completeness)) /* no upper Chao2 bound: the lower completeness bound is 0 */, color: '#2b5672', thickness: 1 },
         customdata: e.map((x, i) => [x.S_obs, x.chao2, x.chao2_lo95 ?? 'n/a', x.chao2_hi95 ?? 'no upper limit', st[i]]),
-        hovertemplate: '%{y}: %{customdata[0]} of Chao2 %{customdata[1]} (%{customdata[2]}–%{customdata[3]}) · %{customdata[4]}<extra></extra>',
+        hovertemplate: '%{y}: %{customdata[0]} observed of an estimated %{customdata[1]} taxa (Chao2, 95% CI %{customdata[2]}–%{customdata[3]}) · %{customdata[4]}<extra></extra>',
       },
     ]
   }, [plotsHere])
   const proj = EFF_PROJECT.find((x) => x.layer === layer && x.replicate === rep)
-  if (!proj) return <p className="muted">No canonical survey in replicate {rep}: no effort metrics.</p>
+  if (!proj) return <p className="muted">No selected survey in monitoring round {rep}: no effort metrics.</p>
   const projOk = proj.metrics_status === 'ok'
   return (
     <>
@@ -1132,15 +1137,15 @@ function EffortTab({ t, showFlags }: Ctx) {
         ) : (
           <span className="qa-chip qa-info">replicate {rep}</span>
         )}
-        <Segmented value={layer} onChange={setLayer} size="sm" options={[{ value: 'resolved', label: 'Resolved taxa' }, { value: 'raw', label: 'Raw keys' }]} />
+        <Segmented value={layer} onChange={setLayer} size="sm" options={[{ value: 'resolved', label: 'Taxa after NS curation' }, { value: 'raw', label: 'Labels as recorded' }]} />
         <span className="muted small">
-          Every number on this tab is for one monitoring round{REPLICATES.length > 1 ? '' : ' (the only one in this run)'}; rounds are never pooled. Raw keys over-count (several provisional ids = one species); resolved follows NS’s curation.
+          Every number on this tab is for one monitoring round{REPLICATES.length > 1 ? '' : ' (the only one in this run)'}; rounds are never pooled. Labels as recorded over-count (several provisional ids can be one species); “taxa after NS curation” applies Natural State’s merges and exclusions.
         </span>
       </div>
       {!projOk && (
         <div className="note">
           <span>
-            <b>These effort metrics are provisional.</b> {provisionalReason(proj)} Every project figure below includes those plots. As a sensitivity comparison (not an estimate of the missing-record bias, because it also changes which plots are sampled), on the {proj.units_ok_plots} plots whose own metrics are ok: {fmtInt(proj.S_obs_ok_plots)} taxa, Chao2 {fx(proj.chao2_ok_plots, 0)} (95% CI {fx(proj.chao2_lo95_ok_plots, 0)}–{fx(proj.chao2_hi95_ok_plots, 0)}), coverage {fx(proj.coverage_ok_plots, 3)}. Provisional plots are marked * and drawn dashed or open below.{' '}
+            <b>{provisionalLead(proj)}</b> {provisionalReason(proj)} Every project figure below includes those plots; in the charts they are marked * and drawn dashed or open.{' '}
             {statusRules(String(proj.metrics_status)).map((r, i) => (
               <span key={r}>
                 {i > 0 && ' · '}
@@ -1149,17 +1154,20 @@ function EffortTab({ t, showFlags }: Ctx) {
                 </button>
               </span>
             ))}
+            <span className="small muted" style={{ display: 'block', marginTop: 6 }}>
+              Sensitivity comparison: on the {proj.units_ok_plots} plots whose own metrics are complete, {fmtInt(proj.S_obs_ok_plots)} taxa were observed, with an estimated total of {fx(proj.chao2_ok_plots, 0)} (Chao2, 95% CI {fx(proj.chao2_lo95_ok_plots, 0)}–{fx(proj.chao2_hi95_ok_plots, 0)}) and sample coverage {fx(proj.coverage_ok_plots, 3)}. Leaving plots out also changes which plots are sampled, so this does not measure how much the missing records bias the result.
+            </span>
           </span>
         </div>
       )}
       <div className="stats-row">
-        <Stat label="Metrics status" value={<MetricsStatus s={projOk ? 'ok' : String(proj.metrics_status)} />} sub={projOk ? `all ${proj.units} plots ok` : `${proj.plots_provisional} provisional, ${proj.plots_suppressed} suppressed of ${proj.units} plots`} />
-        <Stat label="Project taxa observed" value={fmtInt(proj.S_obs)} sub={`Chao2 ${fx(proj.chao2, 0)} (95% CI ${fx(proj.chao2_lo95, 0)}–${fx(proj.chao2_hi95, 0)})${projOk ? '' : ' · provisional'}`} />
-        <Stat label="Project coverage" value={fx(proj.coverage, 3)} sub={`plots as sampling units · ${fx(proj.new_taxa_next_quadrat, 1)} new taxa expected in one more plot`} />
+        <Stat label="Metrics status" value={<MetricsStatus s={projOk ? 'ok' : String(proj.metrics_status)} />} sub={projOk ? `all ${proj.units} plots ok` : `${proj.plots_provisional} provisional, ${proj.plots_suppressed} with metrics unavailable, of ${proj.units} plots`} />
+        <Stat label="Project taxa observed" value={fmtInt(proj.S_obs)} sub={`estimated total ${fx(proj.chao2, 0)} (Chao2, 95% CI ${fx(proj.chao2_lo95, 0)}–${fx(proj.chao2_hi95, 0)})${projOk ? '' : ' · provisional'}`} />
+        <Stat label="Sample coverage (project)" value={fx(proj.coverage, 3)} sub={`not the % of species found · plots as units · ${fx(proj.new_taxa_next_quadrat, 1)} new taxa expected in one more plot`} />
         <Stat label="Diversity (Hill)" value={`${fx(proj.hill_q1, 0)} / ${fx(proj.hill_q2, 0)}`} sub="q1 exp(Shannon) / q2 inverse Simpson, effective number of taxa (plot incidence)" />
-        <Stat label="Median plot coverage" value={fx(median(plotsHere.filter((x) => x.metrics_status === 'ok').map((x) => x.coverage)), 2)} sub="ok plots only · share of a plot's incidences from taxa already seen" />
+        <Stat label="Median sample coverage per plot" value={fx(median(plotsHere.filter((x) => x.metrics_status === 'ok').map((x) => x.coverage)), 2)} sub="ok plots only · not the % of species found" />
       </div>
-      <Section title="Planned against done" sub="Primary and backup points per stratum (centroids), registrations and canonical surveys, for the selected replicate.">
+      <Section title="Planned against done" sub="Primary and backup points per stratum (centroids), registrations and selected surveys, for the selected monitoring round.">
         <DataTable
           rows={EFF_PLAN.filter((x) => x.replicate === rep)}
           cols={[
@@ -1180,23 +1188,23 @@ function EffortTab({ t, showFlags }: Ctx) {
             <Plot data={curves} layout={{ ...baseLayout(t), xaxis: { ...axisStyle(t), title: { text: 'quadrats' } }, yaxis: { ...axisStyle(t), title: { text: 'expected taxa' } } }} height={420} filename="accumulation" />
           </div>
         </Section>
-        <Section title="How complete is each plot's list?" sub="Coverage (stable) and observed / bias-corrected Chao2 with its 95% interval (wide at 20 quadrats). * and open markers: provisional plots.">
+        <Section title="How complete is each plot's list?" sub="Sample coverage: the estimated share of a plot’s species occurrences that belong to taxa already recorded, i.e. how close more sampling is to adding nothing new. It is not the percentage of species found. Completeness: observed taxa ÷ estimated total taxa (Chao2), with its 95% interval, which is wide at 20 quadrats. * and open markers: provisional plots.">
           <div className="chart-card">
             <Plot data={comp} layout={{ ...baseLayout(t), margin: { l: 80, r: 16, t: 30, b: 40 }, xaxis: { ...axisStyle(t), range: [0, 1.02], title: { text: 'share' } }, yaxis: { ...axisStyle(t), tickfont: { size: 9, color: t.muted } } }} height={560} filename="completeness" />
           </div>
-          {suppressed.length > 0 && <p className="small muted">Not shown (suppressed): {suppressed.map((x) => `${short(x.plot_name)}: ${x.note}`).join('; ')}.</p>}
+          {suppressed.length > 0 && <p className="small muted">Not shown (metrics unavailable): {suppressed.map((x) => `${short(x.plot_name)}: ${x.note}`).join('; ')}.</p>}
         </Section>
       </div>
-      <Section title="Plots whose effort metrics are qualified" sub="Provisional: shown, but conditional on records a rule found incomplete. Suppressed: no metrics to read. Click a plot for its flags.">
+      <Section title="Plots whose effort metrics are qualified" sub="Provisional: shown, but some records may be missing. Metrics unavailable: records missing or not analysable. Click a plot for its flags.">
         {qualified.length ? (
           <DataTable
             rows={qualified}
             cols={[
               { key: 'plot_name', label: 'Plot', render: (r) => <button type="button" className="link-btn" onClick={() => showFlags({ plot: r.plot_name })}>{short(r.plot_name)}</button> },
               { key: 'metrics_status', label: 'Status', render: (r) => <MetricsStatus s={r.metrics_status} /> },
-              { key: 'why', label: 'Why', render: (r) => <span className="small">{r.metrics_status === 'suppressed' ? r.note : statusRules(String(r.metrics_status)).map((x) => `${x}: ${ruleTitle[x]}`).join('; ')}</span> },
+              { key: 'why', label: 'Why', render: (r) => <span className="small">{r.metrics_status === 'suppressed' ? r.note : statusRules(String(r.metrics_status)).map((x) => `${why(x)} (${x})`).join('; ')}</span> },
               { key: 'S_obs', label: 'Taxa', num: true, render: (r) => fx(r.S_obs, 0) },
-              { key: 'coverage', label: 'Coverage', num: true, render: (r) => fx(r.coverage, 2) },
+              { key: 'coverage', label: 'Sample coverage', num: true, render: (r) => fx(r.coverage, 2) },
             ]}
           />
         ) : (
@@ -1218,12 +1226,20 @@ function EffortTab({ t, showFlags }: Ctx) {
           />
         </Section>
         <Section title="How richness depends on data decisions" sub="A sensitivity analysis, not bounds: each row is one defensible definition, and unresolved unknowns can hide both split and merged species, so true richness may lie outside this range.">
-          <DataTable rows={EFF_SENS.filter((x) => x.replicate === rep)} cols={[{ key: 'definition', label: 'Definition' }, { key: 'taxa', label: 'Taxa', num: true, render: (r) => fmtInt(r.taxa) }]} />
+          <DataTable rows={EFF_SENS.filter((x) => x.replicate === rep)} cols={[{ key: 'definition', label: 'Definition', render: (r) => plainDefinition(String(r.definition)) }, { key: 'taxa', label: 'Taxa', num: true, render: (r) => fmtInt(r.taxa) }]} />
         </Section>
       </div>
     </>
   )
 }
+
+/** The pipeline's richness definitions in plain words, for display only (the CSV keeps its wording). */
+const plainDefinition = (d: string) =>
+  d
+    .replace(/^raw keys/, 'labels as recorded')
+    .replace(/^resolved \(curation merges, woody excluded\)/, 'taxa after NS curation (merges applied, woody excluded)')
+    .replace(/^resolved, /, 'taxa after NS curation, ')
+    .replace('canonical surveys', 'selected surveys')
 
 const median = (v: number[]) => {
   const s = v.filter((x) => Number.isFinite(x)).sort((a, b) => a - b)

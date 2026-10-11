@@ -275,7 +275,7 @@ const TABS: { key: Tab; label: string; sub: string }[] = [
   { key: 'results', label: 'Results', sub: 'labels · rule' },
   { key: 'curves', label: 'Species curves', sub: 'fit · threshold' },
   { key: 'uncertainty', label: 'Uncertainty', sub: 'bootstrap' },
-  { key: 'gate', label: 'Evidence gate & estimators', sub: 'why 0 or 1 error is not enough' },
+  { key: 'gate', label: 'Minimum evidence & estimators', sub: 'why 0 or 1 error is not enough' },
   { key: 'recorders', label: 'Recorders', sub: 'review flags' },
   { key: 'sensitivity', label: 'Sensitivity', sub: '14 variants' },
   { key: 'sampling', label: 'Validation design', sub: 'score bands' },
@@ -376,7 +376,7 @@ const FLOW: FlowStep[] = [
   },
   {
     lane: 'decision',
-    title: 'Evidence gate',
+    title: 'Minimum evidence for an automatic threshold',
     sub: `≥ ${R.config.min_each_outcome} correct and ≥ ${R.config.min_each_outcome} incorrect`,
     detail: (
       <>
@@ -828,7 +828,7 @@ function CurvesTab({ t, sp, setSp }: Ctx) {
               </div>
               <div className={`readout ${r.gate_passed ? 'ok' : 'warn'}`}>
                 <div className="readout-label">
-                  <Tip tip={`At least ${r.gate_k} correct and ${r.gate_k} incorrect validated clips are needed before a curve is used for decisions.`}>Evidence gate</Tip>
+                  <Tip tip={`At least ${r.gate_k} correct and ${r.gate_k} incorrect validated clips are needed before a curve is used for decisions.`}>Minimum evidence</Tip>
                 </div>
                 <div className="readout-value">
                   {r.correct} ✓ · {r.incorrect} ✗
@@ -1058,7 +1058,7 @@ function GateTab({ t }: Ctx) {
   }, [t, series])
   return (
     <>
-      <Section title="Why the evidence policy asks for errors before a species gets a threshold" sub="The gate is a chosen evidence policy, not a requirement of logistic regression or of the brief. A 99% threshold is the score above which fewer than 1 in 100 predictions are wrong. Where that happens is learned from the wrong predictions near it — so a species with no, or almost no, validated errors cannot locate it, however good it looks.">
+      <Section title="Why the evidence policy asks for errors before a species gets a threshold" sub="The evidence gate is the minimum evidence required for an automatic threshold: at least 5 correct and 5 incorrect validated clips. It is a chosen evidence policy, not a requirement of logistic regression or of the brief. The threshold is the score where the fitted model estimates a 99% probability that a prediction is correct. Where that happens is learned from the wrong predictions near it — so a species with no, or almost no, validated errors cannot locate it, however good it looks.">
         <div className="table-wrap auto">
           <table className="data-table sum-table">
             <thead>
@@ -1097,7 +1097,7 @@ function GateTab({ t }: Ctx) {
       </Section>
 
       <Section
-        title="What if the gate were different?"
+        title="What if the minimum evidence were different?"
         sub="The full procedure re-run with other values of k. Each row is a species; the labels column counts predictions above the threshold (before human verdicts)."
         right={<Segmented value={String(k)} onChange={(v) => setK(Number(v))} options={ks.map((x) => ({ value: String(x), label: `k = ${x}`, title: x === R.config.min_each_outcome ? 'documented policy' : 'sensitivity run' }))} />}
       >
