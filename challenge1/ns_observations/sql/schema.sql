@@ -1,4 +1,4 @@
--- PostgreSQL 15+ schema for ns-observations (matches the Tech handover, section 3, and io_postgres.py).
+-- PostgreSQL 15+ schema for ns-observations, read and written by io_postgres.py (the Tech handover, section 3, shows the same tables).
 -- Existing platform tables (predictions) are shown with the columns this package reads.
 
 CREATE TABLE IF NOT EXISTS predictions (
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS validations (
   validation_id    uuid PRIMARY KEY,
   prediction_id    uuid NOT NULL REFERENCES predictions,
   outcome          boolean NOT NULL,      -- true = BirdNET was right (C-7)
-  validator_id     text,
+  validator_id     text NOT NULL,          -- NULLs would let one clip be counted twice
   validated_at     timestamptz NOT NULL,
   sampling_stratum text NOT NULL,         -- e.g. 'random:0.3-0.5', 'recorder_acceptance' (C-1)
   UNIQUE (prediction_id, validator_id)    -- the same clip cannot be counted twice (D-01)
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS species_thresholds (
   method           text CHECK (method IN ('ml','firth','flic')),
   beta0            double precision,
   beta1            double precision,
-  threshold        numeric(7,6),          -- operative value, rounded UP; NULL without a threshold
+  threshold        numeric(7,6),          -- operative value, rounded UP to 6 dp (policy threshold_decimals <= 6); NULL without a threshold
   validated_min    numeric,
   validated_max    numeric,
   n_correct        int NOT NULL,

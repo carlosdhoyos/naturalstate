@@ -1,7 +1,7 @@
 """Challenge 1: species thresholds and an `observation` label for every BirdNET prediction.
 
 What this script does, in order (each step is a function below; decisions are logged in
-docs/challenge1_data_decisions.md, D-01..D-12):
+docs/challenge1_data_decisions.md, D-01..D-14):
 
   1. load            read both CSVs, parse recorder / date / hour out of the file names
   2. link            match each validated clip to the prediction(s) it came from (D-02)
@@ -15,7 +15,7 @@ docs/challenge1_data_decisions.md, D-01..D-12):
        c. accept          the 99% point must exist (valid fit, increasing curve) and lie inside the
                           validated score range; no extrapolation (D-05)
   5. uncertainty     cluster bootstrap by recorder (headline) and by audio file, replaying the
-                     whole procedure, gate included, in every resample (D-08)
+                     whole procedure, gate included, in every resample (D-12)
   6. checks          model-free precision above the threshold (Wilson), per-recorder consistency
                      with the pooled curve (review flags, D-11), calibration by score band,
                      validation sampling design (D-12)

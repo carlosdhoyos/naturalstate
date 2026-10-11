@@ -45,3 +45,15 @@ def test_validation_hash_ignores_row_order_but_not_content(synthetic_validations
     v = synthetic_validations
     assert validation_hash(v) == validation_hash(v.iloc[::-1])
     assert validation_hash(v) != validation_hash(v.assign(outcome=1 - v.outcome))
+
+
+def test_id_ignores_diagnostics_bootstrap_settings_and_status(synthetic_validations):
+    """The id identifies the decisions: diagnostics, n_boot/seed and publication do not change it."""
+    from ns_observations.artifact import content_id
+
+    plain = calibrate(synthetic_validations)
+    diag = calibrate(synthetic_validations, Policy(n_boot=30, seed=7), diagnostics=True)
+    assert diag.threshold_set_id == plain.threshold_set_id
+    d = plain.to_dict()
+    d["status"] = "published"
+    assert content_id(d) == plain.threshold_set_id

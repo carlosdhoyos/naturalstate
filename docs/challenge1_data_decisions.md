@@ -312,7 +312,7 @@ Three defensible estimators give 0.156, 0.261 and 0.848, and removing the one er
 
 ## D-09. Evidence gate replaces estimator routing
 
-**Status:** decided and implemented (2026-10-10), after the independent review. Replaces D-05 points 2 and 6. Implemented in `evidence_gate()`, `fit_primary()` and `run_procedure()` in `run_challenge1.py`.
+**Status:** decided and implemented (2026-10-10), after the independent review. Replaces D-05 points 2 and 6. Implemented in `evidence_gate()`, `fit_primary()` and `run_procedure()` in `ns_observations/calibrate.py`, which the research script imports.
 
 ### Why the first pass was changed
 
@@ -351,7 +351,7 @@ The independent review (verified by reproduction) found that, for species with n
 
 ## D-10. Human verdicts are labels
 
-**Status:** decided and implemented (2026-10-10), in `attach_validations()`.
+**Status:** decided and implemented (2026-10-10), in `ns_observations.label.label()`, with verdicts from `io_csv.verdicts_from_validations()`.
 
 ### Policy
 
@@ -374,7 +374,7 @@ The independent review (verified by reproduction) found that, for species with n
 
 ## D-11. Review flags chosen by a test, not by hand
 
-**Status:** decided and implemented (2026-10-10), in `recorder_checks()`. Replaces the hard-coded RBS75/RBS79 list of D-04.
+**Status:** decided and implemented (2026-10-10), in `recorder_checks()` (`ns_observations/calibrate.py`). Replaces the hard-coded RBS75/RBS79 list of D-04.
 
 ### Policy
 
@@ -492,7 +492,7 @@ Wood & Kahl: "The generalizability of the logistic regression-based outcome–sc
 - **The time effects are the flagged recorders in disguise.**
   - 26 of the 29 validated clips at RBS75/RBS79 are from the evening.
   - Once the recorder is in the model, the evening term adds almost nothing (ΔAIC 0.6).
-  - Among the other recorders, the week has no effect (ΔAIC +2), and the evening term separates.
+  - Among the other recorders, the week has no effect (adding it raises AIC by 1.7), and the evening term separates.
 
 | Validated Nightjar clips | Correct | Incorrect |
 |---|---:|---:|

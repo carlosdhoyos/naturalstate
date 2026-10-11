@@ -59,7 +59,7 @@ labels = label(predictions, ts, verdicts)
 
 ```bash
 docker build -t ns-observations:1.0.0 challenge1/ns_observations
-docker run --rm -v "$PWD/Data Birds:/data" -v "$PWD/out:/out" ns-observations:1.0.0 \
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/Data Birds:/data" -v "$PWD/out:/out" ns-observations:1.0.0 \
   run --predictions /data/birdnet_predictions.csv --validations /data/validation_results.csv \
       --out /out/threshold_set.json --labels-out /out/labels.csv
 ```
@@ -84,7 +84,7 @@ docker run --rm -v "$PWD/Data Birds:/data" -v "$PWD/out:/out" ns-observations:1.
 
 | Part | Status | Evidence / how to check |
 |---|---|---|
-| Decision rules, label rule, threshold-set artifact, CLI | **Verified** | 24 package tests, including the end-to-end acceptance test on the take-home data. The CLI's labelled file and threshold set are byte-identical to the research pipeline's |
+| Decision rules, label rule, threshold-set artifact, CLI | **Verified** | 32 package tests, including the end-to-end acceptance test on the take-home data. The CLI's labelled file is byte-identical to the research pipeline's, and so is its threshold set when run with `--diagnostics` (without it: same id and decisions) |
 | Packaging (wheel, entry point, bundled schemas) | **Verified** | The wheel was built and installed into a fresh Python 3.13 environment outside the repo. `ns-observations run` gave byte-identical output there, with the same threshold-set id |
 | Docker image | **Written, not built** | The Docker daemon was not running on the development machine. The image installs the same package with `pip install ".[schema]"`. To check: `docker build -t ns-observations:1.0.0 challenge1/ns_observations`, then the `docker run` command in the package README |
 | PostgreSQL adapter (`io_postgres.py`, `sql/schema.sql`) | **Stub** | The SQL and functions match the handover's tables. Their calls are checked with a fake connection, but they have **never run against a database**. Before production: apply `schema.sql` to a staging database and add integration tests |
@@ -92,7 +92,7 @@ docker run --rm -v "$PWD/Data Birds:/data" -v "$PWD/out:/out" ns-observations:1.
 
 ## Guarantees, and the tests that hold them
 
-- **Deterministic.** Identical inputs and policy give a byte-identical artifact and the same `threshold_set_id`, whatever the row order (`test_artifact.py`).
+- **Deterministic.** Identical inputs and policy give a byte-identical artifact, whatever the row order. The `threshold_set_id` identifies the decisions: it does not change with diagnostics, bootstrap settings or publication (`test_artifact.py`).
 - **The artifact is validated** against its schema on write and on read. The schema also enforces consistency: a species without an accepted status cannot carry a threshold (`test_artifact.py`).
 - **Labels follow the published rule exactly,** including at the threshold boundary. Human verdicts override; conflicting verdicts are not applied; tied clips only mark their rows (`test_label.py`).
 - **Acceptance** (`test_acceptance.py`). On the take-home data the CLI reproduces the Tech handover's numbers:
@@ -101,6 +101,6 @@ docker run --rm -v "$PWD/Data Birds:/data" -v "$PWD/out:/out" ns-observations:1.
   - the five status counts
   - review flags at RBS75 and RBS79
 
-  Its Q1-format file is byte-identical to the research pipeline's.
+  Its Q1-format file is byte-identical to the research pipeline's, and `calibrate --diagnostics` reproduces the research pipeline's threshold set byte for byte.
 
 Run the tests: `pip install "challenge1/ns_observations[test]" && pytest challenge1/ns_observations`

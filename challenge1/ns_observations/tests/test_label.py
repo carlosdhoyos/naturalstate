@@ -70,3 +70,39 @@ def test_rows_match_the_label_schema(ts):
     for rec in out.to_dict("records"):
         rec = {k: (None if isinstance(v, float) and np.isnan(v) else v.item() if hasattr(v, "item") else v) for k, v in rec.items()}
         jsonschema.validate(rec, schema)
+
+
+def test_ids_match_across_int_and_str_and_any_index(ts):
+    """Verdict ids as text vs prediction ids as int (and a non-integer index) must still match."""
+    p = _preds(ts).assign(prediction_id=[10, 11, 12, 13, 14, 15, 16])
+    p.index = list("abcdefg")
+    v = pd.DataFrame({"prediction_id": ["12", "13"], "outcome": [0, 1], "link": "unique"})
+    out = label(p, ts, v)
+    assert out.observation_status.tolist()[2:4] == ["validated_incorrect", "validated_correct"]
+    assert out.attrs["unmatched_verdicts"] == 0
+
+
+def test_conflicts_and_unmatched_only_count_known_predictions(ts):
+    v = pd.DataFrame({"prediction_id": ["zzz", "zzz", "p1"], "outcome": [0, 1, 1], "link": "unique"})
+    out = label(_preds(ts), ts, v)
+    assert out.attrs["conflicting_verdicts"] == 0 and out.attrs["unmatched_verdicts"] == 2
+
+
+def test_tied_rows_without_an_outcome_column(ts):
+    out = label(_preds(ts), ts, pd.DataFrame({"prediction_id": ["p2"], "link": ["tied"]}))
+    assert out.validation_link.tolist()[1] == "tied"
+
+
+def test_review_flags_match_numeric_recorder_ids():
+    import numpy as np
+
+    from ns_observations import calibrate
+
+    rng = np.random.default_rng(4)
+    conf = rng.uniform(0.1, 0.99, 600)
+    y = (rng.uniform(size=600) < 1 / (1 + np.exp(-(1.0 + 2.0 * np.log(conf / (1 - conf)))))).astype(int)
+    v = pd.concat([pd.DataFrame({"species": "s", "confidence": conf, "outcome": y, "recorder": rng.choice([1, 2, 3, 4, 5], 600)}),
+                   pd.DataFrame({"species": "s", "confidence": rng.uniform(0.3, 0.6, 20), "outcome": 0, "recorder": 99})])
+    ts = calibrate(v)
+    out = label(pd.DataFrame({"prediction_id": [1, 2], "species": "s", "confidence": [0.9, 0.9], "recorder": [99, 1]}), ts)
+    assert out.review_flag.tolist() == ["recorder_inconsistent_with_pooled_curve", ""]

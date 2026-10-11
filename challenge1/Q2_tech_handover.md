@@ -6,7 +6,7 @@
 - `ns-observations calibrate` (job A) and `ns-observations label` (job B), as a CLI and a Python API.
 - A versioned threshold-set artifact, with JSON schemas.
 - A CSV adapter, plus a PostgreSQL adapter stub matching section 3.
-- 24 tests, including an end-to-end acceptance test.
+- 32 tests, including an end-to-end acceptance test.
 
 **Where the decisions were made:**
 - [`src/run_challenge1.py`](src/run_challenge1.py): the research analysis. It covers sensitivity, the bootstrap, the covariate tests and the figures, and imports the package's decision rules, so the two cannot drift apart.
@@ -36,81 +36,83 @@ Job B must never fit anything. It only reads the published threshold set, so lab
 
 ## 3. Data model (PostgreSQL sketch)
 
-The full DDL, with constraints and a "one published threshold set per project" index, is in [`ns_observations/sql/schema.sql`](ns_observations/sql/schema.sql). `io_postgres.py` reads and writes these tables. It is a stub: tested with a fake connection, not against a live database.
+The DDL below is [`ns_observations/sql/schema.sql`](ns_observations/sql/schema.sql), verbatim: the same tables, constraints and "one published threshold set per project" index that `io_postgres.py` reads and writes. The adapter is a stub, tested with a fake connection and not against a live database.
 
 ```sql
--- existing: one row per BirdNET detection. Needs a stable id that survives re-exports (section 8).
-predictions (
-  prediction_id     uuid primary key,
-  project_id        uuid not null,
-  deployment_id     uuid not null,            -- recorder deployment (ODK metadata)
-  recorder_id       text not null,
-  audio_file_id     uuid not null,            -- with the TRUE file start time
-  begin_time_s      numeric not null,         -- offset within the audio file, not within the hour
-  species_code      text not null,
-  confidence        numeric(5,4) not null,
-  birdnet_run_id    uuid not null              -- model version, sensitivity, min score, locale
+-- PostgreSQL 15+ schema for ns-observations, read and written by io_postgres.py (the Tech handover, section 3, shows the same tables).
+-- Existing platform tables (predictions) are shown with the columns this package reads.
+
+CREATE TABLE IF NOT EXISTS predictions (
+  prediction_id   uuid PRIMARY KEY,
+  project_id      uuid NOT NULL,
+  deployment_id   uuid NOT NULL,
+  recorder_id     text NOT NULL,
+  audio_file_id   uuid NOT NULL,          -- with the TRUE file start time
+  begin_time_s    numeric NOT NULL,       -- offset within the audio file, not within the hour
+  species_code    text NOT NULL,
+  confidence      numeric(5,4) NOT NULL CHECK (confidence BETWEEN 0 AND 1),
+  birdnet_run_id  uuid NOT NULL           -- model version, sensitivity, min score (confirmation item C-2)
 );
 
--- one row per ornithologist verdict, linked by id, never by file name
-validations (
-  validation_id     uuid primary key,
-  prediction_id     uuid not null references predictions,
-  outcome           boolean not null,           -- true = BirdNET was right
-  validator_id      text,
-  validated_at      timestamptz not null,
-  sampling_stratum  text not null,              -- e.g. 'random:0.3-0.5', 'recorder_acceptance'
-  unique (prediction_id, validator_id)          -- the same clip cannot be counted twice (cf. D-01)
+CREATE TABLE IF NOT EXISTS validations (
+  validation_id    uuid PRIMARY KEY,
+  prediction_id    uuid NOT NULL REFERENCES predictions,
+  outcome          boolean NOT NULL,      -- true = BirdNET was right (C-7)
+  validator_id     text NOT NULL,          -- NULLs would let one clip be counted twice
+  validated_at     timestamptz NOT NULL,
+  sampling_stratum text NOT NULL,         -- e.g. 'random:0.3-0.5', 'recorder_acceptance' (C-1)
+  UNIQUE (prediction_id, validator_id)    -- the same clip cannot be counted twice (D-01)
 );
 
--- immutable output of job A
-threshold_sets (
-  threshold_set_id  uuid primary key,
-  project_id        uuid not null,
-  created_at        timestamptz not null,
-  code_version      text not null,              -- git sha of the procedure
-  config            jsonb not null,             -- policy values used (section 5)
-  validation_hash   text not null,              -- hash of the validation snapshot used
-  status            text not null check (status in ('draft','published','retired')),
-  approved_by       text                         -- Biometrics sign-off before publishing
+CREATE TABLE IF NOT EXISTS threshold_sets (
+  threshold_set_id text PRIMARY KEY,      -- ts-<16 hex>, derived from the artifact content
+  project_id       uuid NOT NULL,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  code_version     text NOT NULL,
+  config           jsonb NOT NULL,
+  validation_hash  text NOT NULL,
+  artifact         jsonb NOT NULL,        -- the full threshold set (schemas/threshold_set.schema.json)
+  status           text NOT NULL CHECK (status IN ('draft', 'published', 'retired')),
+  approved_by      text,
+  published_at     timestamptz
+);
+-- at most one published threshold set per project
+CREATE UNIQUE INDEX IF NOT EXISTS one_published_per_project ON threshold_sets (project_id) WHERE status = 'published';
+
+CREATE TABLE IF NOT EXISTS species_thresholds (
+  threshold_set_id text REFERENCES threshold_sets,
+  species_code     text,
+  status           text NOT NULL CHECK (status IN ('accepted','accepted_whole_range','not_reached','slope_not_positive','no_valid_fit','insufficient_validation')),
+  gate_reason      text CHECK (gate_reason IN ('no_validations','no_observed_errors','no_observed_correct','too_few_errors','too_few_correct')),
+  method           text CHECK (method IN ('ml','firth','flic')),
+  beta0            double precision,
+  beta1            double precision,
+  threshold        numeric(7,6),          -- operative value, rounded UP to 6 dp (policy threshold_decimals <= 6); NULL without a threshold
+  validated_min    numeric,
+  validated_max    numeric,
+  n_correct        int NOT NULL,
+  n_incorrect      int NOT NULL,
+  diagnostics      jsonb,
+  PRIMARY KEY (threshold_set_id, species_code)
 );
 
-species_thresholds (
-  threshold_set_id  uuid references threshold_sets,
-  species_code      text,
-  status            text not null,              -- enum, section 4
-  gate_reason       text,                       -- enum, section 4
-  method            text,                       -- 'ml' | 'firth' | null
-  beta0             double precision,
-  beta1             double precision,
-  threshold         numeric(7,6),               -- operative value, rounded UP to 6 dp; null if none
-  validated_min     numeric, validated_max numeric,
-  n_correct         int, n_incorrect int,
-  diagnostics       jsonb,                      -- bootstrap, model-free checks, comparison estimators
-  primary key (threshold_set_id, species_code)
-);
-
--- output of job B (or a view): one row per prediction per published threshold set
-prediction_labels (
-  prediction_id      uuid references predictions,
-  threshold_set_id   uuid references threshold_sets,
-  observation        boolean not null,
-  observation_source text,                      -- 'validated' | 'model' | null
-  observation_status text not null,             -- enum, section 4
-  p_correct          double precision,          -- null when the curve is not identified
+CREATE TABLE IF NOT EXISTS prediction_labels (
+  prediction_id      uuid REFERENCES predictions,
+  threshold_set_id   text REFERENCES threshold_sets,
+  observation        boolean NOT NULL,
+  observation_source text CHECK (observation_source IN ('validated','model')),
+  observation_status text NOT NULL CHECK (observation_status IN ('validated_correct','validated_incorrect','model_observation','below_threshold','no_species_threshold')),
+  p_correct          double precision,
   review_flag        text,
-  primary key (prediction_id, threshold_set_id)
+  PRIMARY KEY (prediction_id, threshold_set_id)
 );
-
-review_flags (threshold_set_id uuid, species_code text, recorder_id text, p_value double precision,
-              expected_correct double precision, observed_correct int, validated_clips int);
 ```
 
-Keep `prediction_labels` per threshold set, or keep history another way, so a dashboard figure can always be traced to the threshold set and validation snapshot behind it.
+Review flags are stored inside the threshold set (`artifact` → `species` → `review_flags`) and on each label row (`review_flag`); there is no separate table. Keep `prediction_labels` per threshold set, or keep history another way, so a dashboard figure can always be traced to the threshold set and validation snapshot behind it.
 
 ## 4. The procedure, exactly (job A)
 
-For each project and species, take the validated clips (one row per `prediction_id`), with `x = ln(c / (1 − c))` and `c` clamped to [10⁻⁴, 1 − 10⁻⁴]. Then:
+For each project and species, take the validated clips: one row per `prediction_id`, where several validators who agree count once and a prediction whose validators disagree is left out (as `io_postgres.read_validations` does), with `x = ln(c / (1 − c))` and `c` clamped to [10⁻⁴, 1 − 10⁻⁴]. Then:
 
 1. **Evidence gate.** Let n₁ be the number of correct clips and n₀ the number of incorrect ones.
    - If n₁ + n₀ = 0: `insufficient_validation`, reason `no_validations`.
@@ -129,8 +131,8 @@ For each project and species, take the validated clips (one row per `prediction_
      - t < min validated x → `accepted_whole_range`, with the threshold = the lowest validated confidence
      - otherwise → `accepted`, with the threshold = sigmoid(t)
 4. **Round up.** `threshold = ceil(threshold × 10⁶ − 10⁻⁶) / 10⁶`. Store this value; labels use exactly it.
-5. **Review flags.** For accepted species: for each recorder with ≥ 5 validated clips, refit step 2 without that recorder. Compute p = P(X ≤ observed correct), where X is Poisson-binomial with the refit probabilities of that recorder's clips. Flag if p < 0.05 / (number of recorders tested).
-6. **Diagnostics,** stored in `diagnostics` and shown to Biometrics before publishing:
+5. **Review flags.** For every species that passes the gate: for each recorder with ≥ 5 validated clips, refit step 2 without that recorder. Compute p = P(X ≤ observed correct), where X is Poisson-binomial with the refit probabilities of that recorder's clips. Flag if p < 0.05 / (number of recorders tested).
+6. **Diagnostics,** shown to Biometrics before publishing. The package stores the first two in the threshold set's `diagnostics` (with `--diagnostics`). The others come from the research pipeline (`challenge1/src/run_challenge1.py`) and are reviewed alongside:
    - **Bootstrap:** resample whole recorders 2,000 times (fixed seed) and re-run steps 1–4 in each resample, gate included. Store the share of resamples with a threshold, the 2.5–97.5% range of the threshold among those resamples, and the 2.5/50/97.5% points of the labelled count (a resample without a threshold counts 0).
    - **Model-free check:** validated clips at or above the threshold, how many were correct, and the Wilson 95% lower bound on that share.
    - **Comparison estimators:** ML, Firth and FLIC thresholds.
@@ -186,7 +188,7 @@ Changing any of these creates a new threshold set. Nothing is edited in place.
   - **Publishing** is a separate, approved step: Biometrics signs off, and the status changes to `published`.
   - **A second task for job B:** `read_predictions` + `read_verdicts` → `label(..., published_set)` → `write_labels`.
   - **The image:** `docker build -t ns-observations challenge1/ns_observations`. It runs as a non-root user, with the CLI as entrypoint.
-- **The threshold set is the contract between the jobs.** It is deterministic JSON validated against `threshold_set.schema.json`, and its id is derived from its content. Re-running calibration on unchanged validations and policy reproduces the same id, so nothing is duplicated.
+- **The threshold set is the contract between the jobs.** It is deterministic JSON validated against `threshold_set.schema.json`. Its id is derived from the decision content (policy, validation snapshot, code version and species results), so re-running calibration on unchanged validations and policy reproduces it, and neither diagnostics nor publication changes it.
 - **The covariate models** (`challenge1/src/covariates.py`) stay in the research code. They are a Biometrics diagnostic, not part of either job.
 - **Numerics.**
   - ML is standard IRLS.
@@ -270,7 +272,7 @@ Everything the Tech team would deploy was written and tested here. Three parts c
 
 | Part | Status | Evidence / how to check |
 |---|---|---|
-| Decision rules, label rule, threshold-set artifact, CLI | **Verified** | 24 package tests, including the end-to-end acceptance test on the take-home data. The CLI's labelled file and threshold set are byte-identical to the research pipeline's |
+| Decision rules, label rule, threshold-set artifact, CLI | **Verified** | 32 package tests, including the end-to-end acceptance test on the take-home data. The CLI's labelled file is byte-identical to the research pipeline's, and so is its threshold set when run with `--diagnostics` (without it: same id and decisions) |
 | Packaging (wheel, entry point, bundled schemas) | **Verified** | The wheel was built and installed into a fresh Python 3.13 environment outside the repo. `ns-observations run` gave byte-identical output there, with the same threshold-set id |
 | Docker image | **Written, not built** | The Docker daemon was not running on the development machine. The image installs the same package with `pip install ".[schema]"`. To check: `docker build -t ns-observations:1.0.0 challenge1/ns_observations`, then the `docker run` command in the package README |
 | PostgreSQL adapter (`io_postgres.py`, `sql/schema.sql`) | **Stub** | The SQL and functions match the handover's tables. Their calls are checked with a fake connection, but they have **never run against a database**. Before production: apply `schema.sql` to a staging database and add integration tests |

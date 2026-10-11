@@ -591,7 +591,7 @@ const CONFIRMATIONS: { id: string; item: string; assumed: string; ifNot: string 
 // ── the deployable package and what has been verified (same table as Q2 section 9 and the package README) ──
 
 const VERIFICATION: { part: string; status: 'verified' | 'written' | 'stub' | 'not run'; evidence: string }[] = [
-  { part: 'Decision rules, label rule, threshold-set artifact, CLI', status: 'verified', evidence: '24 package tests, including an end-to-end acceptance test on the take-home data. The CLI’s labelled file and threshold set are byte-identical to the research pipeline’s.' },
+  { part: 'Decision rules, label rule, threshold-set artifact, CLI', status: 'verified', evidence: '32 package tests, including an end-to-end acceptance test on the take-home data. The CLI’s labelled file is byte-identical to the research pipeline’s, and so is its threshold set when run with --diagnostics (without it: same id and decisions).' },
   { part: 'Packaging (wheel, entry point, bundled schemas)', status: 'verified', evidence: 'The wheel was built and installed into a fresh Python 3.13 environment; the ns-observations run command gave byte-identical output, with the same threshold-set id.' },
   { part: 'Docker image', status: 'written', evidence: 'Not built: the Docker daemon was not running on the development machine. It installs the same package; check with: docker build -t ns-observations:1.0.0 challenge1/ns_observations' },
   { part: 'PostgreSQL adapter (io_postgres.py, sql/schema.sql)', status: 'stub', evidence: 'The SQL and functions match the handover’s tables; calls are checked with a fake connection, never against a database. Before production: a staging database and integration tests.' },
@@ -604,7 +604,7 @@ function DeployablePackage() {
       title="For the Tech team: the deployable package"
       sub={
         <>
-          <code>challenge1/ns_observations/</code> is an installable Python 3.13 package. <code>ns-observations calibrate</code> turns validations into a versioned, schema-checked threshold set; <code>ns-observations label</code> applies it to predictions, with no fitting. It ships with a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 24 tests. The research analysis behind this page imports the same decision rules, so the two cannot drift apart. Details: <code>challenge1/Q2_tech_handover.md</code>.
+          <code>challenge1/ns_observations/</code> is an installable Python 3.13 package. <code>ns-observations calibrate</code> turns validations into a versioned, schema-checked threshold set; <code>ns-observations label</code> applies it to predictions, with no fitting. It ships with a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 32 tests. The research analysis behind this page imports the same decision rules, so the two cannot drift apart. Details: <code>challenge1/Q2_tech_handover.md</code>.
         </>
       }
     >
@@ -889,7 +889,7 @@ function CurvesTab({ t, sp, setSp }: Ctx) {
         <ul>
           {r.species.includes('Nightjar') && (
             <li>
-              The curve rises steeply from 0.2 to 0.6: below 0.3 most Nightjar predictions are wrong (largely from RBS75 and RBS79), above 0.6 virtually all are right. The threshold 0.6666 lies well inside the validated range, and the three estimators agree within 0.04.
+              The curve rises steeply from 0.2 to 0.6: below 0.3 most Nightjar predictions are wrong (largely from RBS75 and RBS79), above 0.6 virtually all are right. The threshold 0.6666 lies well inside the validated range, and the three estimators agree within 0.042.
             </li>
           )}
           {r.species.includes('Plover') && (
@@ -1071,7 +1071,7 @@ function GateTab({ t }: Ctx) {
                   <td className="small">
                     {s.species.includes('Oriole') && 'No errors: the slope of the curve is not identified. Even without a model, 381 correct clips in a row would be needed for a Wilson 95% lower bound of 99% (300 by the one-sided rule of three).'}
                     {s.species.includes('Plover') && 'One error: the threshold depends entirely on the estimator (0.16, 0.26 or 0.85).'}
-                    {s.species.includes('Nightjar') && 'Enough of both outcomes; the estimators agree within 0.04.'}
+                    {s.species.includes('Nightjar') && 'Enough of both outcomes; the three estimators agree within 0.042.'}
                     {s.species.includes('Firefinch') && 'Passes the gate (6 correct), but the curve never reaches 99% within the validated scores.'}
                   </td>
                 </tr>
@@ -1399,7 +1399,7 @@ function SensitivityTab() {
       <Note>
         <ul>
           <li>
-            <b>Logit endpoint and duplicates:</b> no effect on any decision. Clamping scores of exactly 1 at 10⁻⁴…10⁻⁶ or dropping them changes the Nightjar threshold only in the 8th decimal: those clips sit where the curve is already ≈ 1.
+            <b>Logit endpoint and duplicates:</b> no effect on any decision. Clamping scores of exactly 1 at 5×10⁻⁴, 10⁻⁵ or 10⁻⁶ instead of 10⁻⁴, or dropping them, changes the Nightjar threshold only in the 8th decimal: those clips sit where the curve is already ≈ 1.
           </li>
           <li>
             <b>Gate:</b> k = 1 would admit the Plover on a single error (0.26, 536 labels); k = 3 changes nothing; k = 10 also stops the Firefinch, which has no threshold anyway.
@@ -1602,10 +1602,9 @@ function DiscussionTab() {
               <li>Evidence gate for species with zero or one error</li>
               <li>Firth only as a fallback for separated data</li>
               <li>No extrapolation outside the validated scores</li>
-              <li>Human verdicts kept as labels</li>
               <li>Recorder review flags</li>
             </ul>
-            <p className="small">Each makes the result more conservative, never more permissive.</p>
+            <p className="small">These make the automatic labels more conservative, never more permissive. One addition works the other way by design: <b>human verdicts are kept as labels</b>, adding 313 observations that no threshold supports, each backed by direct confirmation.</p>
           </div>
           <div className="for-us">
             <div className="pipe-col-label">Could not be done with these data</div>

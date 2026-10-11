@@ -15,10 +15,10 @@ This folder contains a reproducible workflow. It does three things:
 
 - **[`ns_observations/`](ns_observations/README.md)** is the **deployable package**.
   - Commands: `ns-observations calibrate` (validations → versioned threshold set) and `ns-observations label` (predictions → labels).
-  - It comes with JSON schemas, a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 24 tests.
+  - It comes with JSON schemas, a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 32 tests.
 - **[`src/`](src/)** is the **research analysis.** Every decision was made and checked here: sensitivity, the bootstrap, the covariate tests, figures, the dashboard data.
   - It imports the package's decision rules, linking and label rule, so the two cannot drift apart.
-  - Its labelled file and threshold set are byte-identical to the package CLI's (tested).
+  - Its labelled file is byte-identical to the package CLI's. Its threshold set is byte-identical to `ns-observations calibrate --diagnostics`; without diagnostics the CLI gives the same id and decisions. Both are tested.
 
 **Verification status.** The package logic, CLI and wheel were run and tested here. Three parts were not:
 - **The Docker image** is written but not built: the Docker daemon was not running.
@@ -41,7 +41,7 @@ challenge1/.venv/bin/pip install -r challenge1/requirements-lock.txt      # or r
 challenge1/.venv/bin/pip install -e "challenge1/ns_observations[test]"   # the deployable package (the research script also finds it without installing)
 challenge1/.venv/bin/python challenge1/src/run_challenge1.py               # about 5 s; writes challenge1/outputs/
 challenge1/.venv/bin/python -m pytest challenge1/tests -q                  # 37 research tests
-challenge1/.venv/bin/python -m pytest challenge1/ns_observations -q        # 24 package tests (incl. end-to-end acceptance)
+challenge1/.venv/bin/python -m pytest challenge1/ns_observations -q        # 32 package tests (incl. end-to-end acceptance)
 ```
 
 Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evidence gate) and `--no-figures`. The same inputs and seed always produce byte-identical outputs. The summary contains no timestamp; it records input checksums and package versions instead.
@@ -66,7 +66,7 @@ Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evid
 | Red-billed Firefinch | 99% not reached within the validated range (6/101 correct) | — | 0 of 235 | 6 | 6 |
 | **Total** | | | **3,147** | **363** | **3,460 of 29,491** |
 
-**Nightjar uncertainty.** The recorder-level bootstrap gives a threshold in 93% of resamples, with a 95% interval of 0.471–0.835. The labelled count ranges from 0 to 4,109, median 3,123. The resamples without a threshold are exactly those that leave out RBS75 and RBS79, which hold 29 of the 33 errors.
+**Nightjar uncertainty.** The recorder-level bootstrap gives a threshold in 93% of resamples, with a 95% interval of 0.471–0.835. The 95% interval for the labelled count is 0 to 4,109 (median 3,123). Every resample without a threshold leaves out both RBS75 and RBS79, which hold 29 of the 33 errors.
 
 **Nightjar model-free check.** All 74 validated clips at or above the threshold are correct, with a Wilson 95% lower bound of 95.1%. The 99% comes from the logistic shape.
 
@@ -109,7 +109,7 @@ Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evid
 | `p_correct` | 0–1 or empty | Fitted probability that the prediction is correct. Empty when the species' curve is not identified or not increasing |
 | `species_threshold` | e.g. `0.666639`, or empty | The operative threshold, rounded **up** to 6 decimals. `confidence >= species_threshold` reproduces the model labels exactly |
 | `species_status` | `accepted`, `insufficient_validation`, `not_reached`, … | The species-level status code |
-| `threshold_method` | `ml`, `firth` or empty | The estimator behind the threshold |
+| `threshold_method` | `ml`, `firth` or empty | The estimator of the species' fitted curve. It is also filled when no threshold is accepted (e.g. `not_reached` for the Firefinch), and empty when the gate was not passed |
 | `validation_outcome` | `correct`, `incorrect` or empty | The human verdict, for predictions with a uniquely linked validated clip |
 | `validation_link` | `unique`, `tied` or empty | Whether a validated clip links to this prediction alone, or ties with others of the same rounded score |
 | `review_flag` | `recorder_inconsistent_with_pooled_curve` or empty | This species at this recorder disagrees with the pooled curve (D-11) |

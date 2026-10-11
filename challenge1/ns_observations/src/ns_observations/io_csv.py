@@ -77,19 +77,25 @@ def link_validations(pred: pd.DataFrame, val: pd.DataFrame, tol: float = LINK_TO
 
 
 def deduplicate(val: pd.DataFrame, reduce_ambiguous: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """D-01. Clips whose names differ only by the clip number. A group with fewer matching
-    predictions than clips is a probable duplicate (one segment validated twice): keep the lowest
-    clip number. Otherwise the group is ambiguous and kept, unless reduce_ambiguous."""
+    """D-01. Clips whose names differ only by the clip number.
+    * fewer matching predictions than clips (but at least one): probable duplicates — keep as many
+      clips as there are matching segments (lowest clip numbers), drop the rest;
+    * at least as many matching predictions as clips: ambiguous (distinct segments possible), kept
+      unless reduce_ambiguous (then one clip is kept);
+    * no matching prediction at all: no evidence either way, kept."""
     val = val.copy()
     gkey = ["species", "score_text", "recorder", "date", "hour", "mmss"]
     val["group_size"] = val.groupby(gkey).filename.transform("size")
     multi = val.group_size > 1
-    probable = multi & (val.groupby(gkey).n_candidates.transform("max") < val.group_size)
-    val["duplicate_check"] = np.select([probable, multi], ["probable duplicate", "ambiguous (kept)"], "no")
-    reduce = probable | (multi & reduce_ambiguous)
-    val = val.sort_values(gkey + ["clip_index"])
-    drop = reduce.loc[val.index] & val.duplicated(gkey, keep="first")
-    return val[~drop].sort_index(), val[drop].copy()
+    max_c = val.groupby(gkey).n_candidates.transform("max")
+    probable = multi & (max_c >= 1) & (max_c < val.group_size)
+    ambiguous = multi & (max_c >= val.group_size)
+    val["duplicate_check"] = np.select([probable, ambiguous, multi], ["probable duplicate", "ambiguous (distinct segments possible)", "unlinked group (kept)"], "no")
+    keep_n = np.where(probable, max_c, np.where(ambiguous & reduce_ambiguous, 1, val.group_size))
+    val = val.assign(_keep_n=keep_n).sort_values(gkey + ["clip_index"])
+    rank = val.groupby(gkey).cumcount()  # 0 = lowest clip number in its group
+    drop = rank >= val._keep_n
+    return val[~drop].drop(columns="_keep_n").sort_index(), val[drop].drop(columns="_keep_n").copy()
 
 
 def load_validations(path: str | Path, predictions: Predictions) -> tuple[pd.DataFrame, pd.DataFrame]:

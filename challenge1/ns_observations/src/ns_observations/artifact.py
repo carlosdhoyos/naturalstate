@@ -144,15 +144,31 @@ def validation_hash(validations: pd.DataFrame) -> str:
     return hashlib.sha256(canon.encode()).hexdigest()
 
 
+# settings that affect only diagnostics, never a threshold or a label: left out of the id
+_ID_EXCLUDED_POLICY = ("n_boot", "seed")
+
+
+def content_id(d: dict) -> str:
+    """ts- + 16 hex characters of the SHA-256 of the DECISION content: everything except the id itself,
+    the status, per-species diagnostics and bootstrap-only settings. So the same validations, policy
+    and code give the same id whether or not diagnostics were computed, and publishing (a status
+    change) does not change it."""
+    body = json.loads(json.dumps(d))
+    for k in ("threshold_set_id", "status"):
+        body.pop(k, None)
+    for k in _ID_EXCLUDED_POLICY:
+        body.get("policy", {}).pop(k, None)
+    for s in body.get("species", {}).values():
+        s.pop("diagnostics", None)
+    return "ts-" + hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:16]
+
+
 def build_threshold_set(entries: dict[str, SpeciesThreshold], policy: Policy, validations: pd.DataFrame, code_version: str | None = None) -> ThresholdSet:
-    """Assemble the artifact. The id is derived from its content (policy, snapshot, code version and
-    species results), so re-running on the same inputs reproduces the same id."""
+    """Assemble the artifact; its id is content_id() of the result."""
     snapshot = {"sha256": validation_hash(validations), "n_clips": int(len(validations))}
     code_version = code_version or f"ns-observations {__version__}"
     ts = ThresholdSet("", SCHEMA_VERSION, f"ns-observations {__version__}", code_version, policy.to_dict(), snapshot, entries)
-    body = ts.to_dict()
-    body.pop("threshold_set_id")
-    ts.threshold_set_id = "ts-" + hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:16]
+    ts.threshold_set_id = content_id(ts.to_dict())
     validate_threshold_set(ts.to_dict())
     return ts
 

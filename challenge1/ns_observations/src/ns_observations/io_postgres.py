@@ -18,12 +18,16 @@ import pandas as pd
 from .artifact import ThresholdSet
 from .label import LABEL_COLUMNS
 
+# One row per validated prediction: several validators of the same prediction count once, and a
+# prediction whose validators disagree is left out (label() treats it as a conflict too).
 SELECT_VALIDATIONS = """
-SELECT p.species_code AS species, p.confidence, v.outcome::int AS outcome, p.recorder_id AS recorder,
+SELECT p.species_code AS species, p.confidence, bool_and(v.outcome)::int AS outcome, p.recorder_id AS recorder,
        p.prediction_id
 FROM validations v
 JOIN predictions p USING (prediction_id)
 WHERE p.project_id = %(project_id)s
+GROUP BY p.prediction_id, p.species_code, p.confidence, p.recorder_id
+HAVING count(DISTINCT v.outcome) = 1
 """
 
 SELECT_PREDICTIONS = """

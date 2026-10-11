@@ -82,3 +82,21 @@ def test_diagnostics_are_optional_and_deterministic(synthetic_validations):
     assert a.to_json() == b.to_json()
     assert a.species["good"].diagnostics["bootstrap_recorder"]["n_resamples"] == 50
     assert calibrate(synthetic_validations, pol).species["good"].diagnostics is None
+
+
+def test_missing_recorder_is_rejected(synthetic_validations):
+    v = synthetic_validations.copy()
+    v.loc[0, "recorder"] = None
+    with pytest.raises(ValueError, match="recorder"):
+        calibrate(v, diagnostics=True)
+
+
+def test_deduplication_edge_cases():
+    """No matching prediction: keep (no evidence). 3 clips, 2 matching segments: keep 2."""
+    from ns_observations.io_csv import deduplicate
+
+    base = dict(species="s", score_text="0.500", recorder="R", date="20230101", hour="01", mmss="0000", confidence=0.5, outcome=1)
+    rows = [dict(base, filename=f"a{i}", clip_index=i, n_candidates=0) for i in range(2)]
+    rows += [dict(base, score_text="0.600", filename=f"b{i}", clip_index=i, n_candidates=2) for i in range(3)]
+    kept, dropped = deduplicate(pd.DataFrame(rows))
+    assert sorted(kept.filename) == ["a0", "a1", "b0", "b1"] and dropped.filename.tolist() == ["b2"]

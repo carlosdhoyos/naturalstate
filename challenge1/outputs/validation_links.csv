@@ -529,8 +529,8 @@ filename,commonName,confidence,outcome,recorder,audio_file,link,n_candidates,pre
 0.958_5_RBS75_20230701_150000.wav,Three-banded Plover,0.958,1,RBS75,RBS75_20230701_15,unique,1,26045,26045,no
 0.958_6_RBS75_20230627_160000.wav,Three-banded Plover,0.958,1,RBS75,RBS75_20230627_16,unique,1,24891,24891,no
 0.962_5_RBS75_20230701_100002.wav,Three-banded Plover,0.962,1,RBS75,RBS75_20230701_10,unique,1,25914,25914,no
-0.963_5_RBS75_20230702_080002.wav,Three-banded Plover,0.963,1,RBS75,RBS75_20230702_08,tied,2,,26190;26196,ambiguous (kept)
-0.963_7_RBS75_20230702_080002.wav,Three-banded Plover,0.963,1,RBS75,RBS75_20230702_08,tied,2,,26190;26196,ambiguous (kept)
+0.963_5_RBS75_20230702_080002.wav,Three-banded Plover,0.963,1,RBS75,RBS75_20230702_08,tied,2,,26190;26196,ambiguous (distinct segments possible)
+0.963_7_RBS75_20230702_080002.wav,Three-banded Plover,0.963,1,RBS75,RBS75_20230702_08,tied,2,,26190;26196,ambiguous (distinct segments possible)
 0.966_2_RBS75_20230703_090002.wav,Three-banded Plover,0.966,1,RBS75,RBS75_20230703_09,unique,1,27010,27010,no
 0.967_4_RBS75_20230702_160000.wav,Three-banded Plover,0.967,1,RBS75,RBS75_20230702_16,unique,1,26265,26265,no
 0.968_7_RBS75_20230628_150000.wav,Three-banded Plover,0.968,1,RBS75,RBS75_20230628_15,unique,1,25253,25253,no

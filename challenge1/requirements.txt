@@ -1,4 +1,5 @@
-# Python 3.13. Pipeline: numpy, pandas, matplotlib. Tests also use scipy and statsmodels as references.
+# Python 3.13. Pipeline: numpy, pandas, matplotlib, scipy (covariate models). Tests also use statsmodels (reference fits) and jsonschema (artifact schema).
+# The deployable package is installed separately: pip install -e "challenge1/ns_observations[test]"
 numpy==2.1.3
 pandas==2.2.3
 matplotlib==3.9.2

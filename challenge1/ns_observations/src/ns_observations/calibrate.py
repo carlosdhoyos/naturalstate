@@ -5,7 +5,9 @@ Input: a "validations" table with one row per distinct validated prediction:
     confidence  float  BirdNET confidence of the validated prediction
     outcome     int    1 = BirdNET was right, 0 = wrong
     recorder    str    recorder id (for review flags and the recorder bootstrap)
-Duplicates must already be removed (on the platform: one row per prediction_id).
+Duplicates must already be removed: one row per validated prediction. On the platform,
+io_postgres.read_validations collapses several validators of one prediction to a single row
+(agreeing verdicts) and leaves out predictions whose validators disagree.
 
 Nothing here touches files or databases; adapters (io_csv, io_postgres) do that.
 """
@@ -204,6 +206,8 @@ def check_validations(validations: pd.DataFrame) -> None:
         raise ValueError(f"outcome must be 0/1, found {sorted(bad)}")
     if validations.confidence.isna().any() or ((validations.confidence < 0) | (validations.confidence > 1)).any():
         raise ValueError("confidence must be in [0, 1] with no missing values")
+    if validations.recorder.isna().any() or validations.species.isna().any():
+        raise ValueError("recorder and species must not be missing (review flags and the bootstrap group by recorder)")
 
 
 def calibrate(

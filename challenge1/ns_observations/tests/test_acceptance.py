@@ -53,3 +53,13 @@ def test_source_columns_untouched(run):
     src = pd.read_csv(PRED_CSV, dtype=str, keep_default_na=False)
     out = pd.read_csv(run / "takehome.csv", dtype=str, keep_default_na=False)
     assert out[src.columns].equals(src)
+
+
+@pytest.mark.skipif(not (RESEARCH_OUT / "threshold_set.json").exists(), reason="research outputs not generated")
+def test_threshold_set_identical_to_the_research_pipeline(tmp_path):
+    """calibrate --diagnostics reproduces the research pipeline's threshold set byte for byte, and the
+    plain run (no diagnostics) has the same id: the same decisions."""
+    main(["calibrate", "--predictions", str(PRED_CSV), "--validations", str(VAL_CSV), "--out", str(tmp_path / "d.json"), "--diagnostics"])
+    assert (tmp_path / "d.json").read_bytes() == (RESEARCH_OUT / "threshold_set.json").read_bytes()
+    main(["calibrate", "--predictions", str(PRED_CSV), "--validations", str(VAL_CSV), "--out", str(tmp_path / "p.json")])
+    assert json.loads((tmp_path / "p.json").read_text())["threshold_set_id"] == json.loads((tmp_path / "d.json").read_text())["threshold_set_id"]

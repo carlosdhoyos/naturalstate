@@ -75,8 +75,8 @@ I arrived at the evidence gate after an independent review of a first version. T
 - **Labels.** 3,147 of 10,187 predictions (31%) are at or above it. The model expects 99.85% of them to be correct.
 - **Model-free check.** All 74 validated clips at or above the threshold were judged correct. The Wilson 95% lower bound on that share is 95.1%. So the "99%" comes from the shape of the logistic curve, and the validation directly supports about 95%. That is the honest strength of the claim.
 - **Uncertainty (D-12).** I resampled whole recorders 2,000 times and re-ran the whole procedure each time, gate included.
-  - 93% of resamples produce a threshold, with a 95% interval of **0.471–0.835**. The labelled count ranges from 0 to 4,109 (median 3,123).
-  - The 7% without a threshold are exactly the resamples that leave out both RBS75 and RBS79.
+  - 93% of resamples produce a threshold, with a 95% interval of **0.471–0.835**. The 95% interval for the labelled count is 0 to 4,109 (median 3,123).
+  - Every resample without a threshold (7%) leaves out both RBS75 and RBS79. The reverse does not hold: some resamples that leave out both still produce a threshold.
 - **Other estimators.** Firth and FLIC put the threshold at 0.709 and 0.707, about 200 fewer labels. The estimators agree closely when both outcomes are plentiful.
 - **Review flags.** RBS75 and RBS79 are flagged. All 29 of their validated Nightjar clips are wrong, against 4.4 and 10.9 expected from a curve fitted on the other recorders (p = 0.0026 and 2.5 × 10⁻⁸). Those clips all scored ≤ 0.273, so the validation says nothing about high-scoring Nightjar predictions there. The 9 predictions above the threshold at RBS79 stay observations, with `review_flag` set.
 - **A caveat on the gate.** RBS75 and RBS79 hold 29 of the Nightjar's 33 errors. Without them only 4 errors remain, and the Nightjar would not pass the gate, even though its threshold would barely move (0.686, 3,047 labels). The location of the threshold is robust; the amount of evidence behind it is not.
@@ -107,11 +107,11 @@ I arrived at the evidence gate after an independent review of a first version. T
 
 ## 5. How robust is this?
 
-The whole procedure was re-run under 14 alternatives (D-12, dashboard **Sensitivity**):
+The whole procedure was re-run under 14 variants: the documented run plus 13 alternatives (D-12, dashboard **Sensitivity**).
 
 | Choice varied | Effect |
 |---|---|
-| Treatment of scores of exactly 1: clamp at 10⁻⁴, 10⁻⁵ or 10⁻⁶, or drop them | None. The Nightjar threshold changes in the 8th decimal |
+| Treatment of scores of exactly 1: clamp at 5×10⁻⁴, 10⁻⁵ or 10⁻⁶ instead of 10⁻⁴, or drop them | None. The Nightjar threshold changes in the 8th decimal |
 | Duplicate handling: also reduce the ambiguous pair, or no de-duplication | None on any decision |
 | Gate size k | k = 1 would admit the Plover at 0.261 (536 labels). k = 3: no change. k = 10 also stops the Firefinch, which has no threshold anyway |
 | Estimator (Firth or FLIC throughout, with k = 1) | Nightjar ≈ 0.71 (≈ 200 fewer labels). Plover from 0.16 to 0.85 |
@@ -175,13 +175,14 @@ These are assumptions the analysis runs on. None of them blocks the result. Each
 
 We also ran the paper's suggested test of whether the curve transfers across space and time, comparing covariate models by AIC (section 6). We disclose error rates, and export per-prediction probabilities for occupancy models, as the paper advises.
 
-**Where the paper is silent, we added safeguards.** Each one makes the result more conservative, never more permissive:
+**Where the paper is silent, we added safeguards.** The model-side ones make the automatic labels more conservative, never more permissive:
 
 - the evidence gate, for species with zero or one error
 - Firth only as a fallback for separated data
 - no extrapolation outside the validated scores, a stricter reading of the paper's "range of conditions" warning
-- human verdicts kept as labels
 - recorder review flags
+
+**One addition works the other way, by design: human verdicts are kept as labels.** This adds 313 observations that no threshold supports (Oriole 132, Plover 137, Nightjar 38, Firefinch 6), each backed by direct confirmation rather than by the model.
 
 **What we could not do as the paper describes:**
 

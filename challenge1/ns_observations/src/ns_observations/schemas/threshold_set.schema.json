@@ -7,7 +7,7 @@
   "required": ["threshold_set_id", "schema_version", "created_by", "code_version", "policy", "validation_snapshot", "species", "status"],
   "additionalProperties": false,
   "properties": {
-    "threshold_set_id": {"type": "string", "pattern": "^ts-[0-9a-f]{16}$", "description": "ts- plus the first 16 hex characters of the SHA-256 of the rest of the document"},
+    "threshold_set_id": {"type": "string", "pattern": "^ts-[0-9a-f]{16}$", "description": "ts- plus 16 hex characters of the SHA-256 of the decision content: the document without this id, status, per-species diagnostics and the bootstrap-only policy settings (n_boot, seed). Diagnostics and publication therefore do not change the id."},
     "schema_version": {"const": "1.0"},
     "created_by": {"type": "string"},
     "code_version": {"type": "string", "description": "package version or git sha of the procedure"},
@@ -21,7 +21,7 @@
         "min_each_outcome": {"type": "integer", "minimum": 1},
         "estimator": {"enum": ["auto", "ml", "firth", "flic"]},
         "eps": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.01},
-        "threshold_decimals": {"type": "integer", "minimum": 1, "maximum": 10},
+        "threshold_decimals": {"type": "integer", "minimum": 1, "maximum": 6, "description": "at most 6, the precision of species_thresholds.threshold numeric(7,6)"},
         "review_min_clips": {"type": "integer", "minimum": 1},
         "review_alpha": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
         "n_boot": {"type": "integer", "minimum": 1},

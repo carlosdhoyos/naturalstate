@@ -10,7 +10,8 @@ Inputs
   verdicts (optional): prediction_id, outcome (1/0; may be missing for tied rows), link
       ("unique" decides the label; "tied" only marks validation_link — a tied clip matched several
       predictions with the same rounded score, so its verdict cannot be attached to one of them).
-      If two unique verdicts for one prediction disagree, neither is applied.
+      If two unique verdicts for one prediction disagree, neither is applied. Ids are matched as text,
+      so integer and string ids interoperate; matching is by position, so any index works.
 
 Output (one row per prediction, same order): see schemas/labels.schema.json.
 """
@@ -31,26 +32,38 @@ LABEL_COLUMNS = [
 ]
 
 
-def _verdict_columns(predictions: pd.DataFrame, verdicts: pd.DataFrame | None) -> tuple[pd.Series, pd.Series, int]:
-    outcome = pd.Series("", index=predictions.index, dtype=object)
-    link = pd.Series("", index=predictions.index, dtype=object)
+def _key(v) -> str:
+    """Ids are compared as text, so 10, 10.0-free ints and "10" match whatever dtype each table uses."""
+    return str(v)
+
+
+def _verdict_columns(predictions: pd.DataFrame, verdicts: pd.DataFrame | None) -> tuple[np.ndarray, np.ndarray, int, int]:
+    """Human verdicts per prediction, by POSITION (works with any index). Returns
+    (validation_outcome, validation_link, conflicting verdicts, verdicts whose id is not in predictions)."""
+    n = len(predictions)
+    outcome = np.full(n, "", dtype=object)
+    link = np.full(n, "", dtype=object)
     if verdicts is None or not len(verdicts):
-        return outcome, link, 0
-    pos = pd.Series(predictions.index, index=predictions.prediction_id.to_numpy())
+        return outcome, link, 0, 0
+    pos = {_key(v): i for i, v in enumerate(predictions.prediction_id.to_numpy())}
     v = verdicts.copy()
-    v["link"] = v["link"] if "link" in v else "unique"
-    tied = v[v.link == "tied"]
-    link.loc[pos.reindex(tied.prediction_id).dropna().astype(int).to_numpy()] = "tied"
+    if "link" not in v:
+        v["link"] = "unique"
+    if "outcome" not in v:
+        v["outcome"] = np.nan  # allowed for tied rows
+    v["_pos"] = [pos.get(_key(x), -1) for x in v.prediction_id]
+    unmatched = int((v._pos < 0).sum())
+    v = v[v._pos >= 0]
+    for p_ in v.loc[v.link == "tied", "_pos"]:
+        link[p_] = "tied"
     uniq = v[(v.link == "unique") & v.outcome.notna()]
-    agree = uniq.groupby("prediction_id").outcome.agg(lambda s: s.nunique() == 1)
+    agree = uniq.groupby("_pos").outcome.agg(lambda s: s.nunique() == 1)
     conflicts = int((~agree).sum())
-    first = uniq.drop_duplicates("prediction_id").set_index("prediction_id").outcome
-    first = first[agree[agree].index]
-    rows = pos.reindex(first.index).dropna().astype(int)
-    first = first.loc[rows.index]
-    outcome.loc[rows.to_numpy()] = np.where(first.astype(int).to_numpy() == 1, "correct", "incorrect")
-    link.loc[rows.to_numpy()] = "unique"
-    return outcome, link, conflicts
+    decided = uniq[uniq._pos.isin(agree[agree].index)].drop_duplicates("_pos")
+    for p_, o in zip(decided._pos, decided.outcome.astype(int)):
+        outcome[p_] = "correct" if o == 1 else "incorrect"
+        link[p_] = "unique"
+    return outcome, link, conflicts, unmatched
 
 
 def label(predictions: pd.DataFrame, threshold_set: ThresholdSet, verdicts: pd.DataFrame | None = None) -> pd.DataFrame:
@@ -75,10 +88,9 @@ def label(predictions: pd.DataFrame, threshold_set: ThresholdSet, verdicts: pd.D
     b1 = species.map({k: v.beta1 if v.curve_identified else np.nan for k, v in sp.items()}).astype(float).to_numpy()
     p = np.where(np.isfinite(b0), sigmoid(b0 + b1 * logit_conf(conf, pol["eps"])), np.nan)
 
-    v_out, v_link, conflicts = _verdict_columns(predictions, verdicts)
-    vo = v_out.to_numpy()
-    flagged = {(k, f.recorder) for k, v in sp.items() for f in v.review_flags}
-    flag = np.array([(s, r) in flagged for s, r in zip(species, predictions.recorder)])
+    vo, v_link, conflicts, unmatched = _verdict_columns(predictions, verdicts)
+    flagged = {(k, str(f.recorder)) for k, v in sp.items() for f in v.review_flags}
+    flag = np.array([(s, str(r)) in flagged for s, r in zip(species, predictions.recorder)], dtype=bool)
     decimals = pol["threshold_decimals"]
 
     out = pd.DataFrame({
@@ -94,9 +106,10 @@ def label(predictions: pd.DataFrame, threshold_set: ThresholdSet, verdicts: pd.D
         "species_status": status.to_numpy(),
         "threshold_method": method.to_numpy(),
         "validation_outcome": vo,
-        "validation_link": v_link.to_numpy(),
+        "validation_link": v_link,
         "review_flag": np.where(flag, "recorder_inconsistent_with_pooled_curve", ""),
         "threshold_set_id": threshold_set.threshold_set_id,
     }, index=predictions.index)
     out.attrs["conflicting_verdicts"] = conflicts
+    out.attrs["unmatched_verdicts"] = unmatched  # verdicts for predictions not in this batch (normal when labelling a subset)
     return out[LABEL_COLUMNS]
