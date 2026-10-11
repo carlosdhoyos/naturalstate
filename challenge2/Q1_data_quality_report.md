@@ -3,7 +3,7 @@
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
 **Interactive version:** the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`, Vegetation → QA/QC dashboard): every flag with its source row, the map with per-plot transect panels, the curation queue and the effort views.
-**Prepared by:** Carlos Hoyos · run `qa-dce7da2adcecaa6d` · reproducible with `python challenge2/src/run_challenge2.py`
+**Prepared by:** Carlos Hoyos · run `qa-46e4adc99ee099c0` · reproducible with `python challenge2/src/run_challenge2.py`
 
 ---
 
@@ -357,11 +357,17 @@ Diversity is given as incidence-based Hill numbers: q1 is exp(Shannon), q2 is in
 
 The two scales are not comparable.
 
+The project figures inherit the qualification of their plots. Because 7 of the 30 plots are provisional (C04), the project row is provisional too. The last column repeats the estimate on the 23 plots whose own metrics are ok.
+
+- **Resolved layer:** 104 taxa and Chao2 139 (119–186) on the 23 ok plots, against 115 and 145 (128–185) on all 30.
+- **What this shows:** the provisional plots add taxa, but they barely move the estimated total.
+- **What it does not show:** it does not estimate the species missing from the empty additional-species rows. Those records cannot be recovered from the data.
+
 <!-- table:effort_project -->
-| replicate | layer | plots | taxa observed | in 1 plot | in 2 plots | Chao2 (95% CI) | observed / Chao2 | coverage | Hill q1 / q2 |
-|---|---|---|---|---|---|---|---|---|---|
-| lw_baseline | raw | 30 | 132 | 51 | 20 | 191 (161–252) | 0.692 | 0.924 | 79 / 59 |
-| lw_baseline | resolved | 30 | 115 | 36 | 19 | 145 (128–185) | 0.791 | 0.946 | 72 / 56 |
+| replicate | layer | plots | taxa observed | in 1 plot | in 2 plots | Chao2 (95% CI) | observed / Chao2 | coverage | Hill q1 / q2 | status | ok plots only: plots, taxa, Chao2 (95% CI) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| lw_baseline | raw | 30 | 132 | 51 | 20 | 191 (161–252) | 0.692 | 0.924 | 79 / 59 | provisional: 7 of 30 plots provisional (C04) | 23, 120, 192 (154–269) |
+| lw_baseline | resolved | 30 | 115 | 36 | 19 | 145 (128–185) | 0.791 | 0.946 | 72 / 56 | provisional: 7 of 30 plots provisional (C04) | 23, 104, 139 (119–186) |
 <!-- /table -->
 
 ### How repeatable is a survey?
@@ -386,14 +392,14 @@ So the numbers indicate the size of the noise; they do not measure it. They are 
 ### How the headline richness depends on data decisions
 
 <!-- table:sensitivity -->
-| definition | taxa |
-|---|---|
-| raw keys, all 32 submissions | 132 |
-| raw keys, canonical surveys | 132 |
-| resolved (curation merges, woody excluded) | 115 |
-| resolved, names matched to GBIF species (spelling variants collapsed) | 114 |
-| resolved, identified taxa only | 92 |
-| resolved, unresolved unknowns only | 23 |
+| replicate | definition | taxa |
+|---|---|---|
+| lw_baseline | raw keys, all 32 submissions | 132 |
+| lw_baseline | raw keys, canonical surveys | 132 |
+| lw_baseline | resolved (curation merges, woody excluded) | 115 |
+| lw_baseline | resolved, names matched to GBIF species (spelling variants collapsed) | 114 |
+| lw_baseline | resolved, identified taxa only | 92 |
+| lw_baseline | resolved, unresolved unknowns only | 23 |
 <!-- /table -->
 
 The rejected repeat surveys add no taxa. Curation removes 17 raw keys: merges, re-registered species, list species typed as "missing", and woody exclusions. Matching names to GBIF species removes one more (Polygalaerioptera = Polygala erioptera). These definitions are a **sensitivity analysis, not upper and lower bounds**: unresolved unknowns can hide both splitting errors (one species under several ids) and merging errors (several species under one), so true richness may lie outside this range. The resolved layer keeps NS's names.

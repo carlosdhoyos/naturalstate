@@ -95,7 +95,10 @@ def effort_project() -> str:
     fmt = lambda v: "n/a" if pd.isna(v) else f"{v:.0f}"
     df = pd.DataFrame({"replicate": e.replicate, "layer": e.layer, "plots": e.units, "taxa observed": e.S_obs, "in 1 plot": e.Q1_uniques, "in 2 plots": e.Q2_duplicates,
                        "Chao2 (95% CI)": [f"{fmt(c)} ({fmt(lo)}–{fmt(hi)})" for c, lo, hi in zip(e.chao2, e.chao2_lo95, e.chao2_hi95)],
-                       "observed / Chao2": e.completeness, "coverage": e.coverage, "Hill q1 / q2": [f"{a:.0f} / {b:.0f}" for a, b in zip(e.hill_q1, e.hill_q2)]})
+                       "observed / Chao2": e.completeness, "coverage": e.coverage, "Hill q1 / q2": [f"{a:.0f} / {b:.0f}" for a, b in zip(e.hill_q1, e.hill_q2)],
+                       "status": e.metrics_status,
+                       "ok plots only: plots, taxa, Chao2 (95% CI)": [f"{n}, {fmt(o)}, {fmt(c)} ({fmt(lo)}–{fmt(hi)})" for n, o, c, lo, hi in
+                                                                      zip(e.units_ok_plots, e.S_obs_ok_plots, e.chao2_ok_plots, e.chao2_lo95_ok_plots, e.chao2_hi95_ok_plots)]})
     return _md(df)
 
 

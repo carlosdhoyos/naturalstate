@@ -151,7 +151,8 @@ def per_plot(ctx, results: pd.DataFrame | None = None) -> tuple[pd.DataFrame, pd
             st = stats(incidence(ctx.occ, r.KEY, layer), T)
             if T and st["S_obs"] == 0:
                 st["note"] = _why_empty(ctx, r.KEY, layer)
-            st["metrics_status"] = f"provisional: {bad[r.KEY]}" if r.KEY in bad else ("suppressed" if "suppressed" in st["note"] or T == 0 else "ok")
+            # suppressed wins: a survey whose records are missing has no metrics to qualify
+            st["metrics_status"] = "suppressed" if "suppressed" in st["note"] or T == 0 else (f"provisional: {bad[r.KEY]}" if r.KEY in bad else "ok")
             curve = st.pop("curve")
             recs.append({"plot_name": r.plot_name, "replicate": r.replicate, "survey_key": r.KEY, "layer": layer, "recorder": team.get(r.recorder_uuid, ""),
                          "duration_min": round((r._end - r._start).total_seconds() / 60, 1), "team_size": len(r._team), **st})
@@ -161,23 +162,46 @@ def per_plot(ctx, results: pd.DataFrame | None = None) -> tuple[pd.DataFrame, pd
     return df.sort_values(["layer", "plot_name"]).reset_index(drop=True), pd.DataFrame(curves)
 
 
-def project_level(ctx) -> pd.DataFrame:
+def _plot_incidence_stats(ctx, keys, layer) -> dict:
+    inc = []
+    for i, k in enumerate(keys):
+        taxa = incidence(ctx.occ, k, layer).taxon.unique()
+        inc += [{"quadrat_number": i, "taxon": t} for t in taxa]  # plot index as the sampling unit
+    st = stats(pd.DataFrame(inc, columns=["quadrat_number", "taxon"]), len(keys))
+    st.pop("curve")
+    return st
+
+
+def project_level(ctx, pp: pd.DataFrame | None = None) -> pd.DataFrame:
     """Within each replicate, plots are the sampling units: how complete is that round's species list?
     Rounds are never pooled (two visits to one plot are not two spatial units). Diversity here is from
     plot incidence (in how many plots a taxon occurs), a different scale from the per-plot Hill numbers,
-    which use quadrat incidence."""
+    which use quadrat incidence.
+
+    The project figure inherits its plots' qualifications: metrics_status is provisional (or suppressed
+    plots are counted) when any plot is, and the *_ok_plots columns repeat the main numbers on the plots
+    whose own metrics are ok, so a reader sees how much the qualified plots move the result."""
     s = ctx.data.survey[ctx.data.survey.KEY.isin(ctx.canonical)]
     rows = []
     for rep, g in s.groupby("replicate"):
         keys = sorted(g.KEY)
         for layer in ("raw", "resolved"):
-            inc = []
-            for i, k in enumerate(keys):
-                taxa = incidence(ctx.occ, k, layer).taxon.unique()
-                inc += [{"quadrat_number": i, "taxon": t} for t in taxa]  # plot index as the sampling unit
-            st = stats(pd.DataFrame(inc, columns=["quadrat_number", "taxon"]), len(keys))
-            st.pop("curve")
-            rows.append({"replicate": rep, "layer": layer, "sampling_unit": "plot (within replicate)", **st})
+            st = _plot_incidence_stats(ctx, keys, layer)
+            row = {"replicate": rep, "layer": layer, "sampling_unit": "plot (within replicate)", **st}
+            if pp is not None:
+                q = pp[(pp.replicate == rep) & (pp.layer == layer)]
+                prov = q[q.metrics_status.str.startswith("provisional")]
+                supp = q[q.metrics_status == "suppressed"]
+                rules = sorted({x for v in prov.metrics_status for x in v.split(":", 1)[1].split()})
+                parts = ([f"{len(prov)} of {len(q)} plots provisional ({' '.join(rules)})"] if len(prov) else []) + ([f"{len(supp)} of {len(q)} plots suppressed"] if len(supp) else [])
+                row["metrics_status"] = f"provisional: {'; '.join(parts)}" if parts else "ok"
+                row["plots_provisional"], row["plots_suppressed"] = len(prov), len(supp)
+                ok_keys = sorted(q[q.metrics_status == "ok"].survey_key)
+                ok = _plot_incidence_stats(ctx, ok_keys, layer) if ok_keys else {}
+                row["units_ok_plots"] = len(ok_keys)
+                for c in ("S_obs", "chao2", "chao2_lo95", "chao2_hi95", "coverage"):
+                    row[f"{c}_ok_plots"] = ok.get(c, np.nan)
+            rows.append(row)
     return pd.DataFrame(rows).rename(columns={"T": "units"})
 
 
@@ -208,34 +232,37 @@ def repeatability(ctx) -> pd.DataFrame:
 
 
 def richness_sensitivity(ctx) -> pd.DataFrame:
-    """How the headline richness moves with each data decision (all canonical surveys pooled)."""
+    """How the headline richness moves with each data decision, within each replicate (rounds are never
+    pooled). A sensitivity analysis, not a correction: each row is one defensible definition."""
     from .gbif import load_cache
     from .taxonomy import norm_name
 
-    occ = ctx.occ
-    canon = occ[occ.canonical_survey]
-    res = canon[canon.resolved_status.isin(RESOLVED_OK)]
-    n_sub = occ.survey_key.nunique()
     gb = load_cache()["names"]
 
     def gbif_key(name, key):
         g = gb.get(str(name).strip(), {})
         return norm_name(g["canonicalName"]) if g.get("matchType") in ("EXACT", "FUZZY") and g.get("rank") in ("SPECIES", "SUBSPECIES", "VARIETY") else key
 
-    ident = res[res.resolved_status.str.startswith("identified")]
-    rows = [
-        (f"raw keys, all {n_sub} submissions", occ[occ.raw_key != ""].raw_key.nunique()),
-        ("raw keys, canonical surveys", canon[canon.raw_key != ""].raw_key.nunique()),
-        ("resolved (curation merges, woody excluded)", res.resolved_key.nunique()),
-        ("resolved, names matched to GBIF species (spelling variants collapsed)",
-         len({gbif_key(n, k) for n, k in zip(ident.resolved_name, ident.resolved_key)}) + res[res.resolved_status.str.startswith("unknown")].resolved_key.nunique()),
-        ("resolved, identified taxa only", ident.resolved_key.nunique()),
-        ("resolved, unresolved unknowns only", res[res.resolved_status.str.startswith("unknown")].resolved_key.nunique()),
-    ]
-    return pd.DataFrame(rows, columns=["definition", "taxa"])
+    rep_of = by_key(ctx.data.survey, "KEY").replicate
+    out = []
+    for rep, occ in ctx.occ.assign(_rep=ctx.occ.survey_key.map(rep_of)).groupby("_rep"):
+        canon = occ[occ.canonical_survey]
+        res = canon[canon.resolved_status.isin(RESOLVED_OK)]
+        ident = res[res.resolved_status.str.startswith("identified")]
+        unknown = res[res.resolved_status.str.startswith("unknown")].resolved_key.nunique()
+        rows = [
+            (f"raw keys, all {occ.survey_key.nunique()} submissions", occ[occ.raw_key != ""].raw_key.nunique()),
+            ("raw keys, canonical surveys", canon[canon.raw_key != ""].raw_key.nunique()),
+            ("resolved (curation merges, woody excluded)", res.resolved_key.nunique()),
+            ("resolved, names matched to GBIF species (spelling variants collapsed)", len({gbif_key(n, k) for n, k in zip(ident.resolved_name, ident.resolved_key)}) + unknown),
+            ("resolved, identified taxa only", ident.resolved_key.nunique()),
+            ("resolved, unresolved unknowns only", unknown),
+        ]
+        out += [{"replicate": rep, "definition": d, "taxa": n} for d, n in rows]
+    return pd.DataFrame(out, columns=["replicate", "definition", "taxa"])
 
 
 def all_tables(ctx, plots: pd.DataFrame, results: pd.DataFrame | None = None) -> dict:
     pp, curves = per_plot(ctx, results)
-    return {"effort_plan": plan_vs_done(plots), "effort_plots": pp, "effort_curves": curves, "effort_project": project_level(ctx),
+    return {"effort_plan": plan_vs_done(plots), "effort_plots": pp, "effort_curves": curves, "effort_project": project_level(ctx, pp),
             "effort_repeatability": repeatability(ctx), "effort_richness_sensitivity": richness_sensitivity(ctx)}

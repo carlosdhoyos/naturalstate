@@ -2,7 +2,7 @@
 
 This log records the decisions behind the vegetation QA/QC. Each entry gives what we observed, what we decided, and how the decision changes the results. **No source value is ever changed.** Every decision acts on how values are interpreted, joined or flagged.
 
-The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-dce7da2adcecaa6d` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
+The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-46e4adc99ee099c0` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
 
 - **V-01 to V-13** are decisions.
 - **"Differences from the exploration"** lists where the pipeline deliberately disagrees with the earlier exploratory review.
@@ -169,12 +169,23 @@ Every threshold of ours is labelled `judgement` in the catalogue and can be chan
 - **Empty incidence table:** it is told apart as a valid ecological zero (every quadrat recorded no herbs), missing species records, or records that are not analytical taxa (excluded or unresolvable). The last two are marked "suppressed".
 - **Replicates:** project richness and planned-vs-done are computed per replicate, so monitoring rounds are never pooled and a missing later visit is never hidden by an earlier one.
 
+**Where the qualification is read (fifth review).**
+
+- **Precedence:** suppressed takes precedence over provisional.
+- **Project row:** it inherits the status of its plots: provisional when any plot is provisional or suppressed. Its `*_ok_plots` columns repeat the estimate on the ok plots only.
+- **Dashboard:** the status appears in the Effort and Plots views wherever these numbers are shown.
+- **Richness sensitivity:** computed per replicate, like every other effort mart.
+
 ## V-13. Deployment guarantees
 
 **Decision.**
 
 - **Input contract** (`vegqa/contracts.py`): required files and columns are checked before any analysis. A broken export stops with one message listing everything missing.
-- **Staged publication:** a run writes to a staging folder, validates it, then replaces each file atomically, with the manifest last. An interrupted run leaves the previous complete run in place (tested).
+- **Staged publication, with a stated limit:**
+  - A run writes to a staging folder and validates it; a failure before publication leaves the previous run untouched (tested).
+  - Publication moves files one by one, with the manifest last, so a crash during it can mix two runs.
+  - The mix is detectable: a `.publishing-*` marker remains, and `--verify` checks every file against the hashes in the manifest. A re-run repairs it (tested).
+  - One atomic pointer switch over versioned run folders is specified for the platform (Q2 §7), not implemented.
 - **Runtime provenance:** the manifest records the Python, platform, package and image versions. They are not part of the run id, which covers inputs, catalogue and code.
 - **Review validity:** `evidence_hash` covers the evidence (observed, expected, severity) and the rule's definition (its catalogue entry and the thresholds). A review reopens when either changes.
 - **Curation notes:** they are parsed defensively. A negated phrase ("do not exclude", "not a duplicate of") is not applied and F13 flags it. Production needs structured curation fields: merge target, exclusion, reason, curator, date, with validated merge chains.
@@ -299,4 +310,15 @@ An independent reviewer, given no context, re-ran the pipeline and the tests, ex
 | Report overclaimed ("internally consistent", "three-quarters of true richness") | Softened; estimates conditional on the analytical data; coverage is not quality; spatial dependence; Hill-number scales; sensitivity not bounds; 697 flags grouped (241 from 10 systemic findings) |
 | Dashboard: timeline ignored replicate; plot filter by name only; scope labels; "no flags" vs passed | All fixed |
 | Not done | iNEXT cross-validation (no R); structured curation fields and persisted reviews (specified, not built); scheduling and database persistence (handover) |
+
+### Fifth independent review (consistency between pipeline, dashboard and claims)
+
+| Finding | Change |
+|---|---|
+| The dashboard's effort charts did not show `metrics_status`; the project level had no aggregate status | The project row inherits its plots' status ("7 of 30 plots provisional (C04)") and repeats the estimate on the 23 ok plots (resolved: 104 taxa, Chao2 139 (119–186), against 115 and 145 (128–185) on all 30). The Effort view shows a banner, a status card, provisional plots dashed or marked, and a table of qualified plots; the Plots view shows each plot's status (V-12) |
+| A survey with missing records that also failed C02 was labelled "provisional: C02" | Suppressed takes precedence over provisional (tested) |
+| Publication claimed to be atomic; the interruption test failed before publication | Claim narrowed. A crash during publication leaves a `.publishing-*` marker, the manifest lists a hash for every output, `--verify` reports mismatches, and a re-run repairs them (tested). One atomic pointer switch is specified for the platform, not built (V-13) |
+| Effort view assumed one round: first project row by layer, no replicate in planned-vs-done, curves pooled across rounds, "31st plot", the GBIF row called a "bound" | Replicate selector, and every table and chart filtered by replicate. The richness sensitivity is computed per replicate. Wording: "one more plot", "a sensitivity analysis, not bounds". The multi-round display is not browser-checked (one round in the data) |
+| Container "byte-identical" claim | Rebuilt: same run id, and the tables and dashboard JSON are identical; the figure PNGs are re-rendered on Linux and are not byte-identical. Wording narrowed |
+| README made the reader dig for the answers | Root README reordered: answers, findings and decisions, reproduction and verification status, then supporting material |
 

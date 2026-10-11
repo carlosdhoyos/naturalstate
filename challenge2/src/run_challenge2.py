@@ -134,10 +134,41 @@ def build(exports: Path = EXPORTS, entities: Path = ENTITIES, forms: Path = FORM
             "catalogue": catalogue}
 
 
+def sha(p: Path) -> str:
+    return hashlib.sha256(p.read_bytes()).hexdigest()[:16]
+
+
+def verify_outputs(out: Path) -> list[str]:
+    """Problems with a published output folder: an unfinished publication, or any file that is missing or
+    differs from the hashes in run_manifest.json. An empty list means `out` holds exactly one complete run."""
+    out = Path(out)
+    problems = [f"unfinished publication: {m.name}" for m in sorted(out.glob(".publishing-*"))]
+    mpath = out / "run_manifest.json"
+    if not mpath.exists():
+        return problems + ["no run_manifest.json"]
+    listed = json.loads(mpath.read_text()).get("outputs")
+    if listed is None:
+        return problems + ["manifest lists no output hashes (written by an older version)"]
+    for rel, h in listed.items():
+        p = out / rel
+        if not p.exists():
+            problems.append(f"missing {rel}")
+        elif sha(p) != h:
+            problems.append(f"{rel} does not match the manifest (another run's file?)")
+    return problems
+
+
 def main(exports: Path = EXPORTS, entities: Path = ENTITIES, out: Path | None = None, forms: Path = FORMS) -> dict:
-    """Build, write everything to a staging folder, validate it, then publish it into `out` with the
-    manifest LAST. An interrupted run never mixes files of two runs: until the manifest is replaced,
-    `out` holds the previous complete run (its manifest names it), and staging is discarded."""
+    """Build, write everything to a staging folder, validate it, then publish it into `out`.
+
+    What this guarantees, and what it does not:
+    - A failure while BUILDING or WRITING (the slow part) leaves `out` exactly as it was; staging is discarded.
+    - PUBLICATION moves the staged files into `out` one by one (each move is atomic, the set is not), with
+      the manifest last. A crash during those moves can leave new files beside old ones. That state is
+      never silent: a `.publishing-<run_id>` marker stays in `out`, and `verify_outputs` reports every file
+      whose content does not match the manifest. Re-running repairs it.
+    A single atomic switch (versioned run folders behind one pointer) is specified for the platform
+    (Q2 §7), not implemented here, because `out` may be a mounted folder that cannot itself be renamed."""
     import shutil
 
     global OUT
@@ -165,13 +196,18 @@ def main(exports: Path = EXPORTS, entities: Path = ENTITIES, out: Path | None = 
         # validate the staged run before publishing it
         assert sum(manifest["status_counts"].values()) == len(pd.read_csv(stage / "qa_results.csv", usecols=["rule_id"])), "staged results incomplete"
         assert all((stage / "figures" / f).exists() for f in figs), "staged figures incomplete"
+        files = sorted(p for p in stage.rglob("*") if p.is_file())
+        manifest["outputs"] = {p.relative_to(stage).as_posix(): sha(p) for p in files}  # what verify_outputs checks
         (stage / "run_manifest.json").write_text(json.dumps(manifest, indent=1, default=str))
-        # publish: every file replaced atomically, the manifest last (a mounted /out cannot itself be renamed)
-        files = sorted(p for p in stage.rglob("*") if p.is_file() and p.name != "run_manifest.json")
+        # publish: file by file (each move atomic), the manifest last; the marker exists only while moving
+        marker = OUT / f".publishing-{b['run_id']}"
+        marker.write_text("publication in progress; if this file remains, the run was interrupted: re-run\n")
         for p in files + [stage / "run_manifest.json"]:
             dest = OUT / p.relative_to(stage)
             dest.parent.mkdir(parents=True, exist_ok=True)
             p.replace(dest)
+        for m in OUT.glob(".publishing-*"):  # this one, and any left by an earlier crashed run: out is whole again
+            m.unlink()
     finally:
         shutil.rmtree(stage, ignore_errors=True)
     return manifest
@@ -185,6 +221,11 @@ if __name__ == "__main__":
     ap.add_argument("--entities", type=Path, default=ENTITIES, help="folder with the entity list CSVs")
     ap.add_argument("--forms", type=Path, default=FORMS, help="folder with the two XLSForms")
     ap.add_argument("--out", type=Path, default=OUT, help="output folder")
+    ap.add_argument("--verify", action="store_true", help="only check that --out holds one complete run, then exit")
     a = ap.parse_args()
+    if a.verify:
+        bad = verify_outputs(a.out)
+        print("\n".join(bad) if bad else f"ok: {a.out} holds one complete run")
+        sys.exit(1 if bad else 0)
     m = main(a.exports, a.entities, a.out, a.forms)
     print(json.dumps({k: m[k] for k in ("run_id", "status_counts", "fail_by_severity", "rows")}, indent=1))

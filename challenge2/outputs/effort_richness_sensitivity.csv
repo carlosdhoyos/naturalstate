@@ -1,7 +1,7 @@
-definition,taxa
-"raw keys, all 32 submissions",132
-"raw keys, canonical surveys",132
-"resolved (curation merges, woody excluded)",115
-"resolved, names matched to GBIF species (spelling variants collapsed)",114
-"resolved, identified taxa only",92
-"resolved, unresolved unknowns only",23
+replicate,definition,taxa
+lw_baseline,"raw keys, all 32 submissions",132
+lw_baseline,"raw keys, canonical surveys",132
+lw_baseline,"resolved (curation merges, woody excluded)",115
+lw_baseline,"resolved, names matched to GBIF species (spelling variants collapsed)",114
+lw_baseline,"resolved, identified taxa only",92
+lw_baseline,"resolved, unresolved unknowns only",23

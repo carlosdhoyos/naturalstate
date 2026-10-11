@@ -10,6 +10,7 @@ around the rules does not assume the very invariants the rules are there to chec
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -105,7 +106,20 @@ def test_missing_species_records_suppress_metrics(tmp_path):
     r, out = run_workflow(tmp_path, {QUADRAT: drop_list, EXTRA: lambda x: x[~x.PARENT_KEY.isin(qkeys)].reset_index(drop=True)})
     e = pd.read_csv(out / "effort_plots.csv")
     row = e[(e.survey_key == key) & (e.layer == "resolved")].iloc[0]
-    assert row["S_obs"] == 0 and "missing records" in row["note"] and row["metrics_status"] != "ok"
+    assert row["S_obs"] == 0 and "missing records" in row["note"]
+    assert row["metrics_status"] == "suppressed"  # not "provisional: C02": there are no metrics to qualify
+    # the project row inherits it
+    p = pd.read_csv(out / "effort_project.csv").query("layer == 'resolved'").iloc[0]
+    assert p.plots_suppressed == 1 and "1 of 30 plots suppressed" in p.metrics_status and p.units_ok_plots < p.units
+
+
+def test_project_status_inherits_plot_status():
+    """On the supplied data: 7 provisional plots (C04) make the project row provisional, and the
+    ok-plots-only columns are computed on the other 23."""
+    e = pd.read_csv(Path(__file__).resolve().parents[1] / "outputs" / "effort_project.csv")
+    for _, r in e.iterrows():
+        assert r.metrics_status == "provisional: 7 of 30 plots provisional (C04)"
+        assert r.units_ok_plots == 23 and r.S_obs_ok_plots < r.S_obs
 
 
 def test_missing_registration_geometry_is_could_not_check(tmp_path):
@@ -158,6 +172,45 @@ def test_interrupted_run_leaves_previous_outputs(tmp_path, monkeypatch):
     run_challenge2.OUT = run_challenge2.Path(run_challenge2.__file__).resolve().parents[1] / "outputs"
     after = {p.name: p.read_bytes() for p in out.glob("*.csv")} | {"m": (out / "run_manifest.json").read_bytes()}
     assert before == after and not list(out.glob(".staging-*"))
+    assert run_challenge2.verify_outputs(out) == []
+
+
+def test_crash_during_publication_is_detected_and_repaired(tmp_path, monkeypatch):
+    """Publication moves files one by one, so a crash mid-way CAN mix two runs. The claim is narrower:
+    the mix is never silent (marker + hash check) and a re-run repairs it."""
+    import pathlib
+
+    import run_challenge2
+
+    _, out = run_workflow(tmp_path / "first", {})
+    assert run_challenge2.verify_outputs(out) == []
+    # a different run: a second replicate changes results, so its files differ from the first run's
+    real_replace, moved = pathlib.Path.replace, []
+
+    def flaky(self, target):
+        if ".staging-" in str(self) and len(moved) >= 3:
+            raise OSError("simulated crash during publication")
+        moved.append(self)
+        return real_replace(self, target)
+
+    monkeypatch.setattr(pathlib.Path, "replace", flaky)
+    ex = tmp_path / "second" / "exports"
+    shutil.copytree(EXPORTS, ex)
+    s = read_text(ex / SURVEY)
+    s.loc[0, "field_team_specifics-recorder_label"] = "someone else"  # another input, so another run id
+    s.to_csv(ex / SURVEY, index=False)
+    with pytest.raises(OSError):
+        run_challenge2.main(ex, ENTITIES, out, FORMS)
+    run_challenge2.OUT = run_challenge2.Path(run_challenge2.__file__).resolve().parents[1] / "outputs"
+    problems = run_challenge2.verify_outputs(out)
+    assert any(p.startswith("unfinished publication") for p in problems)
+    assert any("does not match the manifest" in p for p in problems)
+    monkeypatch.setattr(pathlib.Path, "replace", real_replace)
+    try:
+        run_challenge2.main(ex, ENTITIES, out, FORMS)
+    finally:
+        run_challenge2.OUT = run_challenge2.Path(run_challenge2.__file__).resolve().parents[1] / "outputs"
+    assert run_challenge2.verify_outputs(out) == []
 
 
 @pytest.mark.parametrize("fname,edit,rule", [
@@ -266,3 +319,8 @@ def test_second_replicate_is_kept_apart(tmp_path):
     assert set(plots[plots.plot_name == plot].replicate) == {"lw_baseline", "lw_yr1"}
     rep = pd.read_csv(out / "effort_repeatability.csv")
     assert plot not in set(rep.plot_name)
+    # every effort mart keeps the rounds apart
+    assert set(pd.read_csv(out / "effort_project.csv").replicate) == {"lw_baseline", "lw_yr1"}
+    sens = pd.read_csv(out / "effort_richness_sensitivity.csv")
+    assert set(sens.replicate) == {"lw_baseline", "lw_yr1"}
+    assert set(pd.read_csv(out / "effort_curves.csv").query("plot_name == @plot").replicate) == {"lw_baseline", "lw_yr1"}

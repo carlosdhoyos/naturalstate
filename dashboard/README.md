@@ -83,7 +83,7 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   4. **Map:** prescribed points by plan status or worst flag, with registered transects. Clicking a plot opens its panel in local metres: the A–M–B line, the 5 m belt, the 25 m limit and the quadrats coloured by their worst position flag.
   5. **Plots:** a heatmap of plots × rule groups (worst severity and count) and the plot table.
   6. **Taxonomy:** the curation queue (names to check, curation-table issues, unresolved unknowns, range, duplicates, woody and format) and the raw → resolved taxon map.
-  7. **Sampling effort:** planned vs done, accumulation curves, coverage and Chao2 completeness with intervals, project completeness and Hill numbers, repeatability and the richness sensitivity.
+  7. **Sampling effort:** one replicate at a time. It shows the metrics status where the numbers are: a banner and status card when plots are provisional (C04 here, 7 of 30), provisional plots dashed or marked in the charts, and a table of qualified plots. Then planned vs done, accumulation curves, coverage and Chao2 completeness with intervals, project completeness and Hill numbers, repeatability and the richness sensitivity.
   8. **Rules:** the catalogue with source, default severity, richness impact and fail / pass / not-checked counts, and the thresholds.
   9. **Field feedback:** “check tonight” for a chosen field day, with the issues a team can still fix near the plots, plus process reminders.
 

@@ -150,12 +150,18 @@ These use incidence data per canonical plot (T = 20 quadrats), on both the raw a
 - **Sample coverage:** 1 − Q1/U · [(T−1)Q1 / ((T−1)Q1 + 2Q2)]. No interval; a valid one needs iNEXT's assemblage bootstrap.
 - **New taxa in one more quadrat:** Q0 · Q1 / (T·Q0 + Q1), with Q0 = (T−1)/T · Q1²/(2Q2) (Chao et al. 2014).
 - **Diversity:** observed incidence-based Hill numbers q = 0, 1, 2 from relative quadrat frequencies.
-- **Project level:** the same statistics with plots as the sampling units.
+- **Metric status per plot (`metrics_status`):**
+  - `ok`.
+  - `provisional: <rules>`: shown, but conditional on records that a structural or record rule found incomplete (A01–A04, C02, C04, C08, C13).
+  - `suppressed`: records are missing or none is analytical, so there is nothing to read. Suppressed takes precedence over provisional.
+- **Project level:** the same statistics with plots as the sampling units, per replicate (rounds are never pooled).
+  - Its `metrics_status` inherits from its plots: provisional when any plot is provisional or suppressed (here "7 of 30 plots provisional (C04)").
+  - The `*_ok_plots` columns repeat the estimate on the ok plots only, so readers see how much the qualified plots move it.
 - **Planned vs done:** per stratum, from `centroids` (primary/backup), registrations and canonical surveys.
 - **Repeatability:** plot and mean quadrat Jaccard for any plot with two or more submissions in a replicate.
-- **Richness sensitivity:** raw, canonical, resolved, resolved with GBIF spelling variants collapsed, identified only, unknowns only.
+- **Richness sensitivity (per replicate):** raw, canonical, resolved, resolved with GBIF spelling variants collapsed, identified only, unknowns only. A sensitivity analysis over defensible definitions, not bounds on true richness.
 
-Show coverage first. Chao2 intervals are wide with 20 quadrats (V-10).
+Show coverage first. Chao2 intervals are wide with 20 quadrats (V-10). Wherever a metric is displayed, display its `metrics_status` with it.
 
 ## 6. The dashboard
 
@@ -175,11 +181,13 @@ A working reference of every view is the **QA/QC dashboard** page of the Data Ex
 | **All flags** | Every failure with severity, observed and expected values, action, and source table + key; filters by severity, group, rule, plot and text; canonical-only toggle; CSV download | `qa_results` |
 | **Submissions** | Timeline per device (form open → upload), upload delay, duration against the median, review state, canonical choice, flags per submission | `submissions`, `canonical_choice` |
 | **Map** | Prescribed points by status (surveyed / not viable / never registered / backup); click a plot to see its registered A–M–B line, the 5 m belt, the 25 m circle, and quadrats coloured by flag | `plots`, `quadrats` |
-| **Plots** | One row per plot: geometry (offset, length, bearing), richness raw / resolved, all-unknown quadrats, coverage, flag counts; a heatmap of plots × rule groups | `plots`, `effort_plots` |
+| **Plots** | One row per plot: geometry (offset, length, bearing), richness raw / resolved, all-unknown quadrats, coverage, flag counts; a heatmap of plots × rule groups | `plots`, `effort_plots` (coverage is joined by plot **and** replicate, with its metrics status) |
 | **Taxonomy** | A curation queue: names to check (F03), curation-table issues (F13), unresolved unknowns by record count (F07), out-of-range taxa (F10), duplicate entities (F04); suggested species-list updates (downloadable); raw → resolved mapping per taxon | `occurrences`, `qa_results`, `species_list_suggestions` |
-| **Effort** | Planned vs done per stratum, accumulation curves, coverage per plot, project-level completeness, repeatability | `effort_*` |
+| **Effort** | One replicate at a time (a selector appears when a run has several). Shows: the metrics status (a banner when provisional, with the ok-plots-only estimate); planned vs done per replicate and stratum; accumulation curves (provisional plots dashed, median of ok plots); coverage and completeness per plot (provisional plots marked); the list of qualified plots with the rule behind each; project completeness; repeatability; richness sensitivity | `effort_*` |
 | **Rules** | The catalogue with fail / pass / not-checked counts and its thresholds, so reviewers see what *was* checked | `rule_summary` |
 | **Field feedback** | "Check tonight": the day's submissions with errors and warnings the team can still fix in the field (missing rows, empty occurrences, position outliers, late uploads), plus process reminders (upload, refresh lists) | `qa_results` filtered by date |
+
+**Multiple monitoring rounds.** Every effort mart is computed per replicate (tested with a synthetic second round), and the Effort view filters by it. The supplied data has a single round, so the reference page's multi-round display has not been checked in a browser. Treat it as built for one round and ready for more, not as a finished multi-year monitoring interface; trends across rounds are out of scope.
 
 **Flag reviews (specified; not implemented in the reference page).** Reviewers mark a flag as `acknowledged`, `accepted as is`, `fixed upstream` or `false positive`, with a note. Every result row already carries the keys this needs:
 
@@ -220,7 +228,12 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 
   A full run takes seconds, so incremental logic is not needed at this scale. Rebuild everything per project and replicate, which keeps results consistent.
 - **Input contract (implemented):** `vegqa/contracts.py` checks every required file and column before analysis. A broken export stops with one message listing what is missing; nothing is half-written.
-- **Staged publication (implemented):** a run writes to `out/.staging-<run_id>/`, validates the staged results, then replaces each output atomically with `run_manifest.json` last. Until the manifest changes, `out/` holds the previous complete run. An interrupted run is tested.
+- **Staged publication (implemented, with a stated limit):**
+  - A run writes to `out/.staging-<run_id>/` and validates the staged results. A failure up to that point leaves `out/` exactly as it was (tested).
+  - Publication then moves the files into `out/` one by one, with `run_manifest.json` last. Each move is atomic, but the set is not, so a crash during those moves can leave new files beside old ones.
+  - That state is detectable, never silent: a `.publishing-<run_id>` marker stays in `out/`, the manifest lists a hash for every output, and `run_challenge2.py --out <dir> --verify` reports every file that does not match. Re-running repairs it (tested).
+  - Consumers should read `out/` only when `--verify` passes.
+- **Atomic publication (specified for the platform):** write each run to its own folder, `runs/<run_id>/`, and switch one pointer to it as the last step (a symlink replaced with `rename`, or a `current_run_id` row updated in one transaction). Readers then always see one complete run. This was not built here because `out/` may be a mounted folder that cannot itself be renamed, and the committed outputs are read in place by the report and the dashboard.
 - **Runtime provenance (implemented):** the manifest records the Python, platform, package versions and the image tag (`VEGQA_IMAGE`). The run id covers inputs, catalogue and code, not the environment.
 - **Idempotent:** the same inputs give the same `run_id`, so a rerun replaces nothing.
 - **Keep runs:** retain `qa_runs` with input hashes; the dashboard shows the latest and can diff two runs.
@@ -233,7 +246,7 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 
 ## 8. Acceptance tests and verification status
 
-`challenge2/tests` (159 tests, run with `pytest`) holds the acceptance and mutation suites to port:
+`challenge2/tests` (161 tests, run with `pytest`) holds the acceptance and mutation suites to port:
 
 | Area | What the tests pin |
 |---|---|
@@ -241,23 +254,26 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 | Passed checks | The 12 checks that passed must still report `pass` |
 | Differences | Deliberate differences from the exploration (`docs/challenge2_decisions.md`) |
 | New findings | N1–N13 |
-| Robustness | The whole workflow (rules, marts, effort, figures, dashboard export) runs on invalid inputs, reports them, and gives semantically valid summaries. Covered: duplicate keys in every table (no copy canonical, no double count), a duplicated quadrat (still 20 sampling units, provisional metrics), a survey with no quadrats, no vegetation, or missing species records (valid zero vs suppressed), rejected-only and hasIssues plots, a fractional quadrat number, a second replicate, missing registration coordinates or accuracies (could not check), a broken export (stops before analysis), and an interrupted run (previous outputs intact) (`test_robustness.py`) |
+| Robustness | The whole workflow (rules, marts, effort, figures, dashboard export) runs on invalid inputs, reports them, and gives semantically valid summaries. Covered: duplicate keys in every table (no copy canonical, no double count), a duplicated quadrat (still 20 sampling units, provisional metrics), a survey with no quadrats, no vegetation, or missing species records (valid zero vs suppressed), rejected-only and hasIssues plots, a fractional quadrat number, a second replicate, missing registration coordinates or accuracies (could not check), a broken export (stops before analysis), a run that fails before publication (previous outputs intact), and a crash during publication (detected by the marker and the manifest hashes, repaired by a re-run) (`test_robustness.py`) |
 | Mutations | 35 rules must create a new failing entity on a copy of the data with one injected error, compared with an unmutated baseline (`test_mutations.py`); J04 must pass at a cell centre |
 | Properties | Determinism (identical results and `run_id` on rerun); inputs never modified (file hashes before and after); raw columns identical to the export; row counts; one canonical survey per plot; every result field is text; catalogue = code |
 | Unit tests | Projection, bearings, segment frame, robust line, Chao2 / coverage / rarefaction formulas, curation parsing |
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-dce7da2adcecaa6d`) |
-| Acceptance, mutation, robustness and unit tests | 159 passing |
+| All rules implemented and run on the provided data | Done (run `qa-46e4adc99ee099c0`) |
+| Acceptance, mutation, robustness and unit tests | 161 passing |
 | GBIF cache | 99 names, retrieved 2026-10-10 |
 | Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |
-| Container job | **Built and run** (`docker build -t vegqa:1.0.0 challenge2`). On the take-home data its outputs are byte-identical to a local run: same run id, all tables and the dashboard JSON |
+| Container job | **Built and run** (`docker build -t vegqa:1.0.0 challenge2`). On the take-home data (rebuilt 2026-10-11): same run id; every table and the dashboard JSON are byte-identical to a local run. The figure PNGs are re-rendered on Linux and are not byte-identical. Its `out/` passes `--verify` |
 | Dashboard views | Reference page built: Data Explorer → Vegetation → QA/QC dashboard (`dashboard/src/components/VegetationQA.tsx`), reading `outputs/dashboard_results.json`. All nine views of section 6 run on the provided data |
+| Effort-metric qualification | Shown where the numbers are read: per-plot and project `metrics_status` in the Effort and Plots views (7 of 30 plots provisional, C04) |
+| Publication | Staged; a failure before publication leaves the previous run intact; a crash during publication is detected (`--verify`) and repaired by a re-run (tested). **One atomic pointer switch: specified only** (§7) |
+| Multiple monitoring rounds | Marts kept apart per replicate (tested with a synthetic second round); the Effort view filters by replicate, but its multi-round display has not been browser-checked (one round in the data) |
 | Flag-review workflow | **Specified only** (DDL above): review keys exist on every result; decisions are not stored or shown |
 | Scheduling, database persistence, run comparison | **Specified only** (§7); the reference writes files |
 | Structured curation fields | **Specified only** (§9); defensive parsing of free-text notes in place |
-| Statistical cross-check against iNEXT | **Not run** (R unavailable here); closed-form unit tests only |
+| Statistical cross-check against iNEXT | **Not run** (R unavailable here); closed-form unit tests only. The custom Chao2 interval and coverage code should be checked against iNEXT before the numbers are used operationally |
 | Platform integration (triggers, storage) | To build |
 
 ## 9. Platform and form issues to fix upstream

@@ -29,14 +29,15 @@ This folder holds a reproducible QA/QC pipeline for the ODK herbaceous vegetatio
 ```bash
 python -m venv challenge2/.venv && challenge2/.venv/bin/pip install -r challenge2/requirements.txt
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py         # writes outputs/ and outputs/figures/ (about 3 s)
+challenge2/.venv/bin/python challenge2/src/run_challenge2.py --verify  # checks outputs/ holds one complete run (manifest hashes)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.report_tables)    # refreshes the report's tables from outputs/
-(cd challenge2/tests && ../.venv/bin/python -m pytest -q)            # 159 tests (acceptance, mutation, robustness, unit)
+(cd challenge2/tests && ../.venv/bin/python -m pytest -q)            # 161 tests (acceptance, mutation, robustness, unit)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.gbif)             # optional: fetch GBIF data for new names (network)
 (cd challenge2/src && ../.venv/bin/python -m vegqa.dem)              # optional: fetch terrain elevations for new points (network)
 (cd dashboard && npm install && npm run build)                        # rebuild the dashboard page with the new outputs
 ```
 
-**Or as a container job** (the deployment the handover recommends; no network needed). Built and run here: its outputs are byte-identical to a local run.
+**Or as a container job** (the deployment the handover recommends; no network needed). Built and run here (2026-10-11): same run id, and every table and the dashboard JSON are byte-identical to a local run. The figure PNGs are re-rendered on Linux, so they match in content but not byte for byte.
 
 ```bash
 docker build -t vegqa:1.0.0 challenge2

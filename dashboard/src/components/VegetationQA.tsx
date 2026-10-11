@@ -840,7 +840,7 @@ function PlotPanel({ t, plot, flags, showFlags }: { t: ThemeTokens; plot: string
 
 function PlotsTab({ d, t, showFlags }: Ctx) {
   const reg = d.P.filter((p) => p.registered).sort((a, b) => String(a.plot_name).localeCompare(String(b.plot_name)))
-  const cov = Object.fromEntries(EFF_PLOTS.filter((e) => e.layer === 'resolved').map((e) => [e.plot_name, e]))
+  const cov = Object.fromEntries(EFF_PLOTS.filter((e) => e.layer === 'resolved').map((e) => [effKey(e.plot_name, e.replicate), e])) // per plot AND replicate
   const groups = Object.keys(GROUPS).filter((g) => g !== 'K')
   const heat = useMemo(() => {
     const z = reg.map((p) => groups.map((g) => SEV_RANK[worstOf(plotFlags(d.F, p.plot_name).filter((f) => f.group === g)) ?? ''] ?? 0))
@@ -880,7 +880,7 @@ function PlotsTab({ d, t, showFlags }: Ctx) {
           <Plot data={heat} layout={{ ...baseLayout(t), margin: { l: 70, r: 10, t: 10, b: 150 }, xaxis: { ...axisStyle(t), tickangle: -35, side: 'bottom' }, yaxis: { ...axisStyle(t), autorange: 'reversed' } }} height={760} onClickIndex={(p) => showFlags({ plot: p as string })} filename="flags_heatmap" />
         </div>
       </Section>
-      <Section title="Registered plots" sub="Geometry from the registration; richness and coverage from the canonical survey (resolved taxa).">
+      <Section title="Registered plots" sub="Geometry from the registration; richness and coverage from the canonical survey (resolved taxa); provisional effort metrics are marked.">
         <DataTable
           rows={reg}
           limit={40}
@@ -896,7 +896,8 @@ function PlotsTab({ d, t, showFlags }: Ctx) {
             { key: 'richness_raw', label: 'Taxa raw', num: true, render: (r) => fx(r.richness_raw, 0) },
             { key: 'richness_resolved', label: 'Taxa resolved', num: true, render: (r) => fx(r.richness_resolved, 0) },
             { key: 'quadrats_all_unknown', label: 'All-unknown q.', num: true, render: (r) => fx(r.quadrats_all_unknown, 0) },
-            { key: 'coverage', label: 'Coverage', num: true, render: (r) => fx(cov[r.plot_name]?.coverage, 2), sortValue: (r) => cov[r.plot_name]?.coverage ?? -1 },
+            { key: 'coverage', label: 'Coverage', num: true, render: (r) => fx(cov[effKey(r.plot_name, r.replicate)]?.coverage, 2), sortValue: (r) => cov[effKey(r.plot_name, r.replicate)]?.coverage ?? -1 },
+            { key: 'metrics_status', label: 'Effort metrics', render: (r) => (cov[effKey(r.plot_name, r.replicate)] ? <MetricsStatus s={cov[effKey(r.plot_name, r.replicate)].metrics_status} /> : <span className="muted small">no canonical survey</span>), sortValue: (r) => String(cov[effKey(r.plot_name, r.replicate)]?.metrics_status ?? 'z') },
             { key: 'ewi', label: 'E/W/I', render: (r) => `${r.n_error ?? 0}/${r.n_warning ?? 0}/${r.n_info ?? 0}`, sortValue: (r) => (r.n_error ?? 0) * 1e4 + (r.n_warning ?? 0) * 100 + (r.n_info ?? 0) },
           ]}
         />
@@ -996,46 +997,119 @@ function TaxonomyTab({ d, showFlags }: Ctx) {
 
 // ── effort ───────────────────────────────────────────────────────────────────
 
-function EffortTab({ t }: Ctx) {
+/** Monitoring rounds in this run. Every effort mart is per replicate; rounds are never pooled. */
+const REPLICATES = [...new Set(EFF_PROJECT.map((r) => String(r.replicate)))].sort()
+const effKey = (plot: unknown, rep: unknown) => `${plot}|${rep}`
+/** Rule ids named in a metrics_status ("provisional: C04", "provisional: 7 of 30 plots provisional (C04)"). */
+const statusRules = (s: string) => (s.startsWith('provisional') ? [...new Set(s.match(/\b[A-KPX]\d{2}\b/g) ?? [])] : [])
+
+function MetricsStatus({ s }: { s: string | null | undefined }) {
+  if (!s || s === 'ok') return <span className="qa-chip qa-pass">ok</span>
+  if (s === 'suppressed') return <span className="qa-chip qa-flag" data-tip="Records are missing or none is an analytical taxon: there are no metrics to read. See the plot's note.">suppressed</span>
+  const rules = statusRules(s)
+  return (
+    <span className="qa-chip qa-flag" data-tip-title="Provisional" data-tip={`Shown, but conditional on records that a rule found incomplete:\n${rules.map((r) => `${r}: ${ruleTitle[r]}`).join('\n')}`}>
+      provisional · {rules.join(' ')}
+    </span>
+  )
+}
+
+function EffortTab({ t, showFlags }: Ctx) {
   const [layer, setLayer] = useState<'resolved' | 'raw'>('resolved')
+  const [repPicked, setRep] = useState(REPLICATES[REPLICATES.length - 1])
+  const rep = REPLICATES.includes(repPicked) ? repPicked : REPLICATES[0]
+  const plotsHere = useMemo(() => EFF_PLOTS.filter((x) => x.layer === layer && x.replicate === rep), [layer, rep])
+  const statusOf = useMemo(() => Object.fromEntries(plotsHere.map((x) => [x.plot_name, String(x.metrics_status)])), [plotsHere])
+  const qualified = plotsHere.filter((x) => x.metrics_status !== 'ok').sort((a, b) => String(a.plot_name).localeCompare(String(b.plot_name)))
+  const suppressed = qualified.filter((x) => x.metrics_status === 'suppressed')
   const curves = useMemo(() => {
-    const plots = [...new Set(EFF_CURVES.map((c) => c.plot_name))]
+    const c = EFF_CURVES.filter((x) => x.layer === layer && x.replicate === rep)
+    const plots = [...new Set(c.map((x) => x.plot_name))].filter((p) => statusOf[p] !== 'suppressed')
+    let shownProv = false
     const data: object[] = plots.map((p) => {
-      const c = EFF_CURVES.filter((x) => x.plot_name === p && x.layer === layer)
-      return { type: 'scatter', mode: 'lines', x: c.map((x) => x.quadrats), y: c.map((x) => x.expected_taxa), name: short(p), line: { color: SERIES[t.theme][0], width: 1 }, opacity: 0.45, showlegend: false, hovertemplate: `${short(p)}: %{y:.1f} taxa in %{x} quadrats<extra></extra>` }
+      const pc = c.filter((x) => x.plot_name === p)
+      const prov = statusOf[p]?.startsWith('provisional')
+      const first = prov && !shownProv
+      if (prov) shownProv = true
+      return {
+        type: 'scatter',
+        mode: 'lines',
+        x: pc.map((x) => x.quadrats),
+        y: pc.map((x) => x.expected_taxa),
+        name: prov ? 'provisional plot' : short(p),
+        legendgroup: prov ? 'prov' : 'ok',
+        showlegend: first,
+        line: { color: prov ? SEV_COLOR.warning : SERIES[t.theme][0], width: prov ? 1.5 : 1, dash: prov ? 'dash' : 'solid' },
+        opacity: prov ? 0.8 : 0.45,
+        hovertemplate: `${short(p)}${prov ? ` (${statusOf[p]})` : ''}: %{y:.1f} taxa in %{x} quadrats<extra></extra>`,
+      }
     })
-    const med = Array.from({ length: 20 }, (_, i) => {
-      const v = EFF_CURVES.filter((x) => x.layer === layer && x.quadrats === i + 1).map((x) => x.expected_taxa as number).sort((a, b) => a - b)
-      return v[Math.floor(v.length / 2)]
-    })
-    data.push({ type: 'scatter', mode: 'lines', x: med.map((_, i) => i + 1), y: med, name: 'median plot', line: { color: t.theme === 'dark' ? '#e9f1f4' : '#00354d', width: 3 } })
+    const okPlots = new Set(plots.filter((p) => statusOf[p] === 'ok'))
+    const maxT = Math.max(0, ...c.map((x) => x.quadrats as number))
+    const med = Array.from({ length: maxT }, (_, i) => median(c.filter((x) => okPlots.has(x.plot_name) && x.quadrats === i + 1).map((x) => x.expected_taxa as number)))
+    data.push({ type: 'scatter', mode: 'lines', x: med.map((_, i) => i + 1), y: med, name: 'median of ok plots', line: { color: t.theme === 'dark' ? '#e9f1f4' : '#00354d', width: 3 } })
     return data
-  }, [layer, t])
+  }, [layer, rep, statusOf, t])
   const comp = useMemo(() => {
-    const e = EFF_PLOTS.filter((x) => x.layer === layer).sort((a, b) => a.coverage - b.coverage)
-    const y = e.map((x) => short(x.plot_name))
+    const e = plotsHere.filter((x) => x.metrics_status !== 'suppressed').sort((a, b) => a.coverage - b.coverage)
+    const prov = e.map((x) => String(x.metrics_status).startsWith('provisional'))
+    const y = e.map((x, i) => `${short(x.plot_name)}${prov[i] ? ' *' : ''}`)
+    const st = e.map((x) => String(x.metrics_status))
     return [
-      { type: 'scatter', mode: 'markers', x: e.map((x) => x.coverage), y, name: 'sample coverage', marker: { color: '#1f9e8c', size: 9 }, hovertemplate: '%{y}: coverage %{x:.2f}<extra></extra>' },
+      { type: 'scatter', mode: 'markers', x: e.map((x) => x.coverage), y, name: 'sample coverage', marker: { color: '#1f9e8c', size: 9, symbol: prov.map((p) => (p ? 'circle-open' : 'circle')), line: { width: 2, color: '#1f9e8c' } }, customdata: st, hovertemplate: '%{y}: coverage %{x:.2f} · %{customdata}<extra></extra>' },
       {
         type: 'scatter',
         mode: 'markers',
         x: e.map((x) => x.completeness),
         y,
         name: 'observed / Chao2 (95% CI)',
-        marker: { color: '#2b5672', size: 8 },
-        error_x: { type: 'data', symmetric: false, array: e.map((x) => x.S_obs / x.chao2_lo95 - x.completeness), arrayminus: e.map((x) => x.completeness - x.S_obs / x.chao2_hi95), color: '#2b5672', thickness: 1 },
-        customdata: e.map((x) => [x.S_obs, x.chao2, x.chao2_lo95, x.chao2_hi95]),
-        hovertemplate: '%{y}: %{customdata[0]} of Chao2 %{customdata[1]} (%{customdata[2]}–%{customdata[3]})<extra></extra>',
+        marker: { color: '#2b5672', size: 8, symbol: prov.map((p) => (p ? 'square-open' : 'square')), line: { width: 2, color: '#2b5672' } },
+        error_x: { type: 'data', symmetric: false, array: e.map((x) => (x.chao2_lo95 ? x.S_obs / x.chao2_lo95 - x.completeness : 0)), arrayminus: e.map((x) => (x.chao2_hi95 ? x.completeness - x.S_obs / x.chao2_hi95 : 0)), color: '#2b5672', thickness: 1 },
+        customdata: e.map((x, i) => [x.S_obs, x.chao2, x.chao2_lo95 ?? 'n/a', x.chao2_hi95 ?? 'no upper limit', st[i]]),
+        hovertemplate: '%{y}: %{customdata[0]} of Chao2 %{customdata[1]} (%{customdata[2]}–%{customdata[3]}) · %{customdata[4]}<extra></extra>',
       },
     ]
-  }, [layer])
-  const proj = EFF_PROJECT.find((x) => x.layer === layer)!
+  }, [plotsHere])
+  const proj = EFF_PROJECT.find((x) => x.layer === layer && x.replicate === rep)
+  if (!proj) return <p className="muted">No canonical survey in replicate {rep}: no effort metrics.</p>
+  const projOk = proj.metrics_status === 'ok'
   return (
     <>
-      <Section title="Planned against done" sub="Primary and backup points per stratum (centroids), registrations and canonical surveys.">
+      <div className="qa-filters">
+        {REPLICATES.length > 1 ? (
+          <Segmented value={rep} onChange={setRep} size="sm" options={REPLICATES.map((r) => ({ value: r, label: r }))} />
+        ) : (
+          <span className="qa-chip qa-info">replicate {rep}</span>
+        )}
+        <Segmented value={layer} onChange={setLayer} size="sm" options={[{ value: 'resolved', label: 'Resolved taxa' }, { value: 'raw', label: 'Raw keys' }]} />
+        <span className="muted small">
+          Every number on this tab is for one monitoring round{REPLICATES.length > 1 ? '' : ' (the only one in this run)'}; rounds are never pooled. Raw keys over-count (several provisional ids = one species); resolved follows NS’s curation.
+        </span>
+      </div>
+      {!projOk && (
+        <div className="note">
+          <span>
+            <b>These effort metrics are provisional.</b> {String(proj.metrics_status).replace(/^provisional:\s*/, '')}: those plots have quadrats that declare additional species without species rows, so their lists may be incomplete, and every project figure below includes them. On the {proj.units_ok_plots} plots whose own metrics are ok: {fmtInt(proj.S_obs_ok_plots)} taxa, Chao2 {fx(proj.chao2_ok_plots, 0)} (95% CI {fx(proj.chao2_lo95_ok_plots, 0)}–{fx(proj.chao2_hi95_ok_plots, 0)}), coverage {fx(proj.coverage_ok_plots, 3)}. Provisional plots are marked * and drawn dashed or open below.{' '}
+            {statusRules(String(proj.metrics_status)).map((r) => (
+              <button key={r} type="button" className="link-btn" onClick={() => showFlags({ rule: r })}>
+                {r} flags
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
+      <div className="stats-row">
+        <Stat label="Metrics status" value={<MetricsStatus s={projOk ? 'ok' : `provisional: ${statusRules(String(proj.metrics_status)).join(' ')}`} />} sub={projOk ? `all ${proj.units} plots ok` : `${proj.plots_provisional} provisional, ${proj.plots_suppressed} suppressed of ${proj.units} plots`} />
+        <Stat label="Project taxa observed" value={fmtInt(proj.S_obs)} sub={`Chao2 ${fx(proj.chao2, 0)} (95% CI ${fx(proj.chao2_lo95, 0)}–${fx(proj.chao2_hi95, 0)})${projOk ? '' : ' · provisional'}`} />
+        <Stat label="Project coverage" value={fx(proj.coverage, 3)} sub={`plots as sampling units · ${fx(proj.new_taxa_next_quadrat, 1)} new taxa expected in one more plot`} />
+        <Stat label="Diversity (Hill)" value={`${fx(proj.hill_q1, 0)} / ${fx(proj.hill_q2, 0)}`} sub="q1 exp(Shannon) / q2 inverse Simpson, effective number of taxa (plot incidence)" />
+        <Stat label="Median plot coverage" value={fx(median(plotsHere.filter((x) => x.metrics_status === 'ok').map((x) => x.coverage)), 2)} sub="ok plots only · share of a plot's incidences from taxa already seen" />
+      </div>
+      <Section title="Planned against done" sub="Primary and backup points per stratum (centroids), registrations and canonical surveys, per replicate.">
         <DataTable
           rows={EFF_PLAN}
           cols={[
+            { key: 'replicate', label: 'Replicate' },
             { key: 'stratum', label: 'Stratum' },
             { key: 'primary_planned', label: 'Primary planned', num: true },
             { key: 'primary_registered', label: 'Registered', num: true },
@@ -1046,32 +1120,39 @@ function EffortTab({ t }: Ctx) {
           ]}
         />
       </Section>
-      <div className="qa-filters">
-        <Segmented value={layer} onChange={setLayer} size="sm" options={[{ value: 'resolved', label: 'Resolved taxa' }, { value: 'raw', label: 'Raw keys' }]} />
-        <span className="muted small">Raw keys over-count (several provisional ids = one species); resolved follows NS’s curation.</span>
-      </div>
-      <div className="stats-row">
-        <Stat label="Project taxa observed" value={fmtInt(proj.S_obs)} sub={`Chao2 ${fx(proj.chao2, 0)} (95% CI ${fx(proj.chao2_lo95, 0)}–${fx(proj.chao2_hi95, 0)})`} />
-        <Stat label="Project coverage" value={fx(proj.coverage, 3)} sub={`plots as sampling units · ${fx(proj.new_taxa_next_quadrat, 1)} new taxa expected in a 31st plot`} />
-        <Stat label="Diversity (Hill)" value={`${fx(proj.hill_q1, 0)} / ${fx(proj.hill_q2, 0)}`} sub="q1 exp(Shannon) / q2 inverse Simpson, effective number of taxa" />
-        <Stat label="Median plot coverage" value={fx(median(EFF_PLOTS.filter((x) => x.layer === layer).map((x) => x.coverage)), 2)} sub="share of a plot's incidences from taxa already seen" />
-      </div>
       <div className="sum-grid two">
-        <Section title="Species accumulation per plot" sub="Expected taxa in t random quadrats (sample-based rarefaction). Curves still rising at 20 quadrats mean rare species remain.">
+        <Section title="Species accumulation per plot" sub="Expected taxa in t random quadrats (sample-based rarefaction). Curves still rising at 20 quadrats mean rare species remain. Dashed: provisional plots; the median uses ok plots only.">
           <div className="chart-card">
             <Plot data={curves} layout={{ ...baseLayout(t), xaxis: { ...axisStyle(t), title: { text: 'quadrats' } }, yaxis: { ...axisStyle(t), title: { text: 'expected taxa' } } }} height={420} filename="accumulation" />
           </div>
         </Section>
-        <Section title="How complete is each plot's list?" sub="Coverage (stable) and observed / bias-corrected Chao2 with its 95% interval (wide at 20 quadrats).">
+        <Section title="How complete is each plot's list?" sub="Coverage (stable) and observed / bias-corrected Chao2 with its 95% interval (wide at 20 quadrats). * and open markers: provisional plots.">
           <div className="chart-card">
-            <Plot data={comp} layout={{ ...baseLayout(t), margin: { l: 70, r: 16, t: 30, b: 40 }, xaxis: { ...axisStyle(t), range: [0, 1.02], title: { text: 'share' } }, yaxis: { ...axisStyle(t), tickfont: { size: 9, color: t.muted } } }} height={560} filename="completeness" />
+            <Plot data={comp} layout={{ ...baseLayout(t), margin: { l: 80, r: 16, t: 30, b: 40 }, xaxis: { ...axisStyle(t), range: [0, 1.02], title: { text: 'share' } }, yaxis: { ...axisStyle(t), tickfont: { size: 9, color: t.muted } } }} height={560} filename="completeness" />
           </div>
+          {suppressed.length > 0 && <p className="small muted">Not shown (suppressed): {suppressed.map((x) => `${short(x.plot_name)}: ${x.note}`).join('; ')}.</p>}
         </Section>
       </div>
-      <div className="sum-grid two">
-        <Section title="Repeatability" sub="The two plots surveyed twice on 26 May. Indicative only: n = 2, Plot 18 had the same recorder, the repeats took half the time.">
+      <Section title="Plots whose effort metrics are qualified" sub="Provisional: shown, but conditional on records a rule found incomplete. Suppressed: no metrics to read. Click a plot for its flags.">
+        {qualified.length ? (
           <DataTable
-            rows={EFF_REPEAT.filter((x) => x.layer === layer)}
+            rows={qualified}
+            cols={[
+              { key: 'plot_name', label: 'Plot', render: (r) => <button type="button" className="link-btn" onClick={() => showFlags({ plot: r.plot_name })}>{short(r.plot_name)}</button> },
+              { key: 'metrics_status', label: 'Status', render: (r) => <MetricsStatus s={r.metrics_status} /> },
+              { key: 'why', label: 'Why', render: (r) => <span className="small">{r.metrics_status === 'suppressed' ? r.note : statusRules(String(r.metrics_status)).map((x) => `${x}: ${ruleTitle[x]}`).join('; ')}</span> },
+              { key: 'S_obs', label: 'Taxa', num: true, render: (r) => fx(r.S_obs, 0) },
+              { key: 'coverage', label: 'Coverage', num: true, render: (r) => fx(r.coverage, 2) },
+            ]}
+          />
+        ) : (
+          <p className="small muted">None: every plot's metrics are ok in this replicate.</p>
+        )}
+      </Section>
+      <div className="sum-grid two">
+        <Section title="Repeatability" sub="Plots surveyed more than once within this replicate. Indicative only: few pairs, and recorder and effort can differ between the visits (see the report).">
+          <DataTable
+            rows={EFF_REPEAT.filter((x) => x.layer === layer && x.replicate === rep)}
             cols={[
               { key: 'plot_name', label: 'Plot', render: (r) => short(r.plot_name) },
               { key: 'rec', label: 'Recorders', render: (r) => `${r.recorder_first} / ${r.recorder_second}` },
@@ -1082,8 +1163,8 @@ function EffortTab({ t }: Ctx) {
             ]}
           />
         </Section>
-        <Section title="How richness depends on data decisions" sub="Canonical surveys pooled. The GBIF row is a bound, not a correction.">
-          <DataTable rows={EFF_SENS} cols={[{ key: 'definition', label: 'Definition' }, { key: 'taxa', label: 'Taxa', num: true, render: (r) => fmtInt(r.taxa) }]} />
+        <Section title="How richness depends on data decisions" sub="A sensitivity analysis, not bounds: each row is one defensible definition, and unresolved unknowns can hide both split and merged species, so true richness may lie outside this range.">
+          <DataTable rows={EFF_SENS.filter((x) => x.replicate === rep)} cols={[{ key: 'definition', label: 'Definition' }, { key: 'taxa', label: 'Taxa', num: true, render: (r) => fmtInt(r.taxa) }]} />
         </Section>
       </div>
     </>
