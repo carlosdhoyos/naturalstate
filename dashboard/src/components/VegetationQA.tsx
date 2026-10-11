@@ -110,6 +110,7 @@ export interface View {
   S: Row[]
   TL: Row[]
   P: Row[]
+  active: boolean // any shared filter set: whole-run figures must say so
 }
 const localDay = (iso: unknown) => (iso ? new Date(new Date(String(iso)).getTime() + 3 * 3.6e6).toISOString().slice(0, 10) : '') // EAT = UTC + 3 h
 const strataOf = Object.fromEntries(PLOTS.map((p) => [p.plot_name, p.stratum]))
@@ -119,8 +120,11 @@ function applyShared(g: Shared): View {
   const F = FLAGS.filter((f) => (!g.replicate || f.replicate === g.replicate) && (!g.stratum || f.stratum === g.stratum) && (!g.device || f.device === g.device) && (!g.recorder || f.recorder === g.recorder) && inDays(f.day))
   const S = SUBS.filter((r) => (!g.replicate || r.replicate === g.replicate) && (!g.stratum || strataOf[r.plot_name] === g.stratum) && (!g.device || r.device === g.device) && (!g.recorder || r.recorder === g.recorder) && inDays(localDay(r.start_utc)))
   const TL = TIMELINE.filter((r) => (!g.stratum || strataOf[r.plot_name] === g.stratum) && (!g.device || r.device === g.device) && (!g.recorder || r.recorder === g.recorder) && inDays(localDay(r.start)))
-  const P = PLOTS.filter((p) => (!g.stratum || p.stratum === g.stratum) && (!g.replicate || p.replicate === g.replicate))
-  return { F, S, TL, P }
+  // device / recorder / date describe visits: keep the plots visited (surveyed or registered) under them
+  const visit = Boolean(g.device || g.recorder || g.from || g.to)
+  const visited = new Set([...S.map((r) => r.plot_name), ...TL.map((r) => r.plot_name)])
+  const P = PLOTS.filter((p) => (!g.stratum || p.stratum === g.stratum) && (!g.replicate || p.replicate === g.replicate) && (!visit || visited.has(p.plot_name)))
+  return { F, S, TL, P, active: Object.values(g).some(Boolean) }
 }
 
 function SharedFilters({ g, setG }: { g: Shared; setG: (g: Shared) => void }) {
@@ -435,14 +439,24 @@ function OverviewTab({ d, t, showFlags }: Ctx) {
     }))
   }, [t, d.F])
   const clean = RULES.filter((r) => r.fail === 0 && r.could_not_check === 0 && r.pass > 0) // checked everywhere AND passed
+  const canon = d.S.filter((r) => r.canonical)
+  const sevCount = (sv: Sev) => d.F.filter((f) => f.severity === sv).length
   const cnc = D.status_counts.could_not_check ?? 0
   return (
     <>
       <div className="stats-row">
-        <Stat label="Plots surveyed" value={`${O.plots_surveyed} of ${O.primary_points_planned}`} sub={`primary points planned · ${O.plots_registered} registered, ${O.plots_viable} viable`} />
-        <Stat label="Quadrats" value={fmtInt(O.quadrats_canonical)} sub={`${O.canonical_surveys} canonical surveys of ${O.submissions} submissions`} />
-        <Stat label="Taxa" value={`${O.taxa_raw} → ${O.taxa_resolved}`} sub={`raw → resolved · ${O.taxa_resolved_identified} identified`} />
-        <Stat label="Flags" value={<span>{fmtInt(D.fail_by_severity.error ?? 0)} <span className="muted small">err</span> · {fmtInt(D.fail_by_severity.warning ?? 0)} <span className="muted small">warn</span> · {fmtInt(D.fail_by_severity.info ?? 0)} <span className="muted small">info</span></span>} sub={`${fmtInt(D.status_counts.pass ?? 0)} checks passed · ${cnc} could not be checked`} />
+        <Stat
+          label={d.active ? 'Plots surveyed (filtered)' : 'Plots surveyed'}
+          value={`${new Set(canon.map((r) => r.plot_name)).size} of ${O.primary_points_planned}`}
+          sub={d.active ? `canonical surveys under the filters · ${O.plots_registered} registered in the whole run` : `primary points planned · ${O.plots_registered} registered, ${O.plots_viable} viable`}
+        />
+        <Stat label={d.active ? 'Quadrats (filtered)' : 'Quadrats'} value={fmtInt(canon.reduce((a, r) => a + (r.n_quadrats ?? 0), 0))} sub={`${canon.length} canonical surveys of ${d.S.length} submissions${d.active ? ' under the filters' : ''}`} />
+        <Stat label={d.active ? 'Taxa (whole run)' : 'Taxa'} value={`${O.taxa_raw} → ${O.taxa_resolved}`} sub={`raw → resolved · ${O.taxa_resolved_identified} identified${d.active ? ' · not filtered (a union of taxa needs the records)' : ''}`} />
+        <Stat
+          label={d.active ? 'Flags (filtered)' : 'Flags'}
+          value={<span>{fmtInt(sevCount('error'))} <span className="muted small">err</span> · {fmtInt(sevCount('warning'))} <span className="muted small">warn</span> · {fmtInt(sevCount('info'))} <span className="muted small">info</span></span>}
+          sub={d.active ? `${fmtInt(d.F.length)} of ${fmtInt(FLAGS.length)} flags · checks passed: whole run` : `${fmtInt(D.status_counts.pass ?? 0)} checks passed · ${cnc} could not be checked`}
+        />
       </div>
       <Section title="What matters for richness and diversity" sub="Ranked as in the report. Click a rule to see its flags.">
         <div className="qa-headlines">
@@ -714,8 +728,9 @@ function MapTab({ d, t, showFlags }: Ctx) {
         hovertemplate: '%{text}<extra></extra>',
       })
     }
-    const lats = d.P.map((p) => p.prescribed_lat as number)
-    const lons = d.P.map((p) => p.prescribed_lon as number)
+    const around = d.P.length ? d.P : PLOTS // keep the view on the project when a filter leaves no plot
+    const lats = around.map((p) => p.prescribed_lat as number)
+    const lons = around.map((p) => p.prescribed_lon as number)
     return { data, center: { lat: (Math.min(...lats) + Math.max(...lats)) / 2, lon: (Math.min(...lons) + Math.max(...lons)) / 2 } }
   }, [basemap, colorBy, sel, t, worstByPlot, d.P])
   return (
@@ -911,12 +926,15 @@ function TaxonomyTab({ d, showFlags }: Ctx) {
   return (
     <>
       <div className="stats-row">
-        <Stat label="Taxa (resolved)" value={fmtInt(O.taxa_resolved)} sub={`${O.taxa_resolved_identified} identified · ${O.taxa_resolved - O.taxa_resolved_identified} unresolved unknowns`} />
-        <Stat label="Raw keys" value={fmtInt(O.taxa_raw)} sub="list species + provisional slots as recorded" />
-        <Stat label="Names to check" value={fmtInt(d.F.filter((f) => f.rule_id === 'F03').length)} sub="GBIF fuzzy or no species match" />
-        <Stat label="No Kenyan record" value={d.F.find((f) => f.rule_id === 'F10' && f.entity_type === 'project')?.observed.split(' ')[0] ?? '—'} sub="identified taxa (GBIF)" />
+        <Stat label="Taxa (resolved, whole run)" value={fmtInt(O.taxa_resolved)} sub={`${O.taxa_resolved_identified} identified · ${O.taxa_resolved - O.taxa_resolved_identified} unresolved unknowns`} />
+        <Stat label="Raw keys (whole run)" value={fmtInt(O.taxa_raw)} sub="list species + provisional slots as recorded" />
+        <Stat label="Names to check (whole run)" value={fmtInt(FLAGS.filter((f) => f.rule_id === 'F03').length)} sub="GBIF fuzzy or no species match; a name is not tied to one visit" />
+        <Stat label="No Kenyan record (whole run)" value={FLAGS.find((f) => f.rule_id === 'F10' && f.entity_type === 'project')?.observed.split(' ')[0] ?? '—'} sub="identified taxa (GBIF)" />
       </div>
-      <Section title="Curation queue" sub={queue.sub} right={<button type="button" className="btn ghost sm" onClick={() => showFlags({ rule: queue.rules[0] })}>Open in All flags</button>}>
+      <Section
+        title="Curation queue"
+        sub={d.active ? `${queue.sub} Filtered: items tied to a name or an entity (not to a visit) are hidden while a device, recorder or date filter is on.` : queue.sub}
+        right={<button type="button" className="btn ghost sm" onClick={() => showFlags({ rule: queue.rules[0] })}>Open in All flags</button>}>
         <Segmented value={qk} onChange={setQk} size="sm" options={QUEUES.map((x) => ({ value: x.key, label: `${x.label} (${d.F.filter((f) => x.rules.includes(f.rule_id) && f.canonical).length})` }))} />
         <DataTable
           className="qa-table"

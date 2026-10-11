@@ -162,7 +162,10 @@ Show coverage first. Chao2 intervals are wide with 20 quadrats (V-10).
 A working reference of every view is the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`). It embeds `outputs/dashboard_results.json`, which `vegqa/dashboard.py` writes on every run, and never recomputes a rule, so the page shows exactly what the job publishes. Every view reads the marts and `qa_results`.
 
 - **Source records:** clicking a flag's source shows the original record from the embedded export, with its full key to copy (for ODK Central) and a link to the full table.
-- **Shared filters**, in one row above the views: replicate, stratum, device, recorder and date range. They apply to every view built from flags, submissions or plots. The Rules and Effort views cover the whole run.
+- **Shared filters**, in one row above the views: replicate, stratum, device, recorder and date range. They apply to every view built from flags, submissions or plots.
+  - **Overview:** the headline counts (plots surveyed, quadrats, flags) follow the filters.
+  - **Map and Plots:** device, recorder and date keep the plots visited under them; stratum and replicate filter directly.
+  - **Whole-run figures** are labelled "whole run" while a filter is on. These are the taxon totals (a union of taxa needs the records), the taxonomy headline cards, and the Rules and Effort views.
 - **View filters:** each view adds its own (severity, rule group, rule, plot, text, canonical only).
 - **"Passed everywhere":** lists only rules with no failure **and** no could-not-check result.
 
