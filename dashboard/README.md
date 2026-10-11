@@ -44,7 +44,7 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
   - **Ecological plausibility:** e.g. the nocturnal Nightjar in daytime, the diurnal Oriole at night.
 - **Data quality → Time zones & clocks tab:** whether the hours are local or UTC.
   - **Birds:** the files carry no time zone. Oriole dawn onset and Nightjar dusk onset are compared with sunrise and sunset computed (NOAA approximation) for candidate East African sites over the recording period. Of the 22 recorders with enough data, 2 (RBS40, RBS71) are consistent with UTC, 15 with local time (EAT, UTC+3), and 5 are inconclusive. The other 21 recorders can't be assessed. There is a toggle between the hours as recorded and corrected to local time (an assumed scenario).
-  - **Vegetation (ODK):** every form time is stamped +02:00, although Kenya is +03:00. The instants are correct: the server never receives a form before it ended, and all 640 photos fall inside their survey window. Only the label is wrong, so wall-clock times read off the stamps are 1 h behind local time.
+  - **Vegetation (ODK):** every form time is stamped +02:00, although Kenya is +03:00. The instants are correct: the server never receives a form before it ended, and all 640 quadrat photos fall inside their survey window. Only the label is wrong, so wall-clock times read off the stamps are 1 h behind local time.
   - **Impact table:** thresholds are unaffected; time-of-day and daily views are affected.
 - **Birds diurnal cycles:** hour by hour, in corrected local time (with an "as recorded" toggle).
   - Relative average confidence: the hourly mean ÷ the species' mean, with 95% CIs. Mean, mean logit and share ≥ 0.5 are also available.
@@ -91,7 +91,7 @@ The header switch picks **1 · Birds** or **2 · Vegetation**. Each challenge ha
 - **Derived time columns:**
   - Birds: `clock_correction_h`, `detection_time_local`, `hour_local`, `date_local`; validations: `hour_local`. The correction is inferred from bird activity in `src/data/clocks.ts`, not hard-coded.
   - Vegetation: `start_hour_eat`.
-  - Every date-time column now records the UTC offsets found in its raw text, shown on its Overview card.
+  - Every date-time column records the UTC offsets found in its raw text, shown on its Overview card.
 - **Vegetation summary:**
   - Headline counts.
   - Every table, with what one row means.
@@ -176,6 +176,7 @@ src/
   lib/simstats.ts    Beta/Gamma/normal samplers, Nelder–Mead, binomial pmf (unit-checked)
   components/Methodology.tsx  paper tabs; components/methods/* one file per paper + Overview
   components/BirdsThresholds.tsx  Challenge 1 results page (reads ../challenge1/outputs/dashboard_results.json)
+  components/VegetationQA.tsx  Challenge 2 QA/QC dashboard (reads ../challenge2/outputs/dashboard_results.json)
   data/dictionary.ts column meanings (ODK form questions + documented formats)
   lib/help.ts        every tooltip and Guide entry (single source)
   components/        Overview, Explore, Table, Map, FilterBar, Plot wrapper, UI atoms

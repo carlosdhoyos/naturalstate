@@ -41,7 +41,7 @@ Each challenge has its own folder with code and a Markdown write-up.
 
 ## Data Explorer
 
-[`dashboard/standalone/index.html`](dashboard/standalone/index.html) is a single self-contained file. Download it and double-click to explore every CSV in this repo (profiles, charts, filters, table, map) with no server. See [`dashboard/README.md`](dashboard/README.md) for what it does and the decisions behind it.
+[`dashboard/standalone/index.html`](dashboard/standalone/index.html) is a single self-contained file. Download it and double-click to explore all 17 input CSVs of the take-home (profiles, charts, filters, table, map) with no server. See [`dashboard/README.md`](dashboard/README.md) for what it does and the decisions behind it.
 
 ## Decision logs
 
@@ -52,4 +52,5 @@ Each challenge has its own folder with code and a Markdown write-up.
   - D-13 is Wood & Kahl's covariate test, compared by AIC; D-14 records how the five other papers were used (reported, used as a check, not adopted, or downstream).
   - Each entry separates the policy from its measured consequences; superseded parts are marked, not deleted.
 - [`docs/challenge1_paper_alignment.md`](docs/challenge1_paper_alignment.md): Wood & Kahl's recommendations, point by point, against what the analysis does.
+- Challenge 1 confirmation items C-1 to C-7: [`challenge1/Q1_report.md`](challenge1/Q1_report.md), section 9.
 - [`docs/challenge2_decisions.md`](docs/challenge2_decisions.md): Challenge 2 decisions (V-01 to V-11), differences from the exploratory review, new findings (N1–N13), the independent review, and confirmation items (C-1 to C-11).

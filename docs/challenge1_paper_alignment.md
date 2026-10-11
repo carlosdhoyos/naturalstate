@@ -11,7 +11,7 @@ The brief asks us to follow Wood & Kahl (2024), *Guidelines for appropriate use 
 - duplicate validations
 - site-specific false positives
 
-Every addition errs toward **fewer** automatic observations, never more. Decisions are referenced to the log in [challenge1_data_decisions.md](challenge1_data_decisions.md). The same table is on the dashboard: **Birds → Thresholds & observations → Wood & Kahl alignment**.
+Every addition errs toward **fewer** automatic observations, never more. The exception is point 11: keeping human verdicts adds 313 directly confirmed observations. Decisions are referenced to the log in [challenge1_data_decisions.md](challenge1_data_decisions.md). The same table is on the dashboard: **Birds → Thresholds & observations → Wood & Kahl alignment**.
 
 Status key:
 
@@ -82,7 +82,7 @@ We apply this to the **score** dimension as well:
 - Recorder and time effects can't be separated in this sample, and an evening effect remains plausible.
 - Score + evening is the best model that fits properly (ΔAIC 14.6). The recorder random-intercept fits did not converge and are inconclusive.
 
-**Decision.** The evening model meets the original adoption rule, but labels keep the pooled curve, because recorder–time confounding leaves its transferability unresolved. This departure from the rule is documented in D-13. The evening thresholds are reported as a sensitivity analysis: 0.4208 at night, 0.7272 in the evening, 3,715 labels vs 3,147. Recorder problems are handled by review flags, and on the platform by a recorder acceptance check.
+**Decision.** The evening model meets the original adoption rule, but labels keep the pooled curve, because recorder–time confounding leaves its transferability unresolved. This departure from the rule is documented in D-13. The evening thresholds are reported as a sensitivity analysis: 0.4208 at night & dawn, 0.7272 in the evening, 3,715 labels vs 3,147. Recorder problems are handled by review flags, and on the platform by a recorder acceptance check.
 
 ### 8. Disclose error rates — aligned
 

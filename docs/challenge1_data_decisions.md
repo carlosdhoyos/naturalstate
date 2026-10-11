@@ -486,7 +486,7 @@ The first version of this entry ranked the two Nightjar random-intercept fits by
 | score (the pooled curve) | −37.80 | 79.6 | 14.6 | 0.6666 |
 | **score + evening** | −29.49 | 65.0 | **0.0** | 0.4208 at night & dawn, 0.7272 in the evening |
 | score + week | −32.77 | 71.5 | 6.5 | 0.3585 (first week) |
-| score + (1 \| recorder) | −9.55 | — | not ranked | not converged; recorder SD diverging (25) |
+| score + (1 \| recorder) | −9.68 | — | not ranked | not converged; recorder SD diverging (25) |
 | score + evening + (1 \| recorder) | −8.27 | — | not ranked | not converged; recorder SD diverging (34) |
 
 | Validated Nightjar clips | Correct | Incorrect |

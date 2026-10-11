@@ -73,7 +73,7 @@ Every rule also declares whether it can change richness or diversity (`metric_im
 
 Every evaluated entity gets a row with status `fail`, `pass` or `could_not_check`, so "not checked" is never reported as "fine". A value the form could not have produced, such as one that breaks a constraint or differs from the entity value a calculation copies, is an **error with "investigate"**. It points to an edit after collection or to an export problem.
 
-A single result may carry a different severity from its rule's default, always with the reason in its message. The cases are:
+A single result may carry a different severity from its rule's default, always with the reason in its message. Examples:
 
 - GPS z-score tiers (V-04);
 - duplicate entity writes that hold identical values (F09: info);
@@ -143,7 +143,7 @@ The exploration's numbers were approximate. The pipeline re-derives them, and th
 
 | Exploration | Pipeline | Why |
 |---|---|---|
-| Plot 05 midpoint "20–24 m" (R2) | 19.98 m: pass, listed among the near-limit offsets | Rounding; the watch line is > 20 m |
+| Plot 05 midpoint "20–24 m" (R2) | 19.98 m: pass, just below the 20 m watch line | Rounding; the watch line is > 20 m |
 | Plot 29 transect 61.8 m (R3) | Pass | 11.8 m from 50 m is within GPS error (z = 1.9) (V-04) |
 | Whole-transect offsets: Plots 13, 07, 01 at 10–12 m (Q2) | Info; Plot 13 a warning for its 34° rotation | Within GPS error of the registered line (V-04) |
 | Plot 19/27 altitude runs (Q4) | Found by a step test (> 15 m between consecutive quadrats) | A run of glitches shifts the median, so a robust z misses it |
@@ -164,9 +164,9 @@ The exploration's numbers were approximate. The pipeline re-derives them, and th
 | N4 | More curation misspellings: Duosperma "cretanum" (crenatum), Leucas "tettenesis" (tettensis), "Polygalaerioptera" (Polygala erioptera). Melosperma bracteatum (41 canonical records) does not exist at species level in GBIF | F03, F13 |
 | N5 | Every survey stores replicate `lw_baseline`, but the form as written computes `LW_baseline`. The centroid list uses `baseline` | C14, X01 |
 | N6 | The non-viable Plot 23 was confirmed 157 m from its prescribed point, consistent with "on private property" | E12 |
-| N7 | Form design: macro photos at max-pixels 4097–4100 (copy-paste drift); quadrat GPS warning at 10 m against 5 m elsewhere; the registration plot list has no filter, so a plot can be registered twice | K01, K04 |
+| N7 | Form design: macro photos at max-pixels 4096–4100 (copy-paste drift); quadrat GPS warning at 10 m against 5 m elsewhere; the registration plot list has no filter, so a plot can be registered twice | K01, K04 |
 | N8 | The curation table's label disagrees with its number for herb_039 (labelled herb_011) and herb_072 (labelled herb_036) | F13 |
-| N9 | 20 of 90 identified taxa have no GBIF record in Kenya but hundreds in southern Africa. The species list (Acacia galpinii, Pechuel-loeschea) and the transport options ("Mokoro", an Okavango dugout) suggest the list was built for a southern-African project | F10 |
+| N9 | 20 of the 90 identified taxa GBIF could check have no GBIF record in Kenya but hundreds in southern Africa. The species list (Acacia galpinii, Pechuel-loeschea) and the transport options ("Mokoro", an Okavango dugout) suggest the list was built for a southern-African project | F10 |
 | N10 | **Three registrations edited after collection.** Plots 01, 04 and 15 store a geohash equal to the geohash-7 of their measured midpoint, not the centroid geohash the form copies; the edited value also reached `vegplots` | C17 |
 | N11 | Every GPS altitude is about 705 m below the SRTM terrain at its position (range −785 to −631 m), consistent with data from a site near 1,000 m | E14 |
 | N12 | The 51 prescribed points are 9–104 m (median 66 m) from the centres of their geohash cells, although the SOP defines the midpoint as the cell centre | J04 |
@@ -198,7 +198,7 @@ An independent reviewer, given no context, re-ran the pipeline and the tests, ex
 |---|---|
 | Registration geohash edited in 3 plots; no rule checked form lookups | New rule C17 recomputes every simple entity-lookup calculation of both forms from the parsed XLSForm (N10) |
 | The slot-collision narrative overstated the effect | Rewritten as a process risk; F09 now says whether duplicate writes are identical; B10's metric impact lowered to "indirect" |
-| Times labelled EAT were read off the +02:00 stamps | Corrected (+1 h) |
+| Times labelled EAT were read off the +02:00 stamps | Report wall-clock times re-derived from UTC as EAT (+1 h); source timestamps unchanged |
 | Resolved richness includes a certain duplicate (Polygalaerioptera) | A sensitivity row collapses names GBIF matches to one species (114) |
 | The stratum mapping hides that savanna plots are all "Scrub" | A D08 project row discloses it; C-10 |
 | Classic Chao2; slope reported as an extrapolation; no intervals | Bias-corrected Chao2 with a log-normal CI; Chao et al. 2014 extrapolation; Hill numbers (V-10) |

@@ -121,7 +121,7 @@ Thresholds live in the same file, under `thresholds:`, each commented with its s
 
 | Sweep | Rules | What it checks |
 |---|---|---|
-| H | C01–C17 | The form rules re-checked on the export. C01–C16 are hand-written from the forms' required, relevant, constraint and calculation rows. C17 is generic: it parses every `instance('list')/root/item[name = ${field}]/column` calculation from the XLSForm and recomputes it from the entity list. More complex expressions (counts, joins and positions inside repeats) have their own rules: C05–C07, C14, F14 |
+| C (form rules) | C01–C17 | The form rules re-checked on the export. C01–C16 are hand-written from the forms' required, relevant, constraint and calculation rows. C17 is generic: it parses every `instance('list')/root/item[name = ${field}]/column` calculation from the XLSForm and recomputes it from the entity list. More complex expressions (counts, joins and positions inside repeats) have their own rules: C05–C07, C14, F14 |
 | P | P01–P03 | Profiling of every column: padding, mixed types, duplicate labels, values outside their choice list |
 | X | X01 | Entity state compared with what the last submission wrote |
 
@@ -165,6 +165,7 @@ A working reference of every view is the **QA/QC dashboard** page of the Data Ex
 | View | Shows | Source |
 |---|---|---|
 | **Overview** | Headline numbers (plots planned / registered / surveyed, quadrats, taxa raw / resolved); flags by severity and group; the top open errors; a "not checked" counter | `survey_overview`, `rule_summary`, `qa_results` |
+| **All flags** | Every failure with severity, observed and expected values, action, and source table + key; filters by severity, group, rule, plot and text; canonical-only toggle; CSV download | `qa_results` |
 | **Submissions** | Timeline per device (form open → upload), upload delay, duration against the median, review state, canonical choice, flags per submission | `submissions`, `canonical_choice` |
 | **Map** | Prescribed points by status (surveyed / not viable / never registered / backup); click a plot to see its registered A–M–B line, the 5 m belt, the 25 m circle, and quadrats coloured by flag | `plots`, `quadrats` |
 | **Plots** | One row per plot: geometry (offset, length, bearing), richness raw / resolved, all-unknown quadrats, coverage, flag counts; a heatmap of plots × rule groups | `plots`, `effort_plots` |
@@ -232,7 +233,7 @@ create table flag_reviews (id bigserial primary key, rule_id text not null, enti
 | Acceptance, mutation and unit tests | 132 passing |
 | GBIF cache | 99 names, retrieved 2026-10-10 |
 | Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |
-| Dashboard views | Reference page built: Data Explorer → Vegetation → QA/QC dashboard (`dashboard/src/components/VegetationQA.tsx`), reading `outputs/dashboard_results.json`. All nine views below run on the provided data |
+| Dashboard views | Reference page built: Data Explorer → Vegetation → QA/QC dashboard (`dashboard/src/components/VegetationQA.tsx`), reading `outputs/dashboard_results.json`. All nine views of section 6 run on the provided data |
 | Flag-review workflow | Specified (DDL above); not implemented in the reference |
 | Platform integration (triggers, storage) | To build |
 
@@ -276,7 +277,7 @@ These are flagged by the K rules, but a QA dashboard cannot fix them:
 | `dashboard/src/components/VegetationQA.tsx` | Reference dashboard page (React + Plotly) |
 | `challenge2/reference/gbif_cache.json` | Cached GBIF reference |
 | `challenge2/reference/elevation_cache.json` | Cached SRTM elevations |
-| `challenge2/tests/` | Acceptance and unit tests |
+| `challenge2/tests/` | Acceptance, mutation and unit tests |
 | `docs/challenge2_decisions.md` | Decisions V-01 to V-11, differences, new findings, independent review, confirmation items |
 
 **To run:**
@@ -284,7 +285,7 @@ These are flagged by the K rules, but a QA dashboard cannot fix them:
 ```bash
 python -m venv challenge2/.venv && challenge2/.venv/bin/pip install -r challenge2/requirements.txt
 challenge2/.venv/bin/python challenge2/src/run_challenge2.py          # outputs/ and figures (--exports/--entities/--out for other data)
-cd challenge2/src && ../.venv/bin/python -m vegqa.report_tables       # refresh the report's tables
-cd challenge2/tests && ../.venv/bin/python -m pytest -q              # acceptance, mutation and unit tests
-cd dashboard && npm install && npm run build                         # rebuild the dashboard with the new outputs
+(cd challenge2/src && ../.venv/bin/python -m vegqa.report_tables)     # refresh the report's tables
+(cd challenge2/tests && ../.venv/bin/python -m pytest -q)            # acceptance, mutation and unit tests
+(cd dashboard && npm install && npm run build)                       # rebuild the dashboard with the new outputs
 ```

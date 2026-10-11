@@ -257,7 +257,7 @@ Changing any of these creates a new threshold set. Nothing is edited in place.
   - **A worker task, e.g. a Redis queue consumer, for job A:** `io_postgres.read_validations` → `calibrate(..., diagnostics=True)` → `io_postgres.write_threshold_set`. This writes a **draft**.
   - **Publishing** is a separate, approved step: Biometrics signs off, and the status changes to `published`.
   - **A second task for job B:** `read_predictions` + `read_verdicts` → `label(..., published_set)` → `write_labels`.
-  - **The image:** `docker build -t ns-observations challenge1/ns_observations`. It runs as a non-root user, with the CLI as entrypoint.
+  - **The image:** `docker build -t ns-observations:1.0.0 challenge1/ns_observations`. It runs as a non-root user, with the CLI as entrypoint.
 - **The threshold set is the contract between the jobs.** It is deterministic JSON validated against `threshold_set.schema.json` (version 1.1). Its id is derived from the decision content and the scope (policy, validation snapshot, code version, species results, project and BirdNET configuration). Re-running calibration on unchanged inputs reproduces it, and neither diagnostics nor publication changes it.
 - **Integrity on read and write.** Loading or writing a threshold set checks two things:
   - The id matches the content.
@@ -292,7 +292,7 @@ Changing any of these creates a new threshold set. Nothing is edited in place.
 
 ## 8. Upstream data-contract fixes (found while doing this)
 
-1. **A stable `prediction_id`, carried into the validation export.** Today validated clips are linked by species + recorder + hour + a 3-decimal score. That leaves 69 tied clips and 2 unmatched ones, and it allowed the same segment to be validated twice (D-01, D-02).
+1. **A stable `prediction_id`, carried into the validation export.** Today validated clips are linked by species + recorder + date + hour + a 3-decimal score. That leaves 69 tied clips and 2 unmatched ones, and it allowed the same segment to be validated twice (D-01, D-02).
 2. **The true audio-file start time.** The predictions export renames files to HH:00:00 and counts `begin_time_s` from the hour, while the validation names keep the true start second.
 3. **Sample validation clips without replacement,** and enforce `unique (prediction_id, validator_id)`.
 4. **Recorder clock and time zone at deployment** (ODK). Activity patterns suggest two recorders ran on UTC (D-03).
@@ -350,7 +350,7 @@ Everything the Tech team would deploy was written and tested here. Three parts c
 |---|---|---|
 | Decision rules, label rule, threshold-set artifact, CLI | **Verified** | 50 package tests, including the end-to-end acceptance test on the take-home data. The CLI's labelled file is byte-identical to the research pipeline's, and so is its threshold set when run with `--diagnostics` (without it: same id and decisions) |
 | Packaging (wheel, entry point, bundled schemas) | **Verified** | The wheel was built and installed into a fresh Python 3.13 environment outside the repo. `ns-observations run` gave byte-identical output there, with the same threshold-set id |
-| Docker image | **Written, not built** | The Docker daemon was not running on the development machine. The image installs the same package with `pip install ".[schema]"`. To check: `docker build -t ns-observations:1.0.0 challenge1/ns_observations`, then the `docker run` command in the package README |
+| Docker image | **Written, not built** | The Docker daemon was not running on the development machine. The image installs the same package with `pip install ".[schema]"`. To check: `docker build -t ns-observations:1.0.0 challenge1/ns_observations`, then the `docker run` command in the package README (`challenge1/ns_observations/README.md`) |
 | PostgreSQL adapter (`io_postgres.py`, `sql/schema.sql`) | **Stub** | The SQL and functions match the handover's tables, including configuration scoping, the label upsert with an append-only history, and the immutability triggers. Their calls are checked with a fake connection, but neither the SQL nor the triggers have **ever run against a database**. Before production: apply `schema.sql` to a staging database and add integration tests |
 | R cross-check snippet (section 9) | **Not run** | R is not installed on the development machine. The expected value, 0.6666381, was confirmed with statsmodels' binomial GLM, the same estimator as R's `glm` |
 

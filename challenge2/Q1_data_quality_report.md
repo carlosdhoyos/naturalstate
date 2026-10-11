@@ -23,7 +23,7 @@ The problems that matter for richness and diversity sit elsewhere: in **what was
 1. **The shrubland stratum was not sampled.** None of its 6 primary points was registered (J01), so the project cannot report herbaceous richness for shrubland. In the savanna stratum, 29 of 30 primary points were surveyed, plus 1 backup.
 2. **Positions, altitudes and species do not fit together at Lewa.** Confirm where the data were collected (C-7).
    - Every GPS altitude is about **705 m below the terrain** at its recorded position (SRTM: 1,350–1,750 m; GPS: 960–1,030 m) (E14).
-   - **20 of 90 identified taxa have no GBIF record in Kenya**, but hundreds in southern Africa (F10): Pogonarthria fleckii, Pechuel-loeschea leubnitziae, Erlangea misera, Aristida scabrivalvis, and others.
+   - **20 of the 90 identified taxa GBIF could check have no GBIF record in Kenya** (92 identified in all), but hundreds in southern Africa (F10): Pogonarthria fleckii, Pechuel-loeschea leubnitziae, Erlangea misera, Aristida scabrivalvis, and others.
    - The transport list offers "Mokoro", an Okavango dugout canoe.
 
    Together these are consistent with a species list, and perhaps altitudes, carried over from a southern-African site near 1,000 m. Missing GBIF records alone would be weak evidence; the pattern is not.
@@ -60,6 +60,7 @@ A further 22 combinations could not be checked. Every check that passed is liste
 
 ### How to read this report
 
+- **Ids:** C-n is a confirmation item for Natural State; Cnn, Dnn and the like (C07, D01) are rule ids.
 - **Rule ids** (B10, F03, …) point to the catalogue in Appendix A and to `challenge2/rules/rules.yaml`. Each rule records its source: an SOP step, an ODK form row, an entity list, or "judgement" where the threshold is ours.
 - **Severity:**
   - **error**: violates a documented requirement or prevents reliable interpretation;
@@ -100,10 +101,10 @@ The survey is the herbaceous survey entity of the Lewa baseline replicate as a w
 | Structure and joins | Every survey has exactly 20 quadrats, numbered 1–20; no orphan rows; no duplicate keys | A01–A04 |
 | References | Every species, team member, transport, survey, plot and ecosystem reference resolves; all 947 list picks are herbaceous species | A05, A06 |
 | Evidence | Attachments present = expected for all 63 submissions; no photo file used twice (880 files) | A08, E11 |
-| Timing | Every quadrat photo falls inside its survey window; no upload before its form ended; no team member on two overlapping visits; no implausible travel speed between visits | E08, B06, B08, B09 |
+| Timing | Every quadrat photo falls inside its survey window; no upload before its form ended; no team member on two overlapping visits; no implausible travel speed between visits | E08, B06 (error tier only), B08, B09 |
 | GPS | All points meet the form's 5 m accuracy limit | D06, E01 |
-| Form rules | No constraint, required-field or relevance rule of either form is broken (canonical names, confirmation, macro photos, registration metadata); every entity-lookup calculation matches its list except the three edited geohashes (C17) | C01–C03, C05, C06, C08–C13, C15–C17 |
-| Entity state | Every provisional species entity holds exactly what its last submission wrote; the provisional index sequence is unbroken across accepted submissions | X01, F14 |
+| Form rules | No constraint, required-field or relevance rule of either form is broken (canonical names, confirmation, macro photos, registration metadata); every entity-lookup calculation matches its list except the three edited geohashes (C17); the one other exception is Plot 28's empty additional-species row (C08) | C01–C03, C05, C06, C09–C13, C15, C16 |
+| Entity state | Every provisional species entity holds exactly what its last submission wrote; the provisional index sequence is unbroken across accepted submissions | X01 (species slots), F14 |
 | Plot links | Every survey points to a registered, viable plot of the herbaceous survey | B03, D11 |
 
 ### Issues at survey level
@@ -252,7 +253,7 @@ The grid below shows each registered transect: the A–M–B line, the 5 m belt,
 | One species, two entities | Aristida scabrivalvis (herb_040, herb_067); Justicia divaricata (herb_059, herb_104, the second with a trailing space) | F04, F01 |
 | Several ids, one species | Ipomea dichroa (4 ids), Crotolaria pisicarpa (2), Evolvulus alsinoides, Tephrosia purpurea, Rhynchosia minima | F08 |
 | Woody taxa | herb_100 (duplicate of wood_005) and herb_071 (Rhus tenuinervis), both "below 40 cm, exclude": 3 canonical records, excluded in the resolved layer | F06, V-03 |
-| Range | 20 of 90 identified taxa have no GBIF record in Kenya but many in southern Africa. A single missing record is weak evidence (GBIF is incomplete), but a fifth of the list is a pattern; native-range data (POWO/WCVP) would settle it | F10 |
+| Range | 20 of the 90 identified taxa GBIF could check have no GBIF record in Kenya but many in southern Africa. A single missing record is weak evidence (GBIF is incomplete), but a fifth of the list is a pattern; native-range data (POWO/WCVP) would settle it | F10 |
 | Life form | Some list species marked "herbaceous" are shrubs or climbers elsewhere (e.g. Pechuel-loeschea leubnitziae), so the list's group may not match the SOP's "non-woody" rule. Not checked automatically | (C-7) |
 
 ### Plots at a glance

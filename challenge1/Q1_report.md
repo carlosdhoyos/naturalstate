@@ -130,7 +130,7 @@ For the Nightjar:
   - Among the models that fit properly, score + evening is the best, by 14.6 AIC units over the pooled curve.
   - But its evening coefficient comes almost entirely from those two recorders.
   - Without them the evening term cannot be estimated: all 4 remaining errors are evening clips, and none of 68 night clips is wrong.
-  - The week term is not supported.
+  - Among the other recorders the week term is not supported (adding it raises AIC by 1.7).
   - The recorder random-intercept models did not converge, so they are inconclusive.
 
 **The evening model meets the adoption rule I set before seeing the results** (better by ΔAIC ≥ 2, identified, computable for any recorder).
