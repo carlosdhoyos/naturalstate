@@ -283,15 +283,21 @@ const TABS: { key: Tab; label: string; sub: string }[] = [
   { key: 'discussion', label: 'Discussion & conclusions', sub: 'other papers · take-aways' },
 ]
 
-/** The app rewrites the hash before this page mounts (data parse first), so capture it at load. */
-let LINKED_TAB: Tab | null = window.location.hash.startsWith('#/thresholds:birds/') ? (window.location.hash.split('/')[2] as Tab) : null
+/** The tab named in a URL like #/thresholds:birds/curves, or null. */
+function tabFromHash(hash: string): Tab | null {
+  const [, page, want] = hash.split('/')
+  return page === 'thresholds:birds' && TABS.some((x) => x.key === want) ? (want as Tab) : null
+}
+/** Captured at load too: on first load the data are parsed before this page mounts. */
+let LINKED_TAB: Tab | null = tabFromHash(window.location.hash)
 
 export function BirdsThresholds({ reg, tokens: t }: { reg: Map<string, Dataset>; tokens: ThemeTokens }) {
   // a deep link like #/thresholds:birds/curves opens that tab (read once, see LINKED_TAB)
   const [tab, setTabState] = useState<Tab>(() => {
-    const want = LINKED_TAB
+    // the current URL wins (cross-page links, re-entry); the load-time capture covers the first load
+    const want = tabFromHash(window.location.hash) ?? LINKED_TAB
     LINKED_TAB = null
-    return want && TABS.some((x) => x.key === want) ? want : 'results'
+    return want ?? 'results'
   })
   const setTab = (next: Tab) => {
     setTabState(next)
@@ -300,8 +306,8 @@ export function BirdsThresholds({ reg, tokens: t }: { reg: Map<string, Dataset>;
   // follow later URL changes too (a pasted link or the back button while the page is open)
   useEffect(() => {
     const on = () => {
-      const [, page, want] = window.location.hash.split('/')
-      if (page === 'thresholds:birds' && TABS.some((x) => x.key === want)) setTabState(want as Tab)
+      const want = tabFromHash(window.location.hash)
+      if (want) setTabState(want)
     }
     window.addEventListener('hashchange', on)
     return () => window.removeEventListener('hashchange', on)
@@ -600,7 +606,7 @@ const CONFIRMATIONS: { id: string; item: string; assumed: string; ifNot: string 
 // ── the deployable package and what has been verified (same table as Q2 section 9 and the package README) ──
 
 const VERIFICATION: { part: string; status: 'verified' | 'written' | 'stub' | 'not run'; evidence: string }[] = [
-  { part: 'Decision rules, label rule, threshold-set artifact, CLI', status: 'verified', evidence: '45 package tests, including an end-to-end acceptance test on the take-home data. The CLI’s labelled file is byte-identical to the research pipeline’s, and so is its threshold set when run with --diagnostics (without it: same id and decisions).' },
+  { part: 'Decision rules, label rule, threshold-set artifact, CLI', status: 'verified', evidence: '50 package tests, including an end-to-end acceptance test on the take-home data. The CLI’s labelled file is byte-identical to the research pipeline’s, and so is its threshold set when run with --diagnostics (without it: same id and decisions).' },
   { part: 'Packaging (wheel, entry point, bundled schemas)', status: 'verified', evidence: 'The wheel was built and installed into a fresh Python 3.13 environment; the ns-observations run command gave byte-identical output, with the same threshold-set id.' },
   { part: 'Docker image', status: 'written', evidence: 'Not built: the Docker daemon was not running on the development machine. It installs the same package; check with: docker build -t ns-observations:1.0.0 challenge1/ns_observations' },
   { part: 'PostgreSQL adapter (io_postgres.py, sql/schema.sql)', status: 'stub', evidence: 'The SQL and functions match the handover’s tables, including configuration scoping, the label upsert with an append-only history, and the immutability triggers; calls are checked with a fake connection, but neither the SQL nor the triggers have run against a database. Before production: a staging database and integration tests.' },
@@ -613,7 +619,7 @@ function DeployablePackage() {
       title="For the Tech team: the deployable package"
       sub={
         <>
-          <code>challenge1/ns_observations/</code> is an installable Python 3.13 package. <code>ns-observations calibrate</code> turns validations into a versioned, schema-checked threshold set; <code>ns-observations label</code> applies it to predictions, with no fitting. It ships with a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 45 tests. The research analysis behind this page imports the same decision rules, so the two cannot drift apart. Details: <code>challenge1/Q2_tech_handover.md</code>.
+          <code>challenge1/ns_observations/</code> is an installable Python 3.13 package. <code>ns-observations calibrate</code> turns validations into a versioned, schema-checked threshold set; <code>ns-observations label</code> applies it to predictions, with no fitting. It ships with a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 50 tests. The research analysis behind this page imports the same decision rules, so the two cannot drift apart. Details: <code>challenge1/Q2_tech_handover.md</code>.
         </>
       }
     >

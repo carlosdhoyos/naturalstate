@@ -6,7 +6,7 @@
 - `ns-observations calibrate` (job A) and `ns-observations label` (job B), as a CLI and a Python API.
 - A versioned threshold-set artifact, with JSON schemas.
 - A CSV adapter, plus a PostgreSQL adapter stub matching section 3.
-- 45 tests, including an end-to-end acceptance test.
+- 50 tests, including an end-to-end acceptance test.
 
 **Where the decisions were made:**
 - [`src/run_challenge1.py`](src/run_challenge1.py): the research analysis. It covers sensitivity, the bootstrap, the covariate tests and the figures, and imports the package's decision rules, so the two cannot drift apart.
@@ -348,7 +348,7 @@ Everything the Tech team would deploy was written and tested here. Three parts c
 
 | Part | Status | Evidence / how to check |
 |---|---|---|
-| Decision rules, label rule, threshold-set artifact, CLI | **Verified** | 45 package tests, including the end-to-end acceptance test on the take-home data. The CLI's labelled file is byte-identical to the research pipeline's, and so is its threshold set when run with `--diagnostics` (without it: same id and decisions) |
+| Decision rules, label rule, threshold-set artifact, CLI | **Verified** | 50 package tests, including the end-to-end acceptance test on the take-home data. The CLI's labelled file is byte-identical to the research pipeline's, and so is its threshold set when run with `--diagnostics` (without it: same id and decisions) |
 | Packaging (wheel, entry point, bundled schemas) | **Verified** | The wheel was built and installed into a fresh Python 3.13 environment outside the repo. `ns-observations run` gave byte-identical output there, with the same threshold-set id |
 | Docker image | **Written, not built** | The Docker daemon was not running on the development machine. The image installs the same package with `pip install ".[schema]"`. To check: `docker build -t ns-observations:1.0.0 challenge1/ns_observations`, then the `docker run` command in the package README |
 | PostgreSQL adapter (`io_postgres.py`, `sql/schema.sql`) | **Stub** | The SQL and functions match the handover's tables, including configuration scoping, the label upsert with an append-only history, and the immutability triggers. Their calls are checked with a fake connection, but neither the SQL nor the triggers have **ever run against a database**. Before production: apply `schema.sql` to a staging database and add integration tests |

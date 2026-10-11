@@ -63,3 +63,14 @@ def test_threshold_set_identical_to_the_research_pipeline(tmp_path):
     assert (tmp_path / "d.json").read_bytes() == (RESEARCH_OUT / "threshold_set.json").read_bytes()
     main(["calibrate", "--predictions", str(PRED_CSV), "--validations", str(VAL_CSV), "--out", str(tmp_path / "p.json")])
     assert json.loads((tmp_path / "p.json").read_text())["threshold_set_id"] == json.loads((tmp_path / "d.json").read_text())["threshold_set_id"]
+
+
+def test_row_order_does_not_change_the_threshold_set():
+    """The same validated clips in any order give a byte-identical threshold set (and id), diagnostics included."""
+    from ns_observations import calibrate, io_csv
+
+    preds = io_csv.read_predictions(PRED_CSV)
+    val, _ = io_csv.load_validations(VAL_CSV, preds)
+    kw = dict(species=list(preds.table.species.value_counts().index), scope=io_csv.takehome_scope(val), diagnostics=True)
+    docs = {calibrate(val, **kw).to_json()} | {calibrate(val.sample(frac=1, random_state=r), **kw).to_json() for r in (1, 7)}
+    assert len(docs) == 1

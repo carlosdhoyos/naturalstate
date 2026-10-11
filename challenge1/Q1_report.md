@@ -56,7 +56,7 @@ validated clips ──► link & de-duplicate ──► EVIDENCE GATE ──► 
   - **Why errors matter.** The 99% point lies where errors become rare, so its location is learned from the errors near it.
   - **With 0 errors (Oriole),** ordinary maximum likelihood has no finite answer. Even the penalised (Firth) fit is flat, and its level is set entirely by the penalty.
   - **With 1 error (Plover),** three defensible estimators put the threshold at 0.16, 0.26 or 0.85, which would mean 785, 536 or 100 labels. Remove that single clip and there is no threshold at all.
-  - **Why 5.** This is my chosen evidence policy, not a statistical requirement of logistic regression or of the brief. 5 is the smallest count at which no single clip decides the answer. The sensitivity analysis also runs k = 1, 3 and 10.
+  - **Why 5.** This is my chosen evidence policy, not a statistical requirement of logistic regression or of the brief. 5 is a pragmatic minimum, chosen to reduce dependence on extremely sparse outcomes. It is not a statistical minimum: a species with exactly five errors would fail the gate if one of them were removed. The choice rests on judgement and is checked by sensitivity analysis. The sensitivity analysis also runs k = 1, 3 and 10.
 - **Accept (D-05).** The threshold must come from a valid, increasing curve and lie inside the range of validated scores.
   - A threshold above that range would be an extrapolation. That is the Firefinch: its curve reaches 99% only at about 0.998, but its highest validated score, and its highest prediction, is 0.907.
   - If the curve were already above 99% at the lowest validated score, the threshold would be that score, never a point below it.

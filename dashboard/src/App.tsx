@@ -126,7 +126,8 @@ export default function App() {
     if (!summaryOf) return
     save('current', current)
     const h = `#/${current}`
-    if (window.location.hash !== h) window.history.replaceState(null, '', h)
+    // keep a page's own sub-route (e.g. #/thresholds:birds/curves): the page owns that part
+    if (window.location.hash !== h && !window.location.hash.startsWith(`${h}/`)) window.history.replaceState(null, '', h)
   }, [summaryOf, current])
 
   const openView: OpenView = useCallback(

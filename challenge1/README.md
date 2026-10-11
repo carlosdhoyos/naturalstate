@@ -15,7 +15,7 @@ This folder contains a reproducible workflow. It does three things:
 
 - **[`ns_observations/`](ns_observations/README.md)** is the **deployable package**.
   - Commands: `ns-observations calibrate` (validations → versioned threshold set) and `ns-observations label` (predictions → labels).
-  - It comes with JSON schemas, a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 45 tests.
+  - It comes with JSON schemas, a CSV adapter, a PostgreSQL adapter stub, a Dockerfile and 50 tests.
 - **[`src/`](src/)** is the **research analysis.** Every decision was made and checked here: sensitivity, the bootstrap, the covariate tests, figures, the dashboard data.
   - It imports the package's decision rules, linking and label rule, so the two cannot drift apart.
   - Its labelled file is byte-identical to the package CLI's. Its threshold set is byte-identical to `ns-observations calibrate --diagnostics`; without diagnostics the CLI gives the same id and decisions. Both are tested.
@@ -40,8 +40,8 @@ python3.13 -m venv challenge1/.venv
 challenge1/.venv/bin/pip install -r challenge1/requirements-lock.txt      # or requirements.txt for direct dependencies only
 challenge1/.venv/bin/pip install -e "challenge1/ns_observations[test]"   # the deployable package (the research script also finds it without installing)
 challenge1/.venv/bin/python challenge1/src/run_challenge1.py               # about 5 s; writes challenge1/outputs/
-challenge1/.venv/bin/python -m pytest challenge1/tests -q                  # 37 research tests
-challenge1/.venv/bin/python -m pytest challenge1/ns_observations -q        # 45 package tests (incl. end-to-end acceptance)
+challenge1/.venv/bin/python -m pytest challenge1/tests -q                  # 38 research tests
+challenge1/.venv/bin/python -m pytest challenge1/ns_observations -q        # 50 package tests (incl. end-to-end acceptance)
 ```
 
 Options: `--out DIR`, `--n-boot N`, `--seed S`, `--min-each-outcome K` (the evidence gate) and `--no-figures`. The same inputs and seed always produce byte-identical outputs. The summary contains no timestamp; it records input checksums and package versions instead.

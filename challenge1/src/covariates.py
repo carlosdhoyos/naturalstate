@@ -120,6 +120,10 @@ def fit_random_intercept(X: np.ndarray, y: np.ndarray, groups: np.ndarray, colum
     X = np.asarray(X, float)
     y = np.asarray(y, float)
     groups = np.asarray(groups)
+    # canonical row order (group, outcome, then the columns): the likelihood is order-free in exact
+    # arithmetic, but a fit that does not converge would otherwise wander differently per row order
+    order = np.lexsort(tuple(X[:, j] for j in range(X.shape[1] - 1, -1, -1)) + (y, groups.astype(str)))
+    X, y, groups = X[order], y[order], groups[order]
     start = fit_fixed(X, y, columns, "start")
     theta0 = np.r_[start.beta if start.valid else np.zeros(X.shape[1]), np.log(0.5)]
 
@@ -128,14 +132,19 @@ def fit_random_intercept(X: np.ndarray, y: np.ndarray, groups: np.ndarray, colum
             v = -glmm_loglik(theta[:-1], float(np.exp(theta[-1])), X, y, groups)
         return v if np.isfinite(v) else 1e12
 
-    res = minimize(nll, theta0, method="Nelder-Mead", options={"xatol": 1e-7, "fatol": 1e-9, "maxiter": 20000, "maxfev": 40000})
-    res = minimize(nll, res.x, method="BFGS", options={"gtol": 1e-6})  # polish
+    res = minimize(nll, theta0, method="Nelder-Mead", options={"xatol": 1e-7, "fatol": 1e-9, "maxiter": 2500, "maxfev": 3000})
+    # polish with log(sigma) bounded: a recorder SD beyond e^5 (~150) on the logit scale is divergence,
+    # not an estimate, and lets a non-identified fit stop quickly instead of wandering along the ridge
+    bounds = [(None, None)] * (len(theta0) - 1) + [(-12.0, 5.0)]
+    res = minimize(nll, np.clip(res.x, [b[0] if b[0] is not None else -np.inf for b in bounds], [b[1] if b[1] is not None else np.inf for b in bounds]),
+                   method="L-BFGS-B", bounds=bounds, options={"gtol": 1e-7, "maxiter": 500})
     beta, sigma = res.x[:-1], float(np.exp(res.x[-1]))
-    # converged = the optimiser says so AND the gradient of the objective is ~0 (checked independently
-    # by central differences, since BFGS can stop with "precision loss" far from a stationary point)
+    # converged = the gradient of the objective is ~0, checked independently by central differences.
+    # The optimiser's own status is only advisory: it can report success far from a stationary point,
+    # or a line-search failure exactly at one (it is kept in the notes either way).
     h = 1e-5
     grad = np.array([(nll(res.x + h * e) - nll(res.x - h * e)) / (2 * h) for e in np.eye(len(res.x))])
-    converged = bool(res.success and np.all(np.isfinite(grad)) and np.max(np.abs(grad)) < 1e-3)
+    converged = bool(np.all(np.isfinite(grad)) and np.max(np.abs(grad)) < 1e-3)
     notes = [] if res.success else [f"optimiser: {res.message}"]
     if not converged:
         notes.append(f"not converged (max |gradient| = {np.max(np.abs(grad)):.2g})")

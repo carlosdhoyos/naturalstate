@@ -133,3 +133,12 @@ def test_ids_that_collide_as_text_are_rejected(ts):
     p = _preds(ts).assign(prediction_id=[1, "1", 3, 4, 5, 6, 7])
     with pytest.raises(ValueError, match="unique"):
         label(p, ts)
+
+
+@pytest.mark.parametrize("pair,expected", [((0, "0"), "validated_incorrect"), ((1, "1"), "validated_correct"), ((False, 0.0), "validated_incorrect"), ((True, 1), "validated_correct")])
+def test_agreeing_verdicts_in_different_representations_agree(ts, pair, expected):
+    """0 / "0" / 0.0 / False are the same verdict: normalised before checking agreement."""
+    v = pd.DataFrame({"prediction_id": ["p3", "p3"], "outcome": list(pair), "link": "unique"})
+    out = label(_preds(ts), ts, v)
+    assert out.observation_status.tolist()[2] == expected
+    assert out.attrs["conflicting_verdicts"] == 0

@@ -56,11 +56,12 @@ def _verdict_columns(predictions: pd.DataFrame, verdicts: pd.DataFrame | None) -
     v = v[v._pos >= 0]
     for p_ in v.loc[v.link == "tied", "_pos"]:
         link[p_] = "tied"
-    uniq = v[(v.link == "unique") & v.outcome.notna()]
+    uniq = v[(v.link == "unique") & v.outcome.notna()].copy()
+    uniq["outcome"] = _outcome01(uniq.outcome)  # 0, "0", 0.0 and False are the same verdict
     agree = uniq.groupby("_pos").outcome.agg(lambda s: s.nunique() == 1)
     conflicts = int((~agree).sum())
     decided = uniq[uniq._pos.isin(agree[agree].index)].drop_duplicates("_pos")
-    for p_, o in zip(decided._pos, _outcome01(decided.outcome).astype(int)):
+    for p_, o in zip(decided._pos, decided.outcome.astype(int)):
         outcome[p_] = "correct" if o == 1 else "incorrect"
         link[p_] = "unique"
     return outcome, link, conflicts, unmatched

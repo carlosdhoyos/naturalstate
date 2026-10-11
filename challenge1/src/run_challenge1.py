@@ -433,8 +433,12 @@ def main(cfg: Config = Config()) -> dict:
     rows, procs, rec_tables, cov_tables, curves_all, calib, sampling, flagged, rc_by_sp = [], {}, [], [], {}, [], [], {}, {}
     for sp in species:
         d, P = species_frames(val, pred, sp)
+        # the same canonical order run_procedure uses internally (score, then outcome), so pr.x / pr.y
+        # line up row for row with d in everything below (calibration bands, figures, dashboard clips)
+        d = d.iloc[np.lexsort((d.outcome.to_numpy(), d.confidence.to_numpy()))]
         conf_p = P.confidence.to_numpy()
         pr = run_procedure(d.confidence.to_numpy(), d.outcome.to_numpy(), cfg)
+        assert np.array_equal(pr.y, d.outcome.to_numpy()), "procedure and clip table out of order"
         procs[sp] = pr
 
         # comparison estimators, reported for every species whatever the gate says (D-07)

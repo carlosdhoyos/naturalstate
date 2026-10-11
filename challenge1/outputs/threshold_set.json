@@ -19,8 +19,8 @@
   },
   "species": {
     "Abyssinian Nightjar": {
-      "beta0": 3.1589982987070475,
-      "beta1": 2.072270314935195,
+      "beta0": 3.158998298707044,
+      "beta1": 2.0722703149351926,
       "curve_identified": true,
       "diagnostics": {
         "bootstrap_recorder": {
@@ -57,18 +57,18 @@
         {
           "bonferroni_alpha": 0.0071428571428571435,
           "correct": 0,
-          "expected_correct": 4.375076543443517,
+          "expected_correct": 4.375076543443518,
           "flag": "recorder_inconsistent_with_pooled_curve",
-          "p_value": 0.0025989350201989555,
+          "p_value": 0.002598935020198951,
           "recorder": "RBS75",
           "validated_clips": 10
         },
         {
           "bonferroni_alpha": 0.0071428571428571435,
           "correct": 0,
-          "expected_correct": 10.899946328265688,
+          "expected_correct": 10.899946328265687,
           "flag": "recorder_inconsistent_with_pooled_curve",
-          "p_value": 2.515527445384084e-08,
+          "p_value": 2.5155274453840902e-08,
           "recorder": "RBS79",
           "validated_clips": 19
         }
@@ -100,8 +100,8 @@
       "validated_min": 0.104
     },
     "Red-billed Firefinch": {
-      "beta0": -1.4577788986162163,
-      "beta1": 0.9422955371462722,
+      "beta0": -1.4577788986162161,
+      "beta1": 0.9422955371462723,
       "curve_identified": true,
       "diagnostics": {
         "bootstrap_recorder": {
@@ -157,7 +157,7 @@
     }
   },
   "status": "draft",
-  "threshold_set_id": "ts-7bf12b61d2b9071c",
+  "threshold_set_id": "ts-8fae4456dc6301a1",
   "validation_snapshot": {
     "n_clips": 547,
     "sha256": "643e6574d4d5b06f31bda29c63c6cfcbaef7b266463002b18381ada7da64a9bb"

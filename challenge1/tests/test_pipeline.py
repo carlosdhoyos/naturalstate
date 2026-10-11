@@ -188,3 +188,16 @@ def test_reproducible_outputs(tmp_path):
         rc.main(rc.Config(out_dir=d, n_boot=50, write_figures=False))
     for name in ("birdnet_predictions_with_observations.csv", "species_thresholds.csv", "run_summary.json", "dashboard_results.json"):
         assert (a / name).read_bytes() == (b / name).read_bytes(), name
+
+
+def test_calibration_counts_match_the_raw_validations(run, data):
+    """Model-free cross-check: the correct/total counts per score band equal a direct count from the
+    validated clips (guards against the procedure and the clip table getting out of order)."""
+    cfg, _, _, _ = run
+    _, _, val, _ = data
+    calib = pd.read_csv(cfg.out_dir / "calibration_by_band.csv")
+    band = rc.by_band(val.confidence)
+    direct = val.assign(band=band.astype(str)).groupby(["commonName", "band"], observed=True).outcome.agg(["size", "sum"]).reset_index()
+    merged = calib.merge(direct, left_on=["species", "band"], right_on=["commonName", "band"])
+    assert len(merged) == len(calib)
+    assert (merged.clips == merged["size"]).all() and (merged.correct == merged["sum"]).all()

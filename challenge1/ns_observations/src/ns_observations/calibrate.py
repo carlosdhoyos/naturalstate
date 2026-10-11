@@ -34,6 +34,13 @@ from .policy import (
 REQUIRED_VALIDATION_COLUMNS = ("species", "confidence", "outcome", "recorder")
 
 
+def canonical(d: pd.DataFrame) -> pd.DataFrame:
+    """Validated clips in a deterministic order (species, recorder, confidence, outcome), so fits,
+    recorder checks and bootstrap resamples are identical whatever order the rows arrived in."""
+    cols = [c for c in ("species", "recorder", "confidence", "outcome") if c in d]
+    return d.sort_values(cols, kind="mergesort").reset_index(drop=True)
+
+
 def evidence_gate(n_correct: int, n_incorrect: int, k: int) -> tuple[bool, str | None]:
     """D-09. Both outcomes must be observed at least k times. Returns (passed, reason code).
 
@@ -112,6 +119,10 @@ def run_procedure(conf: np.ndarray, outcome: np.ndarray, policy: Policy) -> Proc
     `policy` may be any object with the Policy attributes it reads."""
     conf = np.asarray(conf, float)
     y = np.asarray(outcome, int)
+    # canonical order (by score, then outcome): the same clips in any row order give bit-identical
+    # coefficients, so the threshold-set id does not depend on how the input was sorted
+    order = np.lexsort((y, conf))
+    conf, y = conf[order], y[order]
     n1, n0 = int(y.sum()), int(len(y) - y.sum())
     passed, reason = evidence_gate(n1, n0, policy.min_each_outcome)
     x = logit_conf(conf, policy.eps)
@@ -140,6 +151,7 @@ def recorder_checks(d: pd.DataFrame, pr: Procedure, policy: Policy) -> pd.DataFr
     review_alpha / (recorders tested). Only species that pass the gate are checked."""
     if not pr.gate_passed:
         return pd.DataFrame(columns=["recorder", "validated_clips", "correct", "tested", "expected_correct_loro", "p_value", "flagged", "bonferroni_alpha"])
+    d = canonical(d)
     tested = [r for r, g in d.groupby("recorder") if len(g) >= policy.review_min_clips]
     rows = []
     for r, g in d.groupby("recorder"):
@@ -165,6 +177,7 @@ def bootstrap(d: pd.DataFrame, pred_conf: np.ndarray | None, cluster_col: str, p
     threshold_ci is CONDITIONAL on resamples that produce a threshold (share reported alongside);
     labelled_q is UNCONDITIONAL (a resample without a threshold labels nothing). Pass pred_conf
     (the species' prediction scores) to get labelled counts; None skips them."""
+    d = canonical(d)  # cluster membership positions must not depend on input row order
     conf, y = d.confidence.to_numpy(), d.outcome.to_numpy()
     thresholds, counts, statuses = [], [], []
     for idx in cluster_resamples(d[cluster_col].to_numpy(), policy.n_boot, policy.seed):
@@ -231,6 +244,7 @@ def calibrate(
     from .artifact import SpeciesThreshold, build_threshold_set
 
     check_validations(validations)
+    validations = canonical(validations)
     names = list(dict.fromkeys((species or []) + sorted(validations.species.unique().tolist())))
     entries = {}
     for sp in names:
