@@ -756,6 +756,12 @@ validation$score <- log(validation$confidence /
             </div>
           ))}
         </div>
+        <div className="for-us">
+          <div className="pipe-col-label">In the final analysis</div>
+          <p>
+            Followed as the core method: per-species ordinary logistic regression on the logit score, the threshold solved at p = 0.99, and the AIC covariate test. Where the paper is silent, the analysis adds safeguards: an evidence gate, Firth only for separated data, no extrapolation outside the validated scores, human verdicts as labels and recorder review flags. Details: <b>Thresholds &amp; observations → Wood &amp; Kahl alignment</b> and <b>Discussion &amp; conclusions</b>.
+          </p>
+        </div>
       </Block>
     </div>
   )

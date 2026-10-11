@@ -33,6 +33,6 @@ Challenge 1 is complete. Challenge 2 is in progress. Each challenge has its own 
   - D-01 to D-04 are data decisions: duplicate validations, linkage, recorder clocks, Nightjar site effects.
   - D-05 to D-08 record the first modelling pass: method routing and acceptance, Oriole, Plover, uncertainty and endpoints.
   - D-09 to D-12 come from an independent review: the evidence gate, human verdicts as labels, data-driven review flags, and the meaning of "99%" and of the uncertainty.
-  - D-13 is Wood & Kahl's covariate test, compared by AIC.
+  - D-13 is Wood & Kahl's covariate test, compared by AIC; D-14 records how the five other papers were used (reported, used as a check, not adopted, or downstream).
   - Each entry separates the policy from its measured consequences; superseded parts are marked, not deleted.
 - [`docs/challenge1_paper_alignment.md`](docs/challenge1_paper_alignment.md): Wood & Kahl's recommendations, point by point, against what the analysis does.

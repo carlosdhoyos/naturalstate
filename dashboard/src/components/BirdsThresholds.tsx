@@ -270,7 +270,7 @@ function reproduce(pred: Dataset | undefined): Reproduced | null {
 
 // ── page ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'results' | 'curves' | 'uncertainty' | 'gate' | 'recorders' | 'sensitivity' | 'sampling' | 'paper'
+type Tab = 'results' | 'curves' | 'uncertainty' | 'gate' | 'recorders' | 'sensitivity' | 'sampling' | 'paper' | 'discussion'
 const TABS: { key: Tab; label: string; sub: string }[] = [
   { key: 'results', label: 'Results', sub: 'labels · rule' },
   { key: 'curves', label: 'Species curves', sub: 'fit · threshold' },
@@ -280,6 +280,7 @@ const TABS: { key: Tab; label: string; sub: string }[] = [
   { key: 'sensitivity', label: 'Sensitivity', sub: '14 variants' },
   { key: 'sampling', label: 'Validation design', sub: 'score bands' },
   { key: 'paper', label: 'Wood & Kahl alignment', sub: 'what we kept, extended' },
+  { key: 'discussion', label: 'Discussion & conclusions', sub: 'other papers · take-aways' },
 ]
 
 /** The app rewrites the hash before this page mounts (data parse first), so capture it at load. */
@@ -324,6 +325,7 @@ export function BirdsThresholds({ reg, tokens: t }: { reg: Map<string, Dataset>;
       {tab === 'sensitivity' && <SensitivityTab />}
       {tab === 'sampling' && <SamplingTab {...ctx} />}
       {tab === 'paper' && <PaperTab />}
+      {tab === 'discussion' && <DiscussionTab />}
     </div>
   )
 }
@@ -1513,6 +1515,148 @@ function PaperTab() {
           The core is the paper’s method unchanged: per-species ordinary logistic regression of the verdict on the logit score, solved for the target probability. What we added addresses situations the paper does not discuss but this dataset contains — a species with no errors, a species with one, separated data, scores of exactly 1, duplicate validations, site-specific false positives — and every addition errs toward fewer automatic observations, never more. The full write-up is in <code>docs/challenge1_paper_alignment.md</code>.
         </p>
       </Note>
+    </>
+  )
+}
+
+// ── tab: discussion & conclusions (same content as challenge1/Q1_report.md, section 10, and D-14) ──
+
+const OTHER_PAPERS: { paper: string; offers: string; use: string; verdict: 'reported' | 'used' | 'not adopted' | 'downstream' }[] = [
+  {
+    paper: 'Tseng et al. 2025',
+    offers: 'Thresholds from the precision of the whole set of kept predictions, not per prediction',
+    use: 'Reported as the alternative reading of “99%” (C-5): Nightjar 0.4316 and 4,355 labels vs 0.6666 and 3,147 — about 38% more observations, each individually less certain. The per-prediction rule is kept because it is Wood & Kahl’s definition and the brief’s wording; the choice is a policy decision for Natural State.',
+    verdict: 'reported',
+  },
+  {
+    paper: 'Schwinger et al. 2025',
+    offers: 'Calibration diagnostics (Platt scaling, reliability diagrams)',
+    use: 'Used as a check. Wood & Kahl’s curve is Platt scaling; calibration by score band (Species curves tab) confirms the Nightjar fit across the range. Their finding that calibration varies across datasets supports recalibrating per species and per deployment.',
+    verdict: 'used',
+  },
+  {
+    paper: 'Thompson et al. 2025',
+    offers: 'Mixed models that pool species curves, so rarely validated species borrow strength',
+    use: 'Not adopted for labels. It would give the Oriole and Plover a curve only by assuming they behave like the other species — which their data cannot confirm, and which cuts against Wood & Kahl’s “scores are not transferable among species”. With four species, one of them the near-useless Firefinch, the pooled curve would mostly reflect the assumption. Attractive on the platform once many species are validated.',
+    verdict: 'not adopted',
+  },
+  {
+    paper: 'Navine et al. 2024',
+    offers: 'Threshold-free call density (share of audio windows containing the species)',
+    use: 'A different product, not clip labels. It needs no errors, so it suits exactly the species without a threshold (the Oriole). Recommended to the Tech team as a future vocal-activity measure; its quantile-bin validation design is a model for future validation rounds.',
+    verdict: 'downstream',
+  },
+  {
+    paper: 'Clare et al. 2021',
+    offers: 'Occupancy models that account for false positives',
+    use: 'Downstream. A 99% threshold reduces false positives but does not remove them, and ignoring them biases occupancy. That is why p_correct is exported per prediction and the validated clips should be kept as confirmation data.',
+    verdict: 'downstream',
+  },
+]
+
+const CONCLUSIONS: ReactNode[] = [
+  <>
+    <b>The answer to Q1:</b> 3,460 of 29,491 predictions are observations — 3,097 above the Nightjar’s 99% threshold (0.666639) and 363 confirmed directly by the ornithologist. Every row carries its label, the reason for it and, where the curve is identified, its probability of being correct.
+  </>,
+  <>
+    <b>Only one of four species can be thresholded at 99% with this validation set.</b> That is about the evidence, not BirdNET: a 99% threshold is located by the errors near it. The Oriole (0 errors in 150) and Plover (1 in 146) cannot locate one; the Firefinch’s curve never reaches 99% within its validated scores.
+  </>,
+  <>
+    <b>The Nightjar’s 99% is model-based.</b> Its location is robust to the estimator, de-duplication, the treatment of scores of 1 and removing the two problem recorders; direct validation supports about 95% (74/74 validated clips above the threshold correct, Wilson lower bound 95.1%).
+  </>,
+  <>
+    <b>Recorders matter more than time.</b> RBS75 and RBS79 behave as if their Nightjar predictions were always wrong: flagged, not removed, and every new recorder should pass a small acceptance check. The apparent evening effect is those recorders in disguise; dusk remains a hypothesis to test.
+  </>,
+  <>
+    <b>Only the gate and the estimator move the answer,</b> and only for species with one error or none; data-handling choices change nothing. That is the reason for the evidence gate.
+  </>,
+  <>
+    <b>The lever is more validation,</b> designed as Wood &amp; Kahl recommend: random within score bands, spread across recorders, never targeted at errors.
+  </>,
+  <>
+    <b>The procedure is ready to automate:</b> the ns_observations package runs the same decision rules as this analysis and reproduces these numbers exactly.
+  </>,
+  <>
+    <b>From the wider literature,</b> set-level precision (Tseng) is the one real policy alternative (C-5); partial pooling (Thompson) belongs on the platform once many species are validated; call density (Navine) and false-positive occupancy models (Clare) are the natural next uses of these outputs.
+  </>,
+]
+
+function DiscussionTab() {
+  return (
+    <>
+      <Section title="Did we follow Wood & Kahl (2024)?" sub="Yes on the method; extended where the paper is silent; two recommendations could not be carried out with these data. Point by point: the Wood & Kahl alignment tab and docs/challenge1_paper_alignment.md.">
+        <div className="sum-grid three-col">
+          <div className="for-us">
+            <div className="pipe-col-label">Followed as written</div>
+            <ul>
+              <li>One curve per species</li>
+              <li>Ordinary logistic regression of the verdict on the logit-transformed score (the paper’s glm and the logit its text recommends)</li>
+              <li>Threshold solved from the curve at p = 0.99</li>
+              <li>Transferability tested with covariates and AIC</li>
+              <li>Error rates disclosed; p_correct exported for occupancy models</li>
+            </ul>
+          </div>
+          <div className="for-us">
+            <div className="pipe-col-label">Extended where the paper is silent</div>
+            <ul>
+              <li>Evidence gate for species with zero or one error</li>
+              <li>Firth only as a fallback for separated data</li>
+              <li>No extrapolation outside the validated scores</li>
+              <li>Human verdicts kept as labels</li>
+              <li>Recorder review flags</li>
+            </ul>
+            <p className="small">Each makes the result more conservative, never more permissive.</p>
+          </div>
+          <div className="for-us">
+            <div className="pipe-col-label">Could not be done with these data</div>
+            <ul>
+              <li>
+                <b>Designing the validation sample:</b> we used the clips provided; their score distribution fits the paper’s recommended high-score top-up (C-1).
+              </li>
+              <li>
+                <b>Recall:</b> the files hold no record of missed vocalisations, so observations are high-precision, not a complete count.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="How the other papers informed this analysis" sub="The five related papers on the Methodology page. None replaces Wood & Kahl, which the brief prescribes; each shaped a specific part of the work (D-14).">
+        <div className="table-wrap auto">
+          <table className="data-table sum-table qa-table align-table">
+            <thead>
+              <tr>
+                <th>Paper</th>
+                <th>What it offers</th>
+                <th>How it was used here</th>
+                <th>Verdict</th>
+              </tr>
+            </thead>
+            <tbody>
+              {OTHER_PAPERS.map((p) => (
+                <tr key={p.paper}>
+                  <td>
+                    <b>{p.paper}</b>
+                  </td>
+                  <td className="small">{p.offers}</td>
+                  <td className="small">{p.use}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <span className={`qa-chip ${p.verdict === 'used' || p.verdict === 'reported' ? 'qa-pass' : p.verdict === 'not adopted' ? 'qa-flag' : 'qa-info'}`}>{p.verdict}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      <Section title="Conclusions" sub="The same conclusions as the Q1 report, section 10.">
+        <ol className="conclusions">
+          {CONCLUSIONS.map((c, i) => (
+            <li key={i}>{c}</li>
+          ))}
+        </ol>
+      </Section>
     </>
   )
 }

@@ -146,6 +146,9 @@ export function Schwinger({ tokens: t }: { tokens: ThemeTokens }) {
             <li>“Global calibration parameters are affected by dataset variability” echoes Wood & Kahl: recalibrate per species and per deployment context, not once for everything.</li>
             <li>Evidence is about other classifiers, not BirdNET — useful for diagnostics, not as proof of BirdNET’s behaviour on our recorders.</li>
           </ul>
+          <p className="final-note small">
+            <b>In the final analysis:</b> Used as a check: calibration by score band (Thresholds & observations → Species curves) confirms that the Nightjar’s fitted curve matches the observed share correct across the range.
+          </p>
         </ForUs>
       </Block>
     </div>

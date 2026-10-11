@@ -4,7 +4,7 @@ Two jobs (see the Tech handover, challenge1/Q2_tech_handover.md):
   calibrate(validations, policy) -> ThresholdSet      job A: gate, fit, accept, review flags
   label(predictions, threshold_set, verdicts) -> df  job B: pure, vectorised, no fitting
 
-Method: Wood & Kahl (2024) with the safeguards in docs/challenge1_data_decisions.md (D-01..D-13).
+Method: Wood & Kahl (2024) with the safeguards in docs/challenge1_data_decisions.md (D-01..D-14).
 """
 
 __version__ = "1.0.0"

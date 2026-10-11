@@ -185,6 +185,9 @@ export function Clare({ tokens: t }: { tokens: ThemeTokens }) {
             <li>What we hand to the Tech team should keep each observation’s score and estimated pr(correct), so downstream models can account for false positives instead of treating labels as certain.</li>
             <li>The validated clips are exactly the “observation-confirmation” data these models need.</li>
           </ul>
+          <p className="final-note small">
+            <b>In the final analysis:</b> Downstream: the labelled file exports p_correct for every prediction with an identified curve, and the validated clips are kept as confirmation data, so occupancy models can account for the false positives a 99% threshold still leaves.
+          </p>
         </ForUs>
       </Block>
     </div>

@@ -252,6 +252,9 @@ export function Tseng({ tokens: t }: { tokens: ThemeTokens }) {
             <li>The stratified design (equal clips per score class) gives the curve information across the whole range — relevant because our validation sample is concentrated at low scores for some species.</li>
             <li>Tseng fits on raw confidence; Wood & Kahl recommend the logit. On our data both can be compared.</li>
           </ul>
+          <p className="final-note small">
+            <b>In the final analysis:</b> Reported as the alternative reading of “99%” (confirmation item C-5): set-level precision would give the Nightjar a threshold of 0.4316 and 4,355 labels, against 0.6666 and 3,147 under the per-prediction rule, which is kept because it is Wood & Kahl’s definition and the brief’s wording.
+          </p>
         </ForUs>
       </Block>
     </div>

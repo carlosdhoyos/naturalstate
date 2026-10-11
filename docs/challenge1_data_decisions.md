@@ -4,7 +4,7 @@ This log records the decisions behind the Challenge 1 thresholds. Each entry giv
 
 - **D-01 to D-04** are data decisions, made **before** fitting any species curve.
 - **D-05 to D-08** record the first modelling pass. Each one separates the **policy** (chosen before seeing its result) from the **measured consequence** (what the fitting workflow produced).
-- **D-09 to D-12** come from an independent review of that pass (2026-10-10). **D-13** is the covariate test Wood & Kahl recommend. D-09 replaces part of D-05; the replaced parts are marked rather than deleted, so the log shows how the decisions evolved.
+- **D-09 to D-12** come from an independent review of that pass (2026-10-10). **D-13** is the covariate test Wood & Kahl recommend. **D-14** records how the other papers were used. D-09 replaces part of D-05; the replaced parts are marked rather than deleted, so the log shows how the decisions evolved.
 
 Each entry also has a **status**, which says what has been decided, what is implemented, and where. The fitting workflow is `challenge1/src/run_challenge1.py`, and its outputs are in `challenge1/outputs/`. The dashboard page **Birds → Thresholds & observations** shows every result below.
 
@@ -514,3 +514,24 @@ Wood & Kahl: "The generalizability of the logistic regression-based outcome–sc
 - **Labels keep the pooled curve.** No covariate model meets the adoption rule: the time models are better only through confounding with the flagged recorders, and the recorder models are neither identified nor applicable to new recorders.
 - **Recorder problems are handled** by the review flags here (D-11) and, on the platform, by a **recorder acceptance check**: validate a small random sample of each species' predictions at every new recorder before its predictions are labelled automatically. This is specified in the Tech handover.
 - **The dusk hypothesis is worth testing** with targeted validation of evening Nightjar clips at recorders other than RBS75/RBS79.
+
+---
+
+## D-14. Other methods from the literature: how each was used
+
+**Status:** decided (2026-10-10). This changes no labels; it records what was considered and why.
+
+### Policy
+
+- **Labels come from Wood & Kahl's method,** which the brief prescribes, together with the extensions in D-05 to D-13.
+- **Each of the other papers reviewed** on the dashboard's Methodology page is used only where it adds something, and never as a competing source of labels.
+
+### Measured consequences and decisions
+
+| Paper | Decision | Why |
+|---|---|---|
+| Tseng et al. 2025: precision of the kept set | **Reported** as the alternative reading of "99%" (C-5) | It gives the Nightjar 0.4316 and 4,355 labels, against 0.6666 and 3,147 (+38%). The per-prediction rule is Wood & Kahl's definition and matches the brief's wording; the choice between the two is a policy decision for Natural State |
+| Schwinger et al. 2025: calibration diagnostics | **Used** as a check (calibration by score band) | Wood & Kahl's curve is Platt scaling. The banded check confirms the Nightjar fit across the range |
+| Thompson et al. 2025: partial pooling across species | **Not adopted** for labels | It would give the Oriole and Plover a curve only by assuming they behave like the other species, which their data cannot confirm, against Wood & Kahl's "scores are not transferable among species". With four species, one of them the Firefinch, the pooled curve would mostly reflect the assumption. It is recommended for the platform once many species are validated |
+| Navine et al. 2024: threshold-free call density | **Recommended downstream** (Tech handover, section 10) | It is a different endpoint (vocal activity), not clip labels. It needs no errors, so it suits species without a threshold. Its quantile-bin validation design is a model for future validation rounds |
+| Clare et al. 2021: false-positive occupancy | **Recommended downstream** | Thresholds reduce false positives but don't remove them. `p_correct` and the validated clips are the inputs these models need |

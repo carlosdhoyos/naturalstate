@@ -8,7 +8,7 @@ This folder contains a reproducible workflow. It does three things:
 
 **The two answers to the brief:**
 
-- **[Q1_report.md](Q1_report.md):** the labels, how they were derived, the decisions, the limitations, and the confirmation items for Natural State (C-1 to C-7).
+- **[Q1_report.md](Q1_report.md):** the labels, how they were derived, the decisions, the limitations, the confirmation items for Natural State (C-1 to C-7), and a discussion and conclusions section (section 10): whether we followed Wood & Kahl, and how the other papers were used.
 - **[Q2_tech_handover.md](Q2_tech_handover.md):** what the Tech team needs to run this automatically on NS Analytics.
 
 **Two code bases, one core:**
@@ -29,7 +29,7 @@ Details and how to check each one: [Q2, section 9](Q2_tech_handover.md#what-has-
 
 Related documents:
 
-- [docs/challenge1_data_decisions.md](../docs/challenge1_data_decisions.md): every decision (D-01 to D-13), with what was measured.
+- [docs/challenge1_data_decisions.md](../docs/challenge1_data_decisions.md): every decision (D-01 to D-14), with what was measured.
 - [docs/challenge1_paper_alignment.md](../docs/challenge1_paper_alignment.md): how the analysis follows the paper and where it extends it.
 - The dashboard page **Birds → Thresholds & observations** shows all results interactively.
 

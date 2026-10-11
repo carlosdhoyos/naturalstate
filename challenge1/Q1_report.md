@@ -13,7 +13,7 @@
 
 Only one species gets an automatic threshold. That is a finding about the **validation data**, not about BirdNET: a 99% threshold is located by the errors near it, and two of the species have almost none to learn from. The rest of this report explains how I got there, what I decided along the way, and what would change the answer.
 
-The code is in [`src/`](src/), every decision with its evidence is logged in [`docs/challenge1_data_decisions.md`](../docs/challenge1_data_decisions.md) (D-01 to D-13), and the dashboard page **Birds → Thresholds & observations** shows all of it interactively.
+Section 10 discusses how closely the analysis follows Wood & Kahl, what the other papers contributed, and the conclusions. The code is in [`src/`](src/), every decision with its evidence is logged in [`docs/challenge1_data_decisions.md`](../docs/challenge1_data_decisions.md) (D-01 to D-14), and the dashboard page **Birds → Thresholds & observations** shows all of it interactively.
 
 ---
 
@@ -162,3 +162,55 @@ These are assumptions the analysis runs on. None of them blocks the result. Each
 | **C-5** | **The meaning of "99%":** per prediction, or the precision of the labelled set | Per prediction, as in Wood & Kahl. Nightjar threshold 0.666639, 3,147 predictions above it | Set-level precision gives the Nightjar 0.4316 and 4,355 predictions. The pipeline already computes both (D-12) |
 | **C-6** | **How the two exports name the same audio:** the predictions export rounds the file start down to the hour, and the validation file name carries a 3-decimal score and a clip index | Clips are linked on species + recorder + date + hour + score (D-02): 476 link to one prediction, 69 tie with another, 2 are not found | If the naming means something else, a few human verdicts could be attached to the wrong prediction, or not attached at all. A stable prediction id in both exports removes the issue (Q2, section 8) |
 | **C-7** | **Outcome coding:** `outcome = 1` means BirdNET's species identification was correct | As stated. It is consistent with the data: the share of correct clips rises with score for every species with errors (Nightjar 0.49 below 0.5 vs 1.00 above) | Everything would invert. This is a sanity check rather than a real doubt |
+
+## 10. Discussion and conclusions
+
+### Did we follow Wood & Kahl (2024)?
+
+**Yes, on the method itself.** The labels come from the paper's procedure, unchanged:
+
+- one curve per species
+- ordinary logistic regression of the verdict on the logit-transformed score (the paper's `glm`, and the logit its text recommends)
+- the threshold solved from the fitted curve at p = 0.99
+
+We also ran the paper's suggested test of whether the curve transfers across space and time, comparing covariate models by AIC (section 6). We disclose error rates, and export per-prediction probabilities for occupancy models, as the paper advises.
+
+**Where the paper is silent, we added safeguards.** Each one makes the result more conservative, never more permissive:
+
+- the evidence gate, for species with zero or one error
+- Firth only as a fallback for separated data
+- no extrapolation outside the validated scores, a stricter reading of the paper's "range of conditions" warning
+- human verdicts kept as labels
+- recorder review flags
+
+**What we could not do as the paper describes:**
+
+- **Design the validation sample.** We used the clips provided. Their score distribution fits the paper's recommended high-score top-up, but that is unconfirmed (C-1).
+- **Report recall.** The paper says precision, recall and ROC still matter. The data hold no record of missed vocalisations, so recall cannot be computed. Observations should be read as high-precision, not as a complete count.
+
+The full point-by-point comparison is in [`docs/challenge1_paper_alignment.md`](../docs/challenge1_paper_alignment.md).
+
+### How the other methods informed this analysis
+
+The dashboard's **Methodology** page reviews five related papers. None of them replaces Wood & Kahl, which the brief prescribes. Each one shaped a specific part of the work (D-14):
+
+| Paper | What it offers | How it was used here |
+|---|---|---|
+| **Tseng et al. 2025** | Thresholds based on the precision of the whole set of kept predictions, rather than per prediction | **Reported as the alternative reading of "99%"** (C-5). Set-level precision would give the Nightjar a threshold of 0.4316 and 4,355 labels, against 0.6666 and 3,147: about 38% more observations, each individually less certain. The per-prediction rule is kept because it is the paper's definition and the brief's wording ("99% sure that that prediction is correct"). Which standard Natural State wants is a policy choice |
+| **Schwinger et al. 2025** | Calibration diagnostics: Platt scaling, reliability diagrams | **Used as a check.** Wood & Kahl's curve *is* Platt scaling. Calibration by score band (observed share correct vs fitted probability) confirms the Nightjar curve fits across the range. Their finding that calibration varies across datasets supports recalibrating per species and per deployment |
+| **Thompson et al. 2025** | Mixed models that pool species curves, so rarely validated species borrow strength from the others | **Considered and not adopted for labels.** It would give the Oriole and Plover a curve, but only by assuming they behave like the other species, which their own data cannot confirm and which cuts against Wood & Kahl's central point that scores do not transfer between species. With four species, one of them the near-useless Firefinch, the pooled curve would mostly reflect the pooling assumption. It becomes attractive on the platform once many species are validated: a new species would start from the community curve and move away from it as evidence accumulates |
+| **Navine et al. 2024** | Threshold-free estimates of call density (the share of audio windows containing the species) | **A different product, not clip labels.** It needs no errors, so it suits exactly the species that cannot be thresholded here, such as the Oriole. It is recommended to the Tech team as a future measure of vocal activity, and its validation design (quantile bins) is a good model for future validation rounds |
+| **Clare et al. 2021** | Occupancy models that account for false positives | **Downstream.** A 99% threshold reduces false positives but does not remove them, and ignoring them biases occupancy estimates. That is why `p_correct` is exported per prediction, and why the validated clips should be kept as confirmation data |
+
+### Conclusions
+
+1. **The answer to Q1.** 3,460 of the 29,491 predictions are observations: 3,097 above the Nightjar's 99% threshold (0.666639), and 363 confirmed directly by the ornithologist. Every row carries its label, the reason for it, and where applicable its probability of being correct.
+2. **Only one of the four species can be thresholded at 99% with this validation set.** That is a statement about the evidence, not about BirdNET. A 99% threshold is located by the errors near it.
+   - The Oriole (0 errors in 150 clips) and the Plover (1 in 146) cannot locate one.
+   - The Firefinch's curve never reaches 99% within the scores that were validated.
+3. **The Nightjar's 99% is a model-based figure.** Its location is robust to the estimator, de-duplication, the treatment of scores of exactly 1, and the removal of the two problem recorders. But direct validation supports about 95%: all 74 validated clips above the threshold are correct, and the Wilson lower bound is 95.1%.
+4. **Recorders matter more than time.** RBS75 and RBS79 behave as if their Nightjar predictions were always wrong. They are flagged rather than removed. Every new recorder should pass a small acceptance check before its predictions are labelled automatically. The apparent evening effect is those two recorders in disguise, though dusk remains a hypothesis worth testing.
+5. **The decisions that move the answer are the gate and the estimator, and only for species with one error or fewer.** Data-handling choices change nothing. That sensitivity is the reason for the evidence gate.
+6. **The way forward is more validation, designed as Wood & Kahl recommend** (section 8): random within score bands, never targeted at errors, and spread across recorders.
+7. **The procedure is ready to automate.** The `ns_observations` package (Q2) runs the same decision rules as this analysis and reproduces these numbers exactly.
+8. **Among the alternatives in the literature,** set-level precision (Tseng) is the one real policy alternative: it is a choice for Natural State (C-5). Partial pooling (Thompson) belongs on the platform once many species are validated. Call density (Navine) and false-positive occupancy models (Clare) are the natural next uses of these outputs.

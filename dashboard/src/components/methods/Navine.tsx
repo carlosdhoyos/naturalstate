@@ -197,6 +197,9 @@ export function Navine({ tokens: t }: { tokens: ThemeTokens }) {
             <li>Call density is not individual-bird density, but it is a strong candidate for platform dashboards about vocal activity per site and period, without threshold bias.</li>
             <li>The quantile-bin validation design is a useful idea for future validation rounds: it guarantees clips in the rare, high-score region.</li>
           </ul>
+          <p className="final-note small">
+            <b>In the final analysis:</b> Recommended as a downstream product (Tech handover, section 10): a vocal-activity measure that needs no errors, so it suits species without a threshold such as the Oriole; its quantile-bin design is a template for future validation.
+          </p>
         </ForUs>
       </Block>
     </div>

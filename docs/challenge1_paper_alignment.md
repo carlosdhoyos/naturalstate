@@ -150,3 +150,19 @@ The thresholds belong to this deployment. The Tech handover specifies re-validat
 
 - Recall cannot be estimated from these files: they contain predictions above BirdNET's minimum score and verdicts on some of them, but no information on missed vocalisations.
 - The observations are high-precision by design. A missing observation is not evidence of absence.
+
+## Other methods considered (D-14)
+
+Five related papers are reviewed on the dashboard's Methodology page. None of them replaces Wood & Kahl.
+
+| Paper | How it was used |
+|---|---|
+| Tseng et al. 2025 | Its set-level precision is reported as the alternative reading of "99%": Nightjar 0.4316 and 4,355 labels instead of 0.6666 and 3,147. The choice is a policy decision (C-5) |
+| Schwinger et al. 2025 | Calibration diagnostics. Wood & Kahl's curve is Platt scaling, and calibration by score band checks the fit |
+| Thompson et al. 2025 | Partial pooling across species. **Not adopted:** it would give the Oriole and Plover curves only by assuming they behave like the other species, against Wood & Kahl's "not transferable among species". It is worth revisiting on the platform once many species are validated |
+| Navine et al. 2024 | Threshold-free call density. A downstream product for species without thresholds, and a model for future validation designs |
+| Clare et al. 2021 | False-positive occupancy models. A downstream use of `p_correct` and of the validated clips |
+
+## Conclusion
+
+The analysis follows Wood & Kahl wherever the paper gives guidance, and extends it conservatively where it doesn't. Two of its recommendations could not be carried out with these data: designing the validation sample (we had to use the clips provided), and reporting recall (there is no record of missed vocalisations). Both are disclosed. The other papers informed the reporting (Tseng), the diagnostics (Schwinger) and the platform roadmap (Thompson, Navine, Clare), without changing how labels are made.

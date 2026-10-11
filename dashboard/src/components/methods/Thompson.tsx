@@ -198,6 +198,9 @@ export function Thompson({ tokens: t }: { tokens: ThemeTokens }) {
             <li>It would give the Oriole (no errors, perfect separation) a finite curve — but only by assuming it behaves like the other species, which is exactly what its data cannot confirm. That assumption must be stated if used.</li>
             <li>It becomes attractive on the platform once many species are validated: new or rarely validated species start from the community curve and move away as evidence accumulates.</li>
           </ul>
+          <p className="final-note small">
+            <b>In the final analysis:</b> Not adopted for labels (D-14): with four species, pooling would give the Oriole and Plover a curve only by assuming they behave like the others, against Wood & Kahl’s point that scores do not transfer between species. Recommended for the platform once many species are validated.
+          </p>
         </ForUs>
       </Block>
     </div>

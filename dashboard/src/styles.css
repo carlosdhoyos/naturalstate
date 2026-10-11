@@ -2669,3 +2669,24 @@ code {
     padding: 6px;
   }
 }
+
+.sum-grid.three-col {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+.sum-grid.three-col .for-us {
+  margin: 0;
+}
+ol.conclusions {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 8px;
+  line-height: 1.5;
+  max-width: 110ch;
+}
+.final-note {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
