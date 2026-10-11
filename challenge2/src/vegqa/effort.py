@@ -42,7 +42,9 @@ def chao2_bc(s_obs: int, q1: int, q2: int, T: int) -> tuple[float, float, float]
     var = (k * q1 * (q1 - 1) / (2 * (q2 + 1)) + k ** 2 * q1 * (2 * q1 - 1) ** 2 / (4 * (q2 + 1) ** 2)
            + k ** 2 * q1 ** 2 * q2 * (q1 - 1) ** 2 / (4 * (q2 + 1) ** 4))
     if f0 <= 0:
-        return float(s_obs), float(s_obs), float(s_obs)
+        # no estimated unseen taxa (Q1 <= 1 with Q2 = 0, or Q1 = 0): the point estimate is S_obs, but that is
+        # not certainty; the log-normal interval is not defined, so no upper bound is claimed
+        return float(s_obs), float(s_obs), (float(s_obs) if q1 == 0 else float("nan"))
     c = np.exp(1.96 * np.sqrt(np.log(1 + var / f0 ** 2)))
     return s_obs + f0, s_obs + f0 / c, s_obs + f0 * c
 
@@ -62,6 +64,10 @@ def hill(y: np.ndarray) -> tuple[float, float, float]:
     return float(len(y)), float(np.exp(-(p * np.log(p)).sum())), float(1 / (p ** 2).sum())
 
 
+# rules whose failure on a survey makes its effort metrics provisional (records or sampling units in doubt)
+PROVISIONAL_RULES = ("A01", "A02", "A03", "A04", "C02", "C04", "C08", "C13")
+
+
 def empty_stats(T: int, note: str) -> dict:
     """No quadrats, or quadrats without any taxon: richness is what was observed (0), every ratio and
     estimator is undefined (NaN, never 100% or infinity), and the note says why."""
@@ -77,7 +83,7 @@ def stats(inc: pd.DataFrame, T: int) -> dict:
     if T == 0:
         return empty_stats(0, "no quadrats: survey incomplete, metrics undefined (A03)")
     if inc.empty:
-        return empty_stats(T, f"no taxa in {T} quadrats: a valid zero, richness 0, ratios undefined")
+        return empty_stats(T, f"no analytical taxa in {T} quadrats")  # per_plot adds why (valid zero, missing or excluded records)
     y = inc.groupby("taxon").size().to_numpy()  # number of quadrats each taxon occupies
     s_obs, U = len(y), int(y.sum())
     q1, q2 = int((y == 1).sum()), int((y == 2).sum())
@@ -89,35 +95,63 @@ def stats(inc: pd.DataFrame, T: int) -> dict:
     return {"T": T, "S_obs": s_obs, "incidences": U, "Q1_uniques": q1, "Q2_duplicates": q2,
             "chao2": round(chao2, 1), "chao2_lo95": round(lo, 1), "chao2_hi95": round(hi, 1),
             "completeness": round(s_obs / chao2, 3) if chao2 else np.nan, "coverage": round(coverage(y, T), 3),
-            "new_taxa_next_quadrat": round(next_q, 2), "hill_q0": h0, "hill_q1": round(h1, 2), "hill_q2": round(h2, 2), "note": "", "curve": curve}
+            "new_taxa_next_quadrat": round(next_q, 2), "hill_q0": h0, "hill_q1": round(h1, 2), "hill_q2": round(h2, 2),
+            "note": "upper Chao2 bound not estimable (no estimated unseen taxa)" if pd.isna(hi) else "", "curve": curve}
 
 
 def plan_vs_done(plots: pd.DataFrame) -> pd.DataFrame:
-    """Per prescribed point (plots.csv has one row per point and replicate): a point counts as surveyed
-    if any replicate surveyed it."""
-    plots = plots.sort_values("surveyed", ascending=False).drop_duplicates("plot_uuid")
-    rows = []
-    for stratum, g in plots.groupby("stratum"):
-        prim, back = g[g.sample_status == "primary"], g[g.sample_status == "backup"]
-        rows.append({"stratum": stratum, "primary_planned": len(prim), "primary_registered": int(prim.registered.sum()),
-                     "primary_non_viable": int((prim.viable == "no").sum()), "primary_surveyed": int(prim.surveyed.sum()),
-                     "backups_available": len(back), "backups_used": int(back.registered.sum()), "plots_surveyed": int(g.surveyed.sum()),
-                     "share_of_primary_surveyed": round(prim.surveyed.mean(), 3) if len(prim) else np.nan})
-    df = pd.DataFrame(rows)
-    tot = df.drop(columns=["stratum", "share_of_primary_surveyed"]).sum()
-    tot["stratum"] = "all"
-    tot["share_of_primary_surveyed"] = round(tot.primary_surveyed / tot.primary_planned, 3)
-    return pd.concat([df, tot.to_frame().T], ignore_index=True)
+    """Per replicate (monitoring round) and stratum: a point counts as surveyed only if THAT replicate has a
+    canonical survey of it, so a missing visit in a later round is never hidden by an earlier one.
+    Registration is per point and shared by the rounds."""
+    pts = plots.drop_duplicates("plot_uuid")
+    reps = sorted({r for r in plots.replicate if r}) or [""]
+    out = []
+    for rep in reps:
+        done = set(plots.loc[plots.surveyed & (plots.replicate == rep), "plot_uuid"])
+        rows = []
+        for stratum, g in pts.groupby("stratum"):
+            prim, back = g[g.sample_status == "primary"], g[g.sample_status == "backup"]
+            ps = prim.plot_uuid.isin(done)
+            rows.append({"replicate": rep, "stratum": stratum, "primary_planned": len(prim), "primary_registered": int(prim.registered.sum()),
+                         "primary_non_viable": int((prim.viable == "no").sum()), "primary_surveyed": int(ps.sum()),
+                         "backups_available": len(back), "backups_used": int(back.registered.sum()), "plots_surveyed": int(g.plot_uuid.isin(done).sum()),
+                         "share_of_primary_surveyed": round(ps.mean(), 3) if len(prim) else np.nan})
+        df = pd.DataFrame(rows)
+        tot = df.drop(columns=["replicate", "stratum", "share_of_primary_surveyed"]).sum()
+        tot["replicate"], tot["stratum"] = rep, "all"
+        tot["share_of_primary_surveyed"] = round(tot.primary_surveyed / tot.primary_planned, 3) if tot.primary_planned else np.nan
+        out.append(pd.concat([df, tot.to_frame().T], ignore_index=True))
+    return pd.concat(out, ignore_index=True)
 
 
-def per_plot(ctx) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _why_empty(ctx, key: str, layer: str) -> str:
+    """An empty incidence table means different things: a valid ecological zero, missing species records,
+    or records that exist but are not analytical taxa in this layer (excluded, unresolvable)."""
+    q = ctx.data.quadrat[ctx.data.quadrat.PARENT_KEY == key]
+    recs = ctx.occ[ctx.occ.survey_key == key]
+    if (q.herbs_present == "no").all():
+        return "valid zero: every quadrat recorded no herbs"
+    if len(recs):
+        return f"records exist but none is an analytical taxon in the {layer} layer (excluded or unresolvable): metrics suppressed"
+    return "herbs recorded as present but no species records: missing records, metrics suppressed (C02)"
+
+
+def per_plot(ctx, results: pd.DataFrame | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
     s = ctx.data.survey[ctx.data.survey.KEY.isin(ctx.canonical)]
+    bad = {}
+    if results is not None:
+        f = results[(results.status == "fail") & results.rule_id.isin(PROVISIONAL_RULES) & (results.survey_key != "")]
+        bad = f.groupby("survey_key").rule_id.apply(lambda x: " ".join(sorted(set(x)))).to_dict()
     team = by_key(ctx.data.ent["project_team"], "__id").label
     recs, curves = [], []
     for r in rows(s):
-        T = int((ctx.data.quadrat.PARENT_KEY == r.KEY).sum())  # 20 by design; A03 flags any other count
+        # sampling units = distinct quadrat KEYs (a duplicated row is not a second quadrat; A02 reports it)
+        T = int(ctx.data.quadrat.loc[ctx.data.quadrat.PARENT_KEY == r.KEY, "KEY"].nunique())
         for layer in ("raw", "resolved"):
             st = stats(incidence(ctx.occ, r.KEY, layer), T)
+            if T and st["S_obs"] == 0:
+                st["note"] = _why_empty(ctx, r.KEY, layer)
+            st["metrics_status"] = f"provisional: {bad[r.KEY]}" if r.KEY in bad else ("suppressed" if "suppressed" in st["note"] or T == 0 else "ok")
             curve = st.pop("curve")
             recs.append({"plot_name": r.plot_name, "replicate": r.replicate, "survey_key": r.KEY, "layer": layer, "recorder": team.get(r.recorder_uuid, ""),
                          "duration_min": round((r._end - r._start).total_seconds() / 60, 1), "team_size": len(r._team), **st})
@@ -128,17 +162,22 @@ def per_plot(ctx) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def project_level(ctx) -> pd.DataFrame:
-    """Plots as sampling units: how complete is the project's species list after the surveyed plots?"""
-    keys = sorted(ctx.canonical)
+    """Within each replicate, plots are the sampling units: how complete is that round's species list?
+    Rounds are never pooled (two visits to one plot are not two spatial units). Diversity here is from
+    plot incidence (in how many plots a taxon occurs), a different scale from the per-plot Hill numbers,
+    which use quadrat incidence."""
+    s = ctx.data.survey[ctx.data.survey.KEY.isin(ctx.canonical)]
     rows = []
-    for layer in ("raw", "resolved"):
-        inc = []
-        for i, k in enumerate(keys):
-            taxa = incidence(ctx.occ, k, layer).taxon.unique()
-            inc += [{"quadrat_number": i, "taxon": t} for t in taxa]  # plot index as the sampling unit
-        st = stats(pd.DataFrame(inc), len(keys))
-        st.pop("curve")
-        rows.append({"layer": layer, "sampling_unit": "plot", **st})
+    for rep, g in s.groupby("replicate"):
+        keys = sorted(g.KEY)
+        for layer in ("raw", "resolved"):
+            inc = []
+            for i, k in enumerate(keys):
+                taxa = incidence(ctx.occ, k, layer).taxon.unique()
+                inc += [{"quadrat_number": i, "taxon": t} for t in taxa]  # plot index as the sampling unit
+            st = stats(pd.DataFrame(inc, columns=["quadrat_number", "taxon"]), len(keys))
+            st.pop("curve")
+            rows.append({"replicate": rep, "layer": layer, "sampling_unit": "plot (within replicate)", **st})
     return pd.DataFrame(rows).rename(columns={"T": "units"})
 
 
@@ -196,7 +235,7 @@ def richness_sensitivity(ctx) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["definition", "taxa"])
 
 
-def all_tables(ctx, plots: pd.DataFrame) -> dict:
-    pp, curves = per_plot(ctx)
+def all_tables(ctx, plots: pd.DataFrame, results: pd.DataFrame | None = None) -> dict:
+    pp, curves = per_plot(ctx, results)
     return {"effort_plan": plan_vs_done(plots), "effort_plots": pp, "effort_curves": curves, "effort_project": project_level(ctx),
             "effort_repeatability": repeatability(ctx), "effort_richness_sensitivity": richness_sensitivity(ctx)}

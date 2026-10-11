@@ -35,6 +35,16 @@ def _viable_with_geometry(ctx):
     return g[g.has_geometry]
 
 
+def _missing_geometry(ctx, rule_needs: str):
+    """Viable registrations whose points cannot be placed: each geometry rule reports could_not_check for
+    them, so a missing endpoint is never mistaken for a pass (C16 separately reports the missing field)."""
+    g = geometry(ctx)
+    for r in rows(g[(g.viable == "yes") & ~g.has_geometry]):
+        missing = [p for p in ("endpoint_a", "midpoint", "endpoint_b") if pd.isna(r[f"{p}_x"])]
+        ctx.add("could_not_check", "plot", r.plot_name, plot_name=r.plot_name, source_table="registration", source_key=r.KEY,
+                observed=f"missing coordinates: {', '.join(missing)}", expected=rule_needs, message="geometry incomplete (see C16)")
+
+
 def _add(ctx, status, r, observed, expected, message="", severity=None):
     ctx.add(status, "plot", r.plot_name, plot_name=r.plot_name, source_table="registration", source_key=r.KEY, observed=observed, expected=expected,
             message=message, severity=severity)
@@ -42,10 +52,15 @@ def _add(ctx, status, r, observed, expected, message="", severity=None):
 
 @rule("D01")
 def midpoint_offset(ctx):
+    _missing_geometry(ctx, "midpoint and prescribed point")
     th = ctx.th
     lim, watch = th["midpoint_max_offset_m"], th["midpoint_watch_offset_m"]
     for r in rows(_viable_with_geometry(ctx)):
         off, acc = r.midpoint_offset_m, r.midpoint_acc
+        if pd.isna(acc):
+            status, sev, msg = ("fail", "warning", "beyond the SOP limit; midpoint accuracy missing, so GPS error cannot be allowed for") if off > lim else ("pass", None, "midpoint accuracy missing")
+            _add(ctx, status, r, f"{off:.1f} m (midpoint accuracy missing)", f"<= {lim} m from the prescribed point", msg, sev)
+            continue
         if off > lim + 2 * acc:
             status, sev, msg = "fail", "error", f"beyond {lim} m even allowing 2x the midpoint GPS accuracy ({acc} m)"
         elif off > lim:
@@ -59,6 +74,7 @@ def midpoint_offset(ctx):
 
 @rule("D02")
 def half_lengths(ctx):
+    _missing_geometry(ctx, "endpoints and midpoint")
     th, half = ctx.th, ctx.th["half_length_m"]
     for r in rows(_viable_with_geometry(ctx)):
         za = abs(r.am_m - half) / np.hypot(r.endpoint_a_acc, r.midpoint_acc)
@@ -69,6 +85,7 @@ def half_lengths(ctx):
 
 @rule("D03")
 def transect_length(ctx):
+    _missing_geometry(ctx, "both endpoints")
     th, L = ctx.th, ctx.th["transect_length_m"]
     for r in rows(_viable_with_geometry(ctx)):
         z = abs(r.ab_m - L) / np.hypot(r.endpoint_a_acc, r.endpoint_b_acc)
@@ -78,6 +95,7 @@ def transect_length(ctx):
 
 @rule("D04")
 def straightness(ctx):
+    _missing_geometry(ctx, "endpoints and midpoint")
     th = ctx.th
     for r in rows(_viable_with_geometry(ctx)):
         sd = np.sqrt(r.midpoint_acc ** 2 + (r.endpoint_a_acc ** 2 + r.endpoint_b_acc ** 2) / 4)
@@ -89,6 +107,7 @@ def straightness(ctx):
 
 @rule("D05")
 def orientation(ctx):
+    _missing_geometry(ctx, "both endpoints")
     lim = ctx.th["ns_deviation_deg"]
     g = _viable_with_geometry(ctx)
     for r in rows(g):
@@ -102,11 +121,19 @@ def orientation(ctx):
 
 @rule("D06")
 def point_accuracy(ctx):
+    _missing_geometry(ctx, "the three points and their accuracies")
     lim = ctx.th["max_accuracy_m"]
     for r in rows(_viable_with_geometry(ctx)):
         accs = {p: r[f"{p}_acc"] for p in ("endpoint_a", "midpoint", "endpoint_b")}
-        bad = {p: a for p, a in accs.items() if a > lim}
-        _add(ctx, "fail" if bad else "pass", r, ", ".join(f"{p} {a} m" for p, a in accs.items()), f"<= {lim} m")
+        missing = [p for p, a in accs.items() if pd.isna(a)]
+        bad = {p: a for p, a in accs.items() if pd.notna(a) and a > lim}
+        obs = ", ".join(f"{p} {'missing' if pd.isna(a) else f'{a} m'}" for p, a in accs.items())
+        if bad:
+            _add(ctx, "fail", r, obs, f"<= {lim} m")
+        elif missing:
+            _add(ctx, "could_not_check", r, obs, f"<= {lim} m", f"accuracy missing for {', '.join(missing)}")
+        else:
+            _add(ctx, "pass", r, obs, f"<= {lim} m")
 
 
 @rule("D07")

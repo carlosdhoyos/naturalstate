@@ -38,8 +38,16 @@ def slot_number(group_type: str, unknown_index) -> str:
 def curation_actions(si: pd.DataFrame) -> pd.DataFrame:
     """species_extra_ids with its notes parsed into merge_into / exclude columns."""
     c = si.copy()
-    c["merge_into"] = c.notes.str.extract(r"duplicate of\s+((?:herb|wood)_\d{3})", flags=re.I)[0].fillna("")
-    c["exclude"] = c.notes.str.contains(r"exclud", case=False, regex=True)
+    # Free text is fragile: an action is applied only when its phrase is not negated ("not a duplicate of",
+    # "do not exclude"); a negated or conflicting note is left unapplied and flagged as ambiguous (F13).
+    neg = r"\b(?:not|no|never|don't|do not|should not|shouldn't|isn't|is not)\b[^.;]{0,25}"
+    dup = c.notes.str.extract(r"duplicate of\s+((?:herb|wood)_\d{3})", flags=re.I)[0].fillna("")
+    dup_neg = c.notes.str.contains(neg + r"duplicate of", case=False, regex=True)
+    exc = c.notes.str.contains(r"exclud", case=False, regex=True)
+    exc_neg = c.notes.str.contains(neg + r"exclud", case=False, regex=True)
+    c["merge_into"] = dup.where(~dup_neg, "")
+    c["exclude"] = exc & ~exc_neg
+    c["ambiguous_note"] = (dup.ne("") & dup_neg) | (exc & exc_neg)
     c["unresolved"] = c.species_name.str.strip().str.lower().eq("unknown")
     return by_key(c, "species_number")
 

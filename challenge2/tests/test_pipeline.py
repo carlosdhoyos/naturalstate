@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 
 import numpy as np
 import pandas as pd
@@ -183,3 +184,33 @@ def test_review_keys(b):
     assert r.flag_id.is_unique and r.flag_id.str.len().eq(16).all()
     assert (r.project_id == "savmon|lw|herbs|ho").all()
     assert r.groupby(["observed", "expected"]).evidence_hash.nunique().eq(1).all()
+
+
+def test_curation_notes_negation_is_not_applied():
+    si = pd.DataFrame({"species_number": ["herb_001", "herb_002", "herb_003"], "species_name": ["X y", "Unknown", "Z w"],
+                       "notes": ["do not exclude, it is herbaceous", "not a duplicate of herb_036", "should be excluded"]})
+    c = curation_actions(si)
+    assert not c.loc["herb_001", "exclude"] and c.loc["herb_001", "ambiguous_note"]
+    assert c.loc["herb_002", "merge_into"] == "" and c.loc["herb_002", "ambiguous_note"]
+    assert c.loc["herb_003", "exclude"] and not c.loc["herb_003", "ambiguous_note"]
+
+
+def test_chao2_without_estimated_unseen_taxa_claims_no_upper_bound():
+    """10 taxa, Q1 = 1, Q2 = 0, T = 20: the point estimate is 10, but certainty that nothing is missing is not
+    implied: no upper bound is reported (iNEXT could not be run here; these are closed-form checks)."""
+    from vegqa.effort import chao2_bc
+
+    est, lo, hi = chao2_bc(10, 1, 0, 20)
+    assert est == 10 and lo == 10 and math.isnan(hi)
+    est, lo, hi = chao2_bc(10, 0, 3, 20)  # no uniques at all: nothing suggests unseen taxa
+    assert (est, lo, hi) == (10, 10, 10)
+    est, lo, hi = chao2_bc(10, 5, 0, 20)  # many uniques, no duplicates: bias-corrected form stays finite
+    assert est == pytest.approx(10 + 0.95 * 5 * 4 / 2) and lo < est < hi
+
+
+def test_coverage_cases():
+    from vegqa.effort import coverage
+
+    assert coverage(np.array([3, 4, 5]), 20) == 1.0                         # no uniques
+    assert coverage(np.array([1, 1, 1, 1]), 20) < 0.5                       # all uniques
+    assert 0 < coverage(np.array([1, 1, 3]), 20) < 1                         # Q2 = 0 branch

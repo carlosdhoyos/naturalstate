@@ -24,14 +24,17 @@ def canonical_survey_keys(d, excluded=EXCLUDED_REVIEW_STATES) -> tuple[set, pd.D
     excluded has NO canonical survey (J03 reports it): an excluded submission never counts towards
     richness or effort. Returns the canonical KEYs and a table explaining each choice."""
     s = d.survey.copy()
-    s["_excluded"] = s.ReviewState.isin(excluded)
+    # a KEY that appears more than once is ambiguous: no copy may count (A02 reports it), so metrics for that
+    # plot are suppressed rather than double counted
+    dup_key = s.KEY.duplicated(keep=False)
+    s["_excluded"] = s.ReviewState.isin(excluded) | dup_key
     s = s.sort_values(["plot_uuid", "replicate", "_excluded", "_end"], ascending=[True, True, True, False])
     first = ~s.duplicated(["plot_uuid", "replicate"], keep="first")
     s["canonical"] = first & ~s._excluded
     s["n_submissions"] = s.groupby(["plot_uuid", "replicate"]).KEY.transform("size")
-    s["canonical_reason"] = np.where(s._excluded, "excluded: review state " + s.ReviewState,
+    s["canonical_reason"] = np.where(dup_key, "excluded: duplicated KEY (A02)", np.where(s._excluded, "excluded: review state " + s.ReviewState,
                                      np.where(~s.canonical, "not canonical: an eligible submission ends later",
-                                              np.where(s.n_submissions == 1, "only submission", "kept: latest eligible submission")))
+                                              np.where(s.n_submissions == 1, "only submission", "kept: latest eligible submission"))))
     return set(s.loc[s.canonical, "KEY"]), s[["KEY", "plot_name", "replicate", "ReviewState", "_device", "canonical", "n_submissions", "canonical_reason"]]
 
 

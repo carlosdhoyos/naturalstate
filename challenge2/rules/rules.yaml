@@ -15,9 +15,9 @@ thresholds:
   midpoint_watch_offset_m: 20             # judgement: report plots within 5 m of the limit (info)
   transect_length_m: 50                   # Registration SOP figure 1
   half_length_m: 25
-  gps_z_warning: 2                        # judgement: deviation / combined reported GPS accuracy
+  gps_z_warning: 2                        # judgement: a SCREENING score, deviation / combined reported accuracy (not a calibrated test)
   gps_z_error: 3
-  max_accuracy_m: 5                       # Herbaceous SOP 4.2; form capture-accuracy=5
+  max_accuracy_m: 5                       # Herbaceous SOP 4: "set to record geopoints with location accuracy of 5 m or better" (a device-setup instruction); form capture-accuracy=5 is an auto-capture target, not a constraint
   ns_deviation_deg: 30                    # judgement: "laid out along the north-south axis" (Reg. SOP 4–5)
   quadrat_lateral_min_m: 1.5              # Herbaceous SOP step 5: frame flush at the end of a 2.5 m stick
   quadrat_lateral_max_m: 2.5
@@ -101,7 +101,7 @@ rules:
   D03: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "Registration SOP fig. 1 (A-B = 50 m)", title: "Transect length inconsistent with 50 m (beyond GPS error)", why: "Quadrat spacing and coverage depend on it", action: "Review endpoints"}
   D04: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "Registration SOP fig. 1 (straight transect)", title: "Midpoint off the A-B line (beyond GPS error)", why: "A bent transect changes the sampled area", action: "Review the layout"}
   D05: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "Registration SOP steps 4-5 (lay out along N-S; rotate only for obstacles)", title: "Transect not oriented north-south", why: "Systematic orientation can bias sampling relative to gradients", action: "Confirm whether rotation was justified (confirmation item)"}
-  D06: {group: D, level: plot, severity: error, metric_impact: "no", source: "form capture-accuracy=5; SOP 4.2", title: "Registration point accuracy worse than 5 m", why: "Geometry checks become unreliable", action: "Re-record"}
+  D06: {group: D, level: plot, severity: warning, metric_impact: "no", source: "Herbaceous SOP 4 device setting (5 m or better); form capture-accuracy=5 is an auto-capture target, not a constraint", title: "Registration point accuracy worse than 5 m, or missing", why: "Geometry checks become unreliable", action: "Re-record"}
   D07: {group: D, level: plot, severity: error, metric_impact: "no", source: "form save_to vegplots#geometry", title: "vegplot entity geometry differs from the registered midpoint", why: "The entity used by later forms points elsewhere", action: "Investigate entity update"}
   D08: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "Registration SOP step 3 (stratum mismatch can justify non-viable)", title: "Recorded ecosystem inconsistent with the assigned stratum", why: "The plot may not represent its stratum", action: "Confirm stratum / viability"}
   D09: {group: D, level: plot, severity: info, metric_impact: indirect, source: "Registration SOP step 5 (backup when no viable area within 25 m)", title: "Backup used; not the nearest available backup", why: "Backup choice affects the sample; the rule is undocumented", action: "Confirm the backup-selection rule"}
@@ -109,7 +109,7 @@ rules:
   D11: {group: D, level: plot, severity: warning, metric_impact: indirect, source: "survey entity / centroids", title: "Plot registration attached to a different survey/replicate than expected", why: "The plot would not appear in the herbaceous form", action: "Check registration"}
 
   # ── E. Quadrat geometry and timing ──────────────────────────────────────
-  E01: {group: E, level: quadrat, severity: error, metric_impact: "no", source: "form capture-accuracy=5; SOP 4.2", title: "Quadrat accuracy worse than 5 m", why: "Position checks unreliable", action: "Re-record"}
+  E01: {group: E, level: quadrat, severity: warning, metric_impact: "no", source: "Herbaceous SOP 4 device setting (5 m or better); form capture-accuracy=5 is an auto-capture target, not a constraint", title: "Quadrat accuracy worse than 5 m", why: "Position checks unreliable", action: "Re-record"}
   E02: {group: E, level: quadrat, severity: warning, metric_impact: indirect, source: "Herbaceous SOP step 5 (frame 1.5-2.5 m from the line)", title: "Quadrat off the 5 m belt (beyond GPS error)", why: "The quadrat may not be in the plot", action: "Review position"}
   E03: {group: E, level: survey, severity: error, metric_impact: indirect, source: "Herbaceous SOP step 2/5 (quadrats along the registered tape)", title: "Whole transect offset from the registered line", why: "The survey sampled a different line than the registered plot", action: "Confirm where the survey happened"}
   E04: {group: E, level: quadrat, severity: warning, metric_impact: indirect, source: "judgement (residual from the survey's own fitted line)", title: "Quadrat far from the survey's own line", why: "Single-point position error or misplacement, independent of registration error", action: "Review position"}

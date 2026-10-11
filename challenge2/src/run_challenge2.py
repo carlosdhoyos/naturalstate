@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from vegqa import dashboard, effort, engine, figures, suggestions, tables  # noqa: E402
 from vegqa.gbif import CACHE as GBIF_CACHE  # noqa: E402
+from vegqa.contracts import check_inputs  # noqa: E402
 from vegqa.forms import set_forms_dir  # noqa: E402
 from vegqa.load import ENTITIES, EXPORTS, FORMS, load  # noqa: E402
 from vegqa.dem import CACHE as DEM_CACHE  # noqa: E402
@@ -56,16 +57,29 @@ def project_id(d) -> str:
     return "|".join(sorted(set(sv.loc[sv["__id"].isin(set(d.survey.survey_uuid)), "label"]))) or "unknown"
 
 
-def add_review_keys(results: pd.DataFrame, project: str) -> pd.DataFrame:
+def add_review_keys(results: pd.DataFrame, project: str, catalogue: dict) -> pd.DataFrame:
     """flag_id: a stable identity for review decisions, from (project, rule, entity type, entity key), so a
-    decision re-attaches to the same flag in every later run. evidence_hash: from (observed, expected), so
-    a decision is reopened when the evidence behind the flag changes."""
+    decision re-attaches to the same flag in every later run. evidence_hash: from the evidence (observed,
+    expected, severity) AND the rule's definition (its catalogue entry and the thresholds), so a decision
+    is reopened when the evidence OR the rule's meaning changes, even if the displayed strings do not."""
     h = lambda *parts: hashlib.sha256("\x1f".join(parts).encode()).hexdigest()
+    th = json.dumps(catalogue["thresholds"], sort_keys=True, default=str)
+    rule_def = {rid: h(json.dumps(r, sort_keys=True), th) for rid, r in catalogue["rules"].items()}
     out = results.copy()
     out.insert(1, "project_id", project)
     out.insert(2, "flag_id", [h(project, r, t, k)[:16] for r, t, k in zip(out.rule_id, out.entity_type, out.entity_key)])
-    out["evidence_hash"] = [h(o, e)[:12] for o, e in zip(out.observed, out.expected)]
+    out["evidence_hash"] = [h(o, e, sv, rule_def[r])[:12] for o, e, sv, r in zip(out.observed, out.expected, out.severity, out.rule_id)]
     return out
+
+
+def runtime() -> dict:
+    """The environment of the run (not part of the run id, which covers inputs, catalogue and code)."""
+    import importlib.metadata as md
+    import os
+    import platform
+
+    pkgs = {p: md.version(p) for p in ("numpy", "pandas", "openpyxl", "matplotlib", "PyYAML")}
+    return {"python": platform.python_version(), "platform": platform.platform(), "packages": pkgs, "image": os.environ.get("VEGQA_IMAGE", "")}
 
 
 def code_version() -> str:
@@ -95,6 +109,7 @@ def rule_summary(results: pd.DataFrame, catalogue: dict) -> pd.DataFrame:
 def build(exports: Path = EXPORTS, entities: Path = ENTITIES, forms: Path = FORMS) -> dict:
     """Everything the run produces, in memory (tests use this; main() writes it). Point `exports` and
     `entities` at the platform's tables (same file names as the ODK exports) to run on new data."""
+    check_inputs(exports, entities, forms)  # a broken export stops here, before any analysis
     set_forms_dir(forms)
     d = load(exports, entities)
     catalogue = engine.load_catalogue()
@@ -103,7 +118,7 @@ def build(exports: Path = EXPORTS, entities: Path = ENTITIES, forms: Path = FORM
     ctx = engine.Ctx(d, occ, canonical, projection(d), catalogue["thresholds"], catalogue)
     results = engine.run_all(ctx)
     results = results.sort_values(["rule_id", "entity_type", "entity_key", "observed"], kind="mergesort").reset_index(drop=True)
-    results = add_review_keys(results, project_id(d))
+    results = add_review_keys(results, project_id(d), catalogue)
     hashes = file_hashes(exports, entities, forms)
     rid = engine.run_id(hashes, catalogue, code_version())
     results.insert(0, "run_id", rid)
@@ -113,32 +128,52 @@ def build(exports: Path = EXPORTS, entities: Path = ENTITIES, forms: Path = FORM
         "submissions": subs, "plots": plots, "quadrats": tables.quadrats(ctx, results), "occurrences": tables.occurrences(ctx, results),
         "survey_overview": tables.survey_overview(ctx, results, subs, plots), "canonical_choice": canon_table,
     }
-    out_tables.update(effort.all_tables(ctx, plots))
+    out_tables.update(effort.all_tables(ctx, plots, results))
     out_tables["species_list_suggestions"] = suggestions.build(ctx)
     return {"ctx": ctx, "results": results, "summary": rule_summary(results, catalogue), "tables": out_tables, "run_id": rid, "hashes": hashes,
             "catalogue": catalogue}
 
 
 def main(exports: Path = EXPORTS, entities: Path = ENTITIES, out: Path | None = None, forms: Path = FORMS) -> dict:
+    """Build, write everything to a staging folder, validate it, then publish it into `out` with the
+    manifest LAST. An interrupted run never mixes files of two runs: until the manifest is replaced,
+    `out` holds the previous complete run (its manifest names it), and staging is discarded."""
+    import shutil
+
     global OUT
     OUT = out or OUT
     OUT.mkdir(parents=True, exist_ok=True)
     b = build(exports, entities, forms)
     results, catalogue = b["results"], b["catalogue"]
-    results.to_csv(OUT / "qa_results.csv", index=False)
-    flags = results[results.status == "fail"]
-    flags.to_csv(OUT / "qa_flags.csv", index=False)
-    b["summary"].to_csv(OUT / "rule_summary.csv", index=False)
-    for name, df in b["tables"].items():
-        df.to_csv(OUT / f"{name}.csv", index=False)
-    figs = figures.make_all(b["ctx"], b["tables"], results, OUT / "figures")
-    dashboard.export(b["ctx"], b["tables"], results, b["summary"], b["run_id"], OUT / "dashboard_results.json")
-    manifest = {
-        "run_id": b["run_id"], "code_version": code_version(), "catalogue_version": catalogue["version"], "inputs": b["hashes"],
-        "rows": {"qa_results": len(results), "qa_flags": len(flags), **{k: len(v) for k, v in b["tables"].items()}},
-        "status_counts": results.status.value_counts().to_dict(), "fail_by_severity": flags.severity.value_counts().to_dict(), "figures": figs,
-    }
-    (OUT / "run_manifest.json").write_text(json.dumps(manifest, indent=1, default=str))
+    stage = OUT / f".staging-{b['run_id']}"
+    shutil.rmtree(stage, ignore_errors=True)
+    stage.mkdir()
+    try:
+        results.to_csv(stage / "qa_results.csv", index=False)
+        flags = results[results.status == "fail"]
+        flags.to_csv(stage / "qa_flags.csv", index=False)
+        b["summary"].to_csv(stage / "rule_summary.csv", index=False)
+        for name, df in b["tables"].items():
+            df.to_csv(stage / f"{name}.csv", index=False)
+        figs = figures.make_all(b["ctx"], b["tables"], results, stage / "figures")
+        dashboard.export(b["ctx"], b["tables"], results, b["summary"], b["run_id"], stage / "dashboard_results.json")
+        manifest = {
+            "run_id": b["run_id"], "code_version": code_version(), "catalogue_version": catalogue["version"], "inputs": b["hashes"], "runtime": runtime(),
+            "rows": {"qa_results": len(results), "qa_flags": len(flags), **{k: len(v) for k, v in b["tables"].items()}},
+            "status_counts": results.status.value_counts().to_dict(), "fail_by_severity": flags.severity.value_counts().to_dict(), "figures": figs,
+        }
+        # validate the staged run before publishing it
+        assert sum(manifest["status_counts"].values()) == len(pd.read_csv(stage / "qa_results.csv", usecols=["rule_id"])), "staged results incomplete"
+        assert all((stage / "figures" / f).exists() for f in figs), "staged figures incomplete"
+        (stage / "run_manifest.json").write_text(json.dumps(manifest, indent=1, default=str))
+        # publish: every file replaced atomically, the manifest last (a mounted /out cannot itself be renamed)
+        files = sorted(p for p in stage.rglob("*") if p.is_file() and p.name != "run_manifest.json")
+        for p in files + [stage / "run_manifest.json"]:
+            dest = OUT / p.relative_to(stage)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            p.replace(dest)
+    finally:
+        shutil.rmtree(stage, ignore_errors=True)
     return manifest
 
 

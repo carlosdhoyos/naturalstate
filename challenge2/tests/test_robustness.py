@@ -67,6 +67,99 @@ def dup_vegplot(df):
     return pd.concat([df, df.iloc[[0]]], ignore_index=True)
 
 
+def test_duplicated_canonical_survey_counts_nowhere(tmp_path):
+    """A duplicated survey KEY is ambiguous: neither copy is canonical, effort has no rows for it, and the plot
+    shows as not surveyed (J03), instead of being counted twice."""
+    s = read_text(EXPORTS / SURVEY)
+    key = s.loc[0, "KEY"]
+    plot = s.loc[0, "plot_selection-plot_name"]
+    r, out = run_workflow(tmp_path, {SURVEY: dup_survey})
+    subs = pd.read_csv(out / "submissions.csv")
+    assert (subs.survey_key == key).sum() == 2 and not subs[subs.survey_key == key].canonical.any()
+    e = pd.read_csv(out / "effort_plots.csv")
+    assert (e.survey_key == key).sum() == 0
+    assert plot in set(fails(r, "J03").plot_name)
+
+
+def test_duplicated_quadrat_row_is_one_sampling_unit(tmp_path):
+    q = read_text(EXPORTS / QUADRAT)
+    key = q.loc[0, "PARENT_KEY"]
+    r, out = run_workflow(tmp_path, {QUADRAT: dup_quadrat})
+    e = pd.read_csv(out / "effort_plots.csv")
+    row = e[(e.survey_key == key) & (e.layer == "resolved")].iloc[0]
+    assert row["T"] == 20  # distinct quadrats, not rows
+    assert row["metrics_status"].startswith("provisional")  # A03 (21 rows) and A04 mark it; A02 reports the key at table level
+
+
+def test_missing_species_records_suppress_metrics(tmp_path):
+    """Herbs present, but every species record removed: not a valid zero; metrics suppressed."""
+    s = read_text(EXPORTS / SURVEY)
+    key = s.loc[0, "KEY"]
+    qkeys = set(read_text(EXPORTS / QUADRAT).query("PARENT_KEY == @key").KEY)
+
+    def drop_list(q):
+        m = q.PARENT_KEY == key
+        q.loc[m, "herb_species-selected_herb_species_uuids"] = ""
+        return q
+
+    r, out = run_workflow(tmp_path, {QUADRAT: drop_list, EXTRA: lambda x: x[~x.PARENT_KEY.isin(qkeys)].reset_index(drop=True)})
+    e = pd.read_csv(out / "effort_plots.csv")
+    row = e[(e.survey_key == key) & (e.layer == "resolved")].iloc[0]
+    assert row["S_obs"] == 0 and "missing records" in row["note"] and row["metrics_status"] != "ok"
+
+
+def test_missing_registration_geometry_is_could_not_check(tmp_path):
+    reg = read_text(EXPORTS / REG)
+    plot = reg.loc[reg["plot_selection-is_plot_viable"] == "yes", "plot_selection-plot_name"].iloc[0]
+
+    def drop_endpoint(df):
+        m = df["plot_selection-plot_name"] == plot
+        df.loc[m, "plot_metadata-collect_points-endpoint_b-location_endpoint_b-Latitude"] = ""
+        return df
+
+    r, _ = run_workflow(tmp_path, {REG: drop_endpoint})
+    for rule in ("D01", "D02", "D03", "D04", "D05", "D06"):
+        st = set(r[(r.rule_id == rule) & (r.plot_name == plot)].status)
+        assert st == {"could_not_check"}, (rule, st)
+
+
+def test_missing_accuracy_is_not_a_pass(tmp_path):
+    reg = read_text(EXPORTS / REG)
+    plot = reg.loc[reg["plot_selection-is_plot_viable"] == "yes", "plot_selection-plot_name"].iloc[0]
+
+    def drop_acc(df):
+        df.loc[df["plot_selection-plot_name"] == plot, "plot_metadata-collect_points-endpoint_a-location_endpoint_a-Accuracy"] = ""
+        return df
+
+    r, _ = run_workflow(tmp_path, {REG: drop_acc})
+    assert set(r[(r.rule_id == "D06") & (r.plot_name == plot)].status) == {"could_not_check"}
+
+
+def test_broken_export_stops_before_analysis(tmp_path):
+    from vegqa.contracts import InputContractError
+
+    with pytest.raises(InputContractError, match="missing columns"):
+        run_workflow(tmp_path, {SURVEY: lambda d: d.drop(columns=["KEY"])})
+
+
+def test_interrupted_run_leaves_previous_outputs(tmp_path, monkeypatch):
+    """Publication is staged: a failure mid-run leaves the previous complete run in place, no mixture."""
+    import run_challenge2
+
+    r, out = run_workflow(tmp_path / "first", {})
+    before = {p.name: p.read_bytes() for p in out.glob("*.csv")} | {"m": (out / "run_manifest.json").read_bytes()}
+
+    def boom(*a, **k):
+        raise RuntimeError("simulated crash while drawing figures")
+
+    monkeypatch.setattr(run_challenge2.figures, "make_all", boom)
+    with pytest.raises(RuntimeError):
+        run_challenge2.main(EXPORTS, ENTITIES, out, FORMS)
+    run_challenge2.OUT = run_challenge2.Path(run_challenge2.__file__).resolve().parents[1] / "outputs"
+    after = {p.name: p.read_bytes() for p in out.glob("*.csv")} | {"m": (out / "run_manifest.json").read_bytes()}
+    assert before == after and not list(out.glob(".staging-*"))
+
+
 @pytest.mark.parametrize("fname,edit,rule", [
     (SURVEY, dup_survey, "A02"), (REG, dup_registration, "A02"), (QUADRAT, dup_quadrat, "A02"),
     (EXTRA, dup_extra, "A02"), ("species.csv", dup_species, "A02"), ("vegplots.csv", dup_vegplot, "A02"),
@@ -105,7 +198,7 @@ def test_survey_without_vegetation_has_explicit_metrics(tmp_path):
     e = pd.read_csv(out / "effort_plots.csv")
     row = e[(e.survey_key == key) & (e.layer == "resolved")].iloc[0]
     assert row["S_obs"] == 0 and row["T"] == 20
-    assert pd.isna(row["coverage"]) and pd.isna(row["hill_q1"]) and pd.isna(row["hill_q2"]) and "no taxa" in row["note"]
+    assert pd.isna(row["coverage"]) and pd.isna(row["hill_q1"]) and pd.isna(row["hill_q2"]) and row["note"].startswith("valid zero")
 
 
 def test_rejected_only_plot_is_not_canonical(tmp_path):

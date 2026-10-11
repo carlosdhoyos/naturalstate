@@ -3,7 +3,11 @@
 The QA run never calls the network: checks F03 (spelling) and F10 (range) read the cache, and a name that
 is not in the cache is "could_not_check". Refresh the cache with:
 
-    python -m vegqa.gbif            # fetches only names missing from the cache
+    python -m vegqa.gbif                    # names missing from the cache, or fetched under an older query
+    python -m vegqa.gbif --max-age-days 180 # also re-fetch entries older than 180 days
+
+Counts use occurrenceStatus=PRESENT (GBIF also holds absence records). "0 records in a country" means no
+record found by this query, not absence: collection effort, synonymy and record quality all affect it.
 
 For each name: GBIF backbone match (matchType EXACT / FUZZY / HIGHERRANK / NONE, canonical name, status,
 accepted key) and occurrence counts in the project country and in a contrast region; both are set in rules/rules.yaml
@@ -33,14 +37,18 @@ def _get(url: str) -> dict:
         return json.loads(r.read().decode())
 
 
+QUERY_VERSION = "occurrenceStatus=PRESENT;v2"  # entries fetched under another query are re-fetched
+
+
 def _count(taxon_key: int, countries: list[str]) -> int:
-    q = [("taxonKey", taxon_key), ("limit", 0)] + [("country", c) for c in countries]
+    q = [("taxonKey", taxon_key), ("limit", 0), ("occurrenceStatus", "PRESENT")] + [("country", c) for c in countries]
     return int(_get(f"{API}/occurrence/search?{urllib.parse.urlencode(q)}").get("count", 0))
 
 
 def lookup(name: str, country: str, contrast: list[str]) -> dict:
     m = _get(f"{API}/species/match?{urllib.parse.urlencode({'name': name, 'kingdom': 'Plantae', 'verbose': 'false'})}")
     out = {k: m.get(k) for k in ("matchType", "canonicalName", "scientificName", "rank", "status", "confidence", "usageKey", "acceptedUsageKey", "genus", "species")}
+    out["retrieved"], out["query"] = str(date.today()), QUERY_VERSION
     key = m.get("acceptedUsageKey") or m.get("usageKey")
     if key and m.get("rank") in ("SPECIES", "SUBSPECIES", "VARIETY"):
         out[f"count_{country}"] = _count(key, [country])
@@ -61,7 +69,7 @@ def names_in_data(d) -> list[str]:
     return sorted({n.strip() for n in names if n and n.strip() and not n.strip().startswith(("herb_", "wood_"))})
 
 
-def refresh(d, path: Path = CACHE, pause: float = 0.1) -> dict:
+def refresh(d, path: Path = CACHE, pause: float = 0.1, max_age_days: int | None = None) -> dict:
     from .engine import load_catalogue
 
     th = load_catalogue()["thresholds"]
@@ -70,7 +78,12 @@ def refresh(d, path: Path = CACHE, pause: float = 0.1) -> dict:
     if cache.get("country") not in (None, country) or cache.get("contrast_countries") not in (None, contrast):
         cache = {"retrieved": None, "names": {}}  # region changed: counts no longer comparable
     cache.update(country=country, contrast_countries=contrast)
-    todo = [n for n in names_in_data(d) if n not in cache["names"]]
+    def stale(e: dict) -> bool:
+        if e.get("query") != QUERY_VERSION:
+            return True
+        return max_age_days is not None and (date.today() - date.fromisoformat(e.get("retrieved", "1970-01-01"))).days > max_age_days
+
+    todo = [n for n in names_in_data(d) if n not in cache["names"] or stale(cache["names"][n])]
     for i, n in enumerate(todo, 1):
         try:
             cache["names"][n] = lookup(n, country, contrast)
@@ -86,7 +99,11 @@ def refresh(d, path: Path = CACHE, pause: float = 0.1) -> dict:
 
 
 if __name__ == "__main__":
+    import argparse
+
     from .load import load
 
-    c = refresh(load())
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--max-age-days", type=int, default=None, help="also re-fetch entries older than this")
+    c = refresh(load(), max_age_days=ap.parse_args().max_age_days)
     print(f"{len(c['names'])} names cached in {CACHE}")

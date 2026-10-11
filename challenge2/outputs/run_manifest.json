@@ -1,6 +1,6 @@
 {
- "run_id": "qa-4622d26cbc136a65",
- "code_version": "code-c23740ae211f",
+ "run_id": "qa-dce7da2adcecaa6d",
+ "code_version": "code-e1869b077465",
  "catalogue_version": "1.0",
  "inputs": {
   "exports/herbaceous_veg_survey-additional_species_repeat.csv": "58ddbaa9abe939a3",
@@ -20,9 +20,21 @@
   "entities/vegplots.csv": "e6e1ad765948ce6d",
   "forms/herbaceous_veg_survey.xlsx": "cc4b5cb8869f5ee0",
   "forms/register_vegetation_plots.xlsx": "faf9af4467a689fa",
-  "reference/gbif_cache.json": "92098e101a7e658e",
+  "reference/gbif_cache.json": "0866a9ad5c385466",
   "reference/elevation_cache.json": "0c2126f52ad44407",
-  "rules/rules.yaml": "9292fffdf63b9ed5"
+  "rules/rules.yaml": "22e9256b638a4e5a"
+ },
+ "runtime": {
+  "python": "3.13.7",
+  "platform": "macOS-26.1-arm64-arm-64bit-Mach-O",
+  "packages": {
+   "numpy": "2.1.3",
+   "pandas": "2.2.3",
+   "openpyxl": "3.1.5",
+   "matplotlib": "3.9.2",
+   "PyYAML": "6.0.2"
+  },
+  "image": ""
  },
  "rows": {
   "qa_results": 24829,

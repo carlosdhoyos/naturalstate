@@ -321,6 +321,8 @@ def curation_table(ctx):
             p.append(f"label {label!r} != {'number' if c.unresolved else 'species_name'} {want!r}")
         if c.merge_into or c.exclude:
             p.append("merge/exclude stated only in free-text notes (no structured column)")
+        if c.ambiguous_note:
+            p.append(f"note {c.notes!r} reads as a negated action: NOT applied, a curator must decide")
         if not c.unresolved:
             ev, _, exact = _spelling_evidence(ctx, c.species_name)
             near, score = _closest(c.species_name, curated_names, ctx.th["fuzzy_name_ratio"])

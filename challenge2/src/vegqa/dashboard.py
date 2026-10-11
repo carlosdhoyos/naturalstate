@@ -47,11 +47,12 @@ def _timeline(ctx) -> pd.DataFrame:
     team = by_key(d.ent["project_team"], "__id").label
     s = pd.DataFrame({"key": d.survey.KEY, "form": "survey", "plot_name": d.survey.plot_name, "device": d.survey._device,
                       "recorder": d.survey.recorder_uuid.map(team), "start": d.survey._start, "end": d.survey._end, "submitted": d.survey._submitted,
-                      "review": d.survey.ReviewState.replace("", "not reviewed"), "canonical": d.survey.KEY.isin(ctx.canonical),
+                      "review": d.survey.ReviewState.replace("", "not reviewed"), "canonical": d.survey.KEY.isin(ctx.canonical), "replicate": d.survey.replicate,
                       "base_active_herb_count": d.survey._base_active_herb_count})
     r = pd.DataFrame({"key": d.registration.KEY, "form": "registration", "plot_name": d.registration.plot_name, "device": d.registration._device,
                       "recorder": d.registration.recorder_uuid.map(team), "start": d.registration._start, "end": d.registration._end,
                       "submitted": d.registration._submitted, "review": d.registration.ReviewState.replace("", "not reviewed"), "canonical": True,
+                      "replicate": d.registration["survey_begin-replicate"],
                       "base_active_herb_count": np.nan})
     return pd.concat([s, r], ignore_index=True).sort_values("start")
 

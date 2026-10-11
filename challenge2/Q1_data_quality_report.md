@@ -3,27 +3,27 @@
 **Project:** Savanna Monitoring Pilot, Lewa (survey `savmon|lw|herbs|ho`, replicate `lw_baseline`)
 **Data:** ODK exports, entity lists and forms as provided. **Nothing was changed or fixed:** every problem is a flag that points to the source row.
 **Interactive version:** the **QA/QC dashboard** page of the Data Explorer (`dashboard/standalone/index.html`, Vegetation → QA/QC dashboard): every flag with its source row, the map with per-plot transect panels, the curation queue and the effort views.
-**Prepared by:** Carlos Hoyos · run `qa-4622d26cbc136a65` · reproducible with `python challenge2/src/run_challenge2.py`
+**Prepared by:** Carlos Hoyos · run `qa-dce7da2adcecaa6d` · reproducible with `python challenge2/src/run_challenge2.py`
 
 ---
 
 ## Summary
 
-The 30 surveyed plots are complete and internally consistent at the record level:
+The 30 surveyed plots are structurally complete:
 
 - every survey has its 20 quadrats;
 - every photo and attachment is present;
 - every reference resolves;
-- every GPS point meets the 5 m accuracy requirement.
+- every GPS point meets the SOP's instruction to record at 5 m or better.
 
-The problems that matter for richness and diversity sit elsewhere: in **what was sampled**, **where the data come from**, **how taxa are named**, and **where transects are**.
+They are not free of record-level problems: 10 quadrats declare additional species without any species rows (item 4), so the effort metrics of 7 plots are marked provisional. The problems that matter for richness and diversity sit elsewhere: in **what was sampled**, **where the data come from**, **how taxa are named**, and **where transects are**.
 
 **Issues that affect richness and diversity, in order of importance:**
 
 1. **The shrubland stratum was not sampled.** None of its 6 primary points was registered (J01), so the project cannot report herbaceous richness for shrubland. In the savanna stratum, 29 of 30 primary points were surveyed, plus 1 backup.
 2. **The data's provenance needs confirming.** The altitudes and the flora do not fit Lewa (C-7).
-   - The whole dataset sits about **705 m below the terrain** at its coordinates (E14). Field GPS altitudes are 930–1,090 m, while SRTM gives 1,640–1,750 m at the same points. **Natural State's own prescribed points (the centroid list) show the same offset (−703 m)**, so this is not a field error.
-   - **20 of the 90 identified taxa GBIF could check have no GBIF record in Kenya** (92 identified in all), but hundreds in southern Africa (F10): Pogonarthria fleckii, Pechuel-loeschea leubnitziae, Erlangea misera, Aristida scabrivalvis, and others.
+   - The whole dataset sits about **705 m below the terrain** at its coordinates (E14). Field GPS altitudes are 930–1,090 m, while SRTM gives 1,640–1,750 m at the same points. **Natural State's own prescribed points (the centroid list) show the same offset (−703 m)**, so this is not a field error. A vertical-reference difference cannot explain it on its own: Android can report altitude above the WGS84 ellipsoid rather than sea level, but the two differ by at most about ±100 m anywhere on Earth. The altitude reference of the export should still be confirmed.
+   - **20 of the 90 identified taxa GBIF could check have no Kenyan GBIF presence record** (92 identified in all; "no record found by this query", not absence: collection effort, synonymy and record quality all affect it), but hundreds in southern Africa (F10): Pogonarthria fleckii, Pechuel-loeschea leubnitziae, Erlangea misera, Aristida scabrivalvis, and others.
    - The transport list offers "Mokoro", an Okavango dugout canoe.
 
    Together these are a reason to question the dataset's provenance, not proof of it. They do not establish that the coordinates and altitudes come from different places, nor where the data originate. One hypothesis for Natural State to confirm is demonstration data relocated from a southern-African site near 1,000 m; there may be other explanations (for example altitudes referenced to a different datum, or test data).
@@ -57,6 +57,8 @@ The problems that matter for richness and diversity sit elsewhere: in **what was
 | Warning | 222 | Needs review |
 | Info | 451 | Context |
 
+**These are check results, not independent mistakes.** 241 of the 697 come from 10 project-wide findings that repeat on every submission or plot: the +02:00 time-zone label, geohash centres, walking order, the replicate's letter case, east–west orientation, centroid hygiene, form design, the deployed geohash, the SOP separator and the altitude offset. The other 456 are individual issues (24 errors, 190 warnings, 242 info); for field teams, the Summary list above is the priority order.
+
 A further 22 combinations could not be checked. Every check that passed is listed with its count in Appendix A, so "not flagged" can be told apart from "not checked". A rule has a default severity, but a single result can be raised or lowered with a stated reason, for example a GPS z-score tier. Appendix A therefore shows each rule's failures split by the severity actually given.
 
 ### How to read this report
@@ -71,8 +73,8 @@ A further 22 combinations could not be checked. Every check that passed is liste
   - **Raw** is the taxon as recorded.
   - **Resolved** follows Natural State's curation table (`species_extra_ids`): merges and exclusions are applied, spellings are never changed (V-02).
 - **Canonical survey:** at most one per plot and replicate, the latest submission that is not rejected or marked "has issues"; here, for the two plots surveyed twice, the accepted submission counts and the rejected one is kept for the repeatability estimate (V-01).
-- **GPS-aware tests:** distances are compared with the reported GPS accuracy, so ordinary GPS noise is not flagged (V-04).
-- **Further reading:** decisions V-01 to V-12, differences from the earlier exploration, and new findings are in [`docs/challenge2_decisions.md`](../docs/challenge2_decisions.md). Every flag, with its source row, is in [`outputs/qa_flags.csv`](outputs/qa_flags.csv).
+- **GPS-aware tests:** distances are compared with the reported GPS accuracy, so ordinary GPS noise is not flagged (V-04). The z values are **screening scores, not calibrated significance tests**: ODK reports a ~68% horizontal radius, and how errors combine depends on assumptions about direction and correlation.
+- **Further reading:** decisions V-01 to V-13, differences from the earlier exploration, and new findings are in [`docs/challenge2_decisions.md`](../docs/challenge2_decisions.md). Every flag, with its source row, is in [`outputs/qa_flags.csv`](outputs/qa_flags.csv).
 
 ---
 
@@ -103,7 +105,7 @@ The survey is the herbaceous survey entity of the Lewa baseline replicate as a w
 | References | Every species, team member, transport, survey, plot and ecosystem reference resolves; all 947 list picks are herbaceous species | A05, A06 |
 | Evidence | Attachments present = expected for all 63 submissions; no photo file used twice (880 files) | A08, E11 |
 | Timing | Every quadrat photo falls inside its survey window; no upload before its form ended; no team member on two overlapping visits; no implausible travel speed between visits | E08, B06 (error tier only), B08, B09 |
-| GPS | All points meet the form's 5 m accuracy limit | D06, E01 |
+| GPS | All points meet the SOP's 5 m device setting (the form's `capture-accuracy=5` only triggers automatic capture; it is not a constraint) | D06, E01 |
 | Form rules | No constraint, required-field or relevance rule of either form is broken (canonical names, confirmation, macro photos, registration metadata); every entity-lookup calculation matches its list except the geohash, which the deployed form computes from the midpoint (C17); the one other exception is Plot 28's empty additional-species row (C08) | C01–C03, C05, C06, C09–C13, C15, C16 |
 | Entity state | Every provisional species entity holds exactly what its last submission wrote; the provisional index sequence is unbroken across accepted submissions | X01 (species slots), F14 |
 | Plot links | Every survey points to a registered, viable plot of the herbaceous survey | B03, D11 |
@@ -309,11 +311,11 @@ The grid below shows each registered transect: the A–M–B line, the 5 m belt,
 ### Planned against done
 
 <!-- table:effort_plan -->
-| stratum | primary planned | registered | non-viable | surveyed | backups available | backups used | plots surveyed | primary surveyed |
-|---|---|---|---|---|---|---|---|---|
-| savanna | 30 | 30 | 1 | 29 | 10 | 1 | 30 | 97% |
-| shrubland | 6 | 0 | 0 | 0 | 5 | 0 | 0 | 0% |
-| all | 36 | 30 | 1 | 29 | 15 | 1 | 30 | 81% |
+| replicate | stratum | primary planned | registered | non-viable | surveyed | backups available | backups used | plots surveyed | primary surveyed |
+|---|---|---|---|---|---|---|---|---|---|
+| lw_baseline | savanna | 30 | 30 | 1 | 29 | 10 | 1 | 30 | 97% |
+| lw_baseline | shrubland | 6 | 0 | 0 | 0 | 5 | 0 | 0 | 0% |
+| lw_baseline | all | 36 | 30 | 1 | 29 | 15 | 1 | 30 | 81% |
 <!-- /table -->
 
 - **Savanna** is essentially complete: 29 of 30 primary points, plus 1 backup for the non-viable Plot 23.
@@ -334,19 +336,32 @@ Sample coverage estimates how much of a plot's herbaceous community, weighted by
 | Expected new taxa in a 21st quadrat (extrapolated, Chao et al. 2014) | 0.43 (median) |
 | Observed / estimated richness (bias-corrected Chao2) | 0.76 (median; range 0.36–0.98) |
 
-So in a typical plot, the 20 quadrats capture the common and moderately frequent species, but not the rare ones. A plot list is perhaps three-quarters of the plot's true richness.
+**Conditional on the recorded and curated incidence data**, these estimates suggest good coverage of the frequent taxa in a typical plot, with substantial uncertainty about rare taxa, and none at all about unsampled habitats. Three cautions apply:
 
-Chao2 carries wide intervals at this sample size. Plot 10, for example, has 21 observed taxa, 11 of them in a single quadrat and only 1 in two quadrats, so Chao2 = 47 (95% CI 27–129). We therefore lead with coverage (V-10). We do not give an interval for coverage: a simple bootstrap over quadrats is biased upwards, and a valid one needs the assemblage bootstrap of iNEXT.
+- **Estimates, not truth.** Chao2 estimates unseen richness under statistical assumptions. It does not establish true richness, especially when identifications, missing records (C04) and geometry are themselves uncertain.
+- **Coverage is not quality.** Coverage can be high while taxa are misidentified, species are missed consistently, or the layout departs from the SOP.
+- **Spatial dependence.** Quadrats are paired and systematically spaced along one transect, so they are not independent samples. The intervals assume more independence than the design gives and should be read as optimistic.
+
+The effort metrics of 7 plots (Plots 10, 14, 15, 19, 29, 30 and 46) are marked **provisional** because they have quadrats that declare additional species without rows (C04).
+
+Chao2 carries wide intervals at this sample size, and when no unseen taxa are estimated (one or no single-quadrat taxon and none in two quadrats) no upper bound is given at all, rather than a misleading zero-width interval. Plot 10, for example, has 21 observed taxa, 11 of them in a single quadrat and only 1 in two quadrats, so Chao2 = 47 (95% CI 27–129). We therefore lead with coverage (V-10). We do not give an interval for coverage: a simple bootstrap over quadrats is biased upwards, and a valid one needs the assemblage bootstrap of iNEXT.
 
 ![Accumulation and completeness](outputs/figures/accumulation.png)
 
-At project level (plots as sampling units), the 30 plots capture most of the savanna flora but not all of it. Diversity is given as incidence-based Hill numbers from quadrat frequencies: q1 is exp(Shannon), q2 is inverse Simpson, and both are the number of equally common taxa. Per-plot values are in the plot table and in `outputs/effort_plots.csv`.
+At project level, within the baseline replicate (plots as sampling units; replicates are never pooled), the 30 plots capture most of the savanna flora they sample, but not all of it.
+
+Diversity is given as incidence-based Hill numbers: q1 is exp(Shannon), q2 is inverse Simpson, both expressed as a number of equally common taxa. They describe how evenly taxa **occur across sampling units**, not plant counts, cover or biomass. Two scales are involved:
+
+- **Per plot:** from quadrat frequencies (plot table, `outputs/effort_plots.csv`).
+- **Project level:** from plot frequencies (the table below).
+
+The two scales are not comparable.
 
 <!-- table:effort_project -->
-| layer | plots | taxa observed | in 1 plot | in 2 plots | Chao2 (95% CI) | observed / Chao2 | coverage | Hill q1 / q2 |
-|---|---|---|---|---|---|---|---|---|
-| raw | 30 | 132 | 51 | 20 | 191 (161–252) | 0.692 | 0.924 | 79 / 59 |
-| resolved | 30 | 115 | 36 | 19 | 145 (128–185) | 0.791 | 0.946 | 72 / 56 |
+| replicate | layer | plots | taxa observed | in 1 plot | in 2 plots | Chao2 (95% CI) | observed / Chao2 | coverage | Hill q1 / q2 |
+|---|---|---|---|---|---|---|---|---|---|
+| lw_baseline | raw | 30 | 132 | 51 | 20 | 191 (161–252) | 0.692 | 0.924 | 79 / 59 |
+| lw_baseline | resolved | 30 | 115 | 36 | 19 | 145 (128–185) | 0.791 | 0.946 | 72 / 56 |
 <!-- /table -->
 
 ### How repeatable is a survey?
@@ -366,7 +381,7 @@ Two surveys of the same plot on the same day share 62–76% of their species. At
 - **The pairs differ in kind.** Plot 18 was recorded by Grace both times, so it measures detection over time, not observer differences. Only Plot 21 changed recorder (Grace, then Sam).
 - **Effort is confounded.** The repeats took 25–26 min against 53–68 min.
 
-So the numbers indicate the size of the noise; they do not measure it. They are still large enough to matter for monitoring: a change of a few species in a plot, or in quadrat-level frequency, may be indistinguishable from survey noise. A small routine programme of repeat surveys (for example 10% of plots per replicate, by a second recorder, at full effort) would measure it properly.
+So the numbers indicate the size of the noise; they do not measure it. They are still large enough to matter for monitoring: a change of a few species in a plot, or in quadrat-level frequency, may be indistinguishable from survey noise. A small routine programme of repeat surveys would measure it properly: for example 10% of plots per replicate, by a second recorder, at full effort, with checks that corresponding quadrats occupy the same physical positions.
 
 ### How the headline richness depends on data decisions
 
@@ -381,14 +396,14 @@ So the numbers indicate the size of the noise; they do not measure it. They are 
 | resolved, unresolved unknowns only | 23 |
 <!-- /table -->
 
-The rejected repeat surveys add no taxa. Curation removes 17 raw keys: merges, re-registered species, list species typed as "missing", and woody exclusions. Matching names to GBIF species removes one more (Polygalaerioptera = Polygala erioptera). This is a bound, not a correction: the resolved layer keeps NS's names.
+The rejected repeat surveys add no taxa. Curation removes 17 raw keys: merges, re-registered species, list species typed as "missing", and woody exclusions. Matching names to GBIF species removes one more (Polygalaerioptera = Polygala erioptera). These definitions are a **sensitivity analysis, not upper and lower bounds**: unresolved unknowns can hide both splitting errors (one species under several ids) and merging errors (several species under one), so true richness may lie outside this range. The resolved layer keeps NS's names.
 
 Richness and diversity should be computed on the **resolved** layer, with the 23 unresolved unknowns reported as a separate count. Two more steps are needed before the numbers are final:
 
 - spelling and range confirmation of the names flagged in F03, F10 and F13;
 - a decision on Melosperma bracteatum (41 canonical records with no species-level match).
 
-Because the data are presence/absence per quadrat, diversity should use **quadrat frequencies** (incidence-based Hill numbers), not abundances.
+Because the data are presence/absence per quadrat, diversity should use incidence-based Hill numbers (frequencies across quadrats or plots), not abundances.
 
 ---
 
@@ -489,13 +504,13 @@ Every rule evaluated in this run, with its source and result counts. "Not checke
 | D03 | warning | indirect | Transect length inconsistent with 50 m (beyond GPS error) | Registration SOP fig. 1 (A-B = 50 m) | 5 | 2/3/0 | 25 | 0 |
 | D04 | warning | indirect | Midpoint off the A-B line (beyond GPS error) | Registration SOP fig. 1 (straight transect) | 5 | 1/4/0 | 25 | 0 |
 | D05 | warning | indirect | Transect not oriented north-south | Registration SOP steps 4-5 (lay out along N-S; rotate only for obstacles) | 31 | 0/31/0 | 0 | 0 |
-| D06 | error | no | Registration point accuracy worse than 5 m | form capture-accuracy=5; SOP 4.2 | 0 | 0/0/0 | 30 | 0 |
+| D06 | warning | no | Registration point accuracy worse than 5 m, or missing | Herbaceous SOP 4 device setting (5 m or better); form capture-accuracy=5 is an auto-capture target, not a constraint | 0 | 0/0/0 | 30 | 0 |
 | D07 | error | no | vegplot entity geometry differs from the registered midpoint | form save_to vegplots#geometry | 0 | 0/0/0 | 30 | 0 |
 | D08 | warning | indirect | Recorded ecosystem inconsistent with the assigned stratum | Registration SOP step 3 (stratum mismatch can justify non-viable) | 2 | 0/1/1 | 29 | 0 |
 | D09 | info | indirect | Backup used; not the nearest available backup | Registration SOP step 5 (backup when no viable area within 25 m) | 1 | 0/0/1 | 0 | 0 |
 | D10 | warning | indirect | Non-viable plot without a valid justification | Registration SOP step 3 (justify non-viable; temporary reasons are not grounds) | 0 | 0/0/0 | 1 | 0 |
 | D11 | warning | indirect | Plot registration attached to a different survey/replicate than expected | survey entity / centroids | 0 | 0/0/0 | 31 | 0 |
-| E01 | error | no | Quadrat accuracy worse than 5 m | form capture-accuracy=5; SOP 4.2 | 0 | 0/0/0 | 640 | 0 |
+| E01 | warning | no | Quadrat accuracy worse than 5 m | Herbaceous SOP 4 device setting (5 m or better); form capture-accuracy=5 is an auto-capture target, not a constraint | 0 | 0/0/0 | 640 | 0 |
 | E02 | warning | indirect | Quadrat off the 5 m belt (beyond GPS error) | Herbaceous SOP step 5 (frame 1.5-2.5 m from the line) | 93 | 0/43/50 | 547 | 0 |
 | E03 | error | indirect | Whole transect offset from the registered line | Herbaceous SOP step 2/5 (quadrats along the registered tape) | 9 | 1/2/6 | 23 | 0 |
 | E04 | warning | indirect | Quadrat far from the survey's own line | judgement (residual from the survey's own fitted line) | 29 | 0/11/18 | 611 | 0 |

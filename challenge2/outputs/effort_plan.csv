@@ -1,4 +1,4 @@
-stratum,primary_planned,primary_registered,primary_non_viable,primary_surveyed,backups_available,backups_used,plots_surveyed,share_of_primary_surveyed
-savanna,30,30,1,29,10,1,30,0.967
-shrubland,6,0,0,0,5,0,0,0.0
-all,36,30,1,29,15,1,30,0.806
+replicate,stratum,primary_planned,primary_registered,primary_non_viable,primary_surveyed,backups_available,backups_used,plots_surveyed,share_of_primary_surveyed
+lw_baseline,savanna,30,30,1,29,10,1,30,0.967
+lw_baseline,shrubland,6,0,0,0,5,0,0,0.0
+lw_baseline,all,36,30,1,29,15,1,30,0.806

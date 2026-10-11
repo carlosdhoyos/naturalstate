@@ -185,7 +185,7 @@ A working reference of every view is the **QA/QC dashboard** page of the Data Ex
 
 - `project_id`: the survey entity the run covers (here `savmon|lw|herbs|ho`).
 - `flag_id`: a hash of (project, rule, entity type, entity key). It is stable across runs, so a decision re-attaches to the same flag in every later run.
-- `evidence_hash`: a hash of (observed, expected). A decision applies only while the evidence is unchanged; when the hash changes, the flag shows as reopened.
+- `evidence_hash`: a hash of the evidence (observed, expected, severity) and of the rule's definition (its catalogue entry and the thresholds). A decision applies only while both are unchanged; if either changes (new evidence, or a rule whose meaning or threshold changed), the flag shows as reopened.
 
 Store decisions in `flag_reviews`:
 
@@ -219,10 +219,13 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
   - a nightly full run.
 
   A full run takes seconds, so incremental logic is not needed at this scale. Rebuild everything per project and replicate, which keeps results consistent.
+- **Input contract (implemented):** `vegqa/contracts.py` checks every required file and column before analysis. A broken export stops with one message listing what is missing; nothing is half-written.
+- **Staged publication (implemented):** a run writes to `out/.staging-<run_id>/`, validates the staged results, then replaces each output atomically with `run_manifest.json` last. Until the manifest changes, `out/` holds the previous complete run. An interrupted run is tested.
+- **Runtime provenance (implemented):** the manifest records the Python, platform, package versions and the image tag (`VEGQA_IMAGE`). The run id covers inputs, catalogue and code, not the environment.
 - **Idempotent:** the same inputs give the same `run_id`, so a rerun replaces nothing.
 - **Keep runs:** retain `qa_runs` with input hashes; the dashboard shows the latest and can diff two runs.
 - **External references stay outside the run:**
-  - A separate job refreshes `reference/gbif_cache.json` (backbone match plus occurrence counts by country) for names not yet cached, for example weekly or when new names appear. The same applies to `reference/elevation_cache.json` (`python -m vegqa.dem`) for new points.
+  - A separate job refreshes `reference/gbif_cache.json`: the backbone match plus presence-only (`occurrenceStatus=PRESENT`) counts by country, with a retrieval date and query version per name. It fetches new names, entries from an older query, and entries older than `--max-age-days` (suggested: 180). The same applies to `reference/elevation_cache.json` (`python -m vegqa.dem`) for new points; SRTM is static, so one dataset-level date suffices.
   - The QA run reads only the cache, so it is offline and reproducible.
   - A name missing from the cache is `could_not_check`.
 - **Form versions:** parse the XLSForm on each run (versions, choice lists, rule expressions). When a new version is deployed, rules that read the form follow it automatically. A07 flags submissions made with an older version.
@@ -230,7 +233,7 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 
 ## 8. Acceptance tests and verification status
 
-`challenge2/tests` (149 tests, run with `pytest`) holds the acceptance and mutation suites to port:
+`challenge2/tests` (159 tests, run with `pytest`) holds the acceptance and mutation suites to port:
 
 | Area | What the tests pin |
 |---|---|
@@ -238,20 +241,23 @@ create table flag_reviews (id bigserial primary key, project_id text not null, f
 | Passed checks | The 12 checks that passed must still report `pass` |
 | Differences | Deliberate differences from the exploration (`docs/challenge2_decisions.md`) |
 | New findings | N1–N13 |
-| Robustness | The whole workflow (rules, marts, effort, figures, dashboard export) runs on invalid inputs and reports them: duplicate keys in every table, a survey with no quadrats, a survey with no vegetation, rejected-only and hasIssues plots, a fractional quadrat number, a second replicate (`test_robustness.py`) |
+| Robustness | The whole workflow (rules, marts, effort, figures, dashboard export) runs on invalid inputs, reports them, and gives semantically valid summaries. Covered: duplicate keys in every table (no copy canonical, no double count), a duplicated quadrat (still 20 sampling units, provisional metrics), a survey with no quadrats, no vegetation, or missing species records (valid zero vs suppressed), rejected-only and hasIssues plots, a fractional quadrat number, a second replicate, missing registration coordinates or accuracies (could not check), a broken export (stops before analysis), and an interrupted run (previous outputs intact) (`test_robustness.py`) |
 | Mutations | 35 rules must create a new failing entity on a copy of the data with one injected error, compared with an unmutated baseline (`test_mutations.py`); J04 must pass at a cell centre |
 | Properties | Determinism (identical results and `run_id` on rerun); inputs never modified (file hashes before and after); raw columns identical to the export; row counts; one canonical survey per plot; every result field is text; catalogue = code |
 | Unit tests | Projection, bearings, segment frame, robust line, Chao2 / coverage / rarefaction formulas, curation parsing |
 
 | Item | Status |
 |---|---|
-| All rules implemented and run on the provided data | Done (run `qa-4622d26cbc136a65`) |
-| Acceptance, mutation, robustness and unit tests | 149 passing |
+| All rules implemented and run on the provided data | Done (run `qa-dce7da2adcecaa6d`) |
+| Acceptance, mutation, robustness and unit tests | 159 passing |
 | GBIF cache | 99 names, retrieved 2026-10-10 |
 | Elevation cache | 770 points (SRTM 90 m), retrieved 2026-10-10 |
 | Container job | **Built and run** (`docker build -t vegqa:1.0.0 challenge2`). On the take-home data its outputs are byte-identical to a local run: same run id, all tables and the dashboard JSON |
 | Dashboard views | Reference page built: Data Explorer → Vegetation → QA/QC dashboard (`dashboard/src/components/VegetationQA.tsx`), reading `outputs/dashboard_results.json`. All nine views of section 6 run on the provided data |
-| Flag-review workflow | Specified (DDL above); not implemented in the reference |
+| Flag-review workflow | **Specified only** (DDL above): review keys exist on every result; decisions are not stored or shown |
+| Scheduling, database persistence, run comparison | **Specified only** (§7); the reference writes files |
+| Structured curation fields | **Specified only** (§9); defensive parsing of free-text notes in place |
+| Statistical cross-check against iNEXT | **Not run** (R unavailable here); closed-form unit tests only |
 | Platform integration (triggers, storage) | To build |
 
 ## 9. Platform and form issues to fix upstream
@@ -269,7 +275,15 @@ These are flagged by the K rules, but a QA dashboard cannot fix them:
    - a filter so a plot cannot be registered twice;
    - align the SOP's `Genus_species` with the form's spaces.
 5. **Device time zone** (B12): set Africa/Nairobi.
-6. **Curation table** (F13): structured `merge_into` and `exclude` columns instead of free-text notes, and labels that match their numbers.
+6. **Curation table** (F13): replace free-text notes with structured fields:
+   - `merge_into`: target slot, validated to exist and not to form a cycle;
+   - `exclude`: yes/no;
+   - `reason`;
+   - `curator`;
+   - `decided_on`;
+   - labels that match their numbers.
+
+   Until then the parser applies only non-negated phrases and flags negated or ambiguous notes for a curator (V-13).
 
 ## 10. Files
 

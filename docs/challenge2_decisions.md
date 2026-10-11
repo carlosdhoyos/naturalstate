@@ -2,9 +2,9 @@
 
 This log records the decisions behind the vegetation QA/QC. Each entry gives what we observed, what we decided, and how the decision changes the results. **No source value is ever changed.** Every decision acts on how values are interpreted, joined or flagged.
 
-The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-4622d26cbc136a65` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
+The pipeline is `challenge2/src/run_challenge2.py`. The rules and thresholds are in `challenge2/rules/rules.yaml`, and the outputs are in `challenge2/outputs/`. Run `qa-dce7da2adcecaa6d` produced the numbers below; the run id changes whenever an input, the catalogue or the code changes.
 
-- **V-01 to V-12** are decisions.
+- **V-01 to V-13** are decisions.
 - **"Differences from the exploration"** lists where the pipeline deliberately disagrees with the earlier exploratory review.
 - **N1 to N13** are findings the systematic sweeps and the independent review added.
 - **"Independent review"** records what the review found and what changed.
@@ -58,6 +58,8 @@ The reported accuracy is used as one standard deviation. That is conservative: O
 
 **Consequence.** Plot 29's 61.8 m transect is within GPS error, so it passes (see Differences). Plots 13, 07 and 01, offset 9–10 m, are kept as info, or as a warning when rotated (Plot 13 at 34°). They are not called errors.
 
+**What the z values are (fourth review).** They are screening scores, not calibrated significance tests. ODK's accuracy is Android's ~68% horizontal radius, and how two points' errors combine depends on assumptions about their direction and correlation. The 5 m limit (D06, E01) comes from the Herbaceous SOP's instruction to set devices to "5 m or better". The form's `capture-accuracy=5` only triggers automatic capture and enforces nothing, so a point worse than 5 m is a warning, not an error. A missing coordinate or accuracy gives "could not check" in every geometry rule that needs it, never a silent omission or a pass.
+
 ## V-05. Severity, metric impact and three result statuses
 
 **Decision.** Every rule declares a severity:
@@ -108,6 +110,8 @@ Having no GBIF record in the country is weak evidence for a single taxon, becaus
 
 Terrain elevation is handled the same way. `python -m vegqa.dem` caches SRTM 90 m elevations (OpenTopoData) for every recorded point in `challenge2/reference/elevation_cache.json` (770 points). Rule E14 compares GPS altitudes with it.
 
+**Query definition (fourth review).** Country counts use `occurrenceStatus=PRESENT`, since GBIF also stores absence records. Re-fetching all 99 names with that filter changed no Kenya count. Every entry now records its retrieval date and query version. `python -m vegqa.gbif --max-age-days N` re-fetches stale entries; entries fetched under an older query are always re-fetched. "No Kenyan record" means no presence record found by this query, not absence.
+
 ## V-09. Relative thresholds where the SOP gives none
 
 **Decision.**
@@ -130,6 +134,8 @@ Every threshold of ours is labelled `judgement` in the catalogue and can be chan
 - Diversity is given as observed incidence-based Hill numbers (q = 0, 1, 2) from quadrat frequencies.
 - No interval is given for coverage: a naive bootstrap over quadrats is biased upwards (Plot 10's interval did not contain its estimate). A valid one needs iNEXT's assemblage bootstrap.
 - Project-level estimates use plots as the sampling units.
+
+**Limits (fourth review).** When no unseen taxa are estimated (Q1 ≤ 1 with Q2 = 0), the point estimate equals S_obs, but **no upper bound** is reported: a 10–10 interval would wrongly imply certainty that nothing was missed. The estimators are checked by closed-form unit tests on hard cases (no duplicates, no uniques, all uniques, Q2 = 0). They have **not** been validated against iNEXT, because R is not installed in this environment; that comparison remains a recommended step.
 
 ## V-11. The walking order is not assumed
 
@@ -154,6 +160,24 @@ Every threshold of ours is labelled `judgement` in the catalogue and can be chan
 - A04 requires whole numbers before comparing the sequence.
 - Plot summaries have one row per plot **and replicate**, and repeat visits are only paired within a replicate.
 - `tests/test_robustness.py` runs the **whole** workflow (rules, marts, effort, figures, dashboard export) on each of these inputs and checks that the right rule reports it.
+
+**Analytical eligibility (fourth review).** Surviving bad input is not enough; it must not produce valid-looking summaries.
+
+- **Duplicated survey KEY:** no copy is canonical, so that plot's metrics are suppressed and J03 reports it.
+- **Sampling units:** effort counts distinct quadrat KEYs, so a duplicated row is not a 21st quadrat.
+- **Provisional metrics:** a survey with structural or record failures (A01–A04, C02, C04, C08, C13) carries `metrics_status = provisional: <rules>`. Here 7 plots are provisional, all for C04.
+- **Empty incidence table:** it is told apart as a valid ecological zero (every quadrat recorded no herbs), missing species records, or records that are not analytical taxa (excluded or unresolvable). The last two are marked "suppressed".
+- **Replicates:** project richness and planned-vs-done are computed per replicate, so monitoring rounds are never pooled and a missing later visit is never hidden by an earlier one.
+
+## V-13. Deployment guarantees
+
+**Decision.**
+
+- **Input contract** (`vegqa/contracts.py`): required files and columns are checked before any analysis. A broken export stops with one message listing everything missing.
+- **Staged publication:** a run writes to a staging folder, validates it, then replaces each file atomically, with the manifest last. An interrupted run leaves the previous complete run in place (tested).
+- **Runtime provenance:** the manifest records the Python, platform, package and image versions. They are not part of the run id, which covers inputs, catalogue and code.
+- **Review validity:** `evidence_hash` covers the evidence (observed, expected, severity) and the rule's definition (its catalogue entry and the thresholds). A review reopens when either changes.
+- **Curation notes:** they are parsed defensively. A negated phrase ("do not exclude", "not a duplicate of") is not applied and F13 flags it. Production needs structured curation fields: merge target, exclusion, reason, curator, date, with validated merge chains.
 
 ---
 
@@ -257,4 +281,22 @@ An independent reviewer, given no context, re-ran the pipeline and the tests, ex
 | Replicates merged in plot summaries and repeatability | One row per plot and replicate; pairs within a replicate |
 | Dashboard: source keys not openable; no shared filters; review identity too weak; "passed everywhere" ignored could-not-check | Source records open from each flag; shared replicate / stratum / device / recorder / date filters; `project_id`, `flag_id`, `evidence_hash` on every result (DDL updated); "passed everywhere" requires no could-not-check |
 | Provenance stated too firmly | Worded as a hypothesis for NS to confirm (N11, C-7, report, dashboard) |
+
+### Fourth independent review (scientific interpretation and deployment)
+
+| Finding | Change |
+|---|---|
+| z values presented as tests; 5 m called a requirement | Screening scores; 5 m sourced to the SOP's device instruction (D06, E01 now warnings) (V-04) |
+| Missing endpoint coordinate or accuracy: D01–D06 silent or a pass with `nan` | "could not check" from every applicable geometry rule (tested) |
+| Duplicated canonical survey counted twice; a duplicated quadrat raised effort to 21 | No copy of a duplicated KEY is canonical; sampling units are distinct quadrat KEYs; provisional metrics status (V-12) |
+| Empty incidence called "a valid zero" regardless of cause | Valid zero, missing records or non-analytical records told apart; the latter two suppressed (V-12) |
+| Replicates pooled in project richness and planned-vs-done | Both per replicate (V-12) |
+| Chao2 10–10 with Q1 = 1, Q2 = 0 | No upper bound reported (V-10); iNEXT validation still to do (R unavailable) |
+| GBIF counts included absence records; cache had no per-entry dates | `occurrenceStatus=PRESENT`, retrieval dates, refresh policy; no count changed (V-08) |
+| Free-text curation parser applied "do not exclude" | Negated phrases not applied and flagged; structured fields specified (V-13) |
+| Altitude vertical reference | Report notes ellipsoid vs geoid differences of at most about ±100 m; reference still to confirm |
+| No input contract, non-atomic outputs, no runtime versions, evidence hash blind to rule changes | V-13 |
+| Report overclaimed ("internally consistent", "three-quarters of true richness") | Softened; estimates conditional on the analytical data; coverage is not quality; spatial dependence; Hill-number scales; sensitivity not bounds; 697 flags grouped (241 from 10 systemic findings) |
+| Dashboard: timeline ignored replicate; plot filter by name only; scope labels; "no flags" vs passed | All fixed |
+| Not done | iNEXT cross-validation (no R); structured curation fields and persisted reviews (specified, not built); scheduling and database persistence (handover) |
 

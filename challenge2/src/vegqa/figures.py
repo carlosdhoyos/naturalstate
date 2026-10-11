@@ -155,11 +155,15 @@ def accumulation(curves: pd.DataFrame, eff: pd.DataFrame, path: Path):
     r = eff[eff.layer == "resolved"].sort_values("coverage")
     yy = np.arange(len(r))
     a2.hlines(yy, r.completeness, r.coverage, color=MIST, lw=2)
-    a2.scatter(r.completeness, yy, color=STEEL, s=18, label="S_obs / Chao2", zorder=3)
+    lo = (r.S_obs / r.chao2_hi95).where(r.chao2_hi95.notna(), np.nan)  # completeness interval from the Chao2 interval
+    hi = r.S_obs / r.chao2_lo95
+    a2.errorbar(r.completeness, yy, xerr=[(r.completeness - lo).clip(lower=0).fillna(0), (hi - r.completeness).clip(lower=0).fillna(0)],
+                fmt="none", ecolor=STEEL, elinewidth=0.8, alpha=0.6, zorder=2)
+    a2.scatter(r.completeness, yy, color=STEEL, s=18, label="S_obs / Chao2 (95% CI)", zorder=3)
     a2.scatter(r.coverage, yy, color=TEAL, s=18, label="sample coverage", zorder=3)
     a2.set_yticks(yy)
     a2.set_yticklabels(r.plot_name.str.replace("SavMon_LW_", ""), fontsize=6.5)
-    a2.set_xlim(0.2, 1.02)
+    a2.set_xlim(0.1, 1.02)
     a2.set_title("How complete is each plot's list? (resolved)", loc="left")
     a2.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.08), ncol=2, fontsize=7.5)
     a2.grid(axis="x", color="#e9eff1", lw=0.6)

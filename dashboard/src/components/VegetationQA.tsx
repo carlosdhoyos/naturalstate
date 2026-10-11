@@ -119,11 +119,13 @@ function applyShared(g: Shared): View {
   const inDays = (day: string) => (!g.from || (day && day >= g.from)) && (!g.to || (day && day <= g.to))
   const F = FLAGS.filter((f) => (!g.replicate || f.replicate === g.replicate) && (!g.stratum || f.stratum === g.stratum) && (!g.device || f.device === g.device) && (!g.recorder || f.recorder === g.recorder) && inDays(f.day))
   const S = SUBS.filter((r) => (!g.replicate || r.replicate === g.replicate) && (!g.stratum || strataOf[r.plot_name] === g.stratum) && (!g.device || r.device === g.device) && (!g.recorder || r.recorder === g.recorder) && inDays(localDay(r.start_utc)))
-  const TL = TIMELINE.filter((r) => (!g.stratum || strataOf[r.plot_name] === g.stratum) && (!g.device || r.device === g.device) && (!g.recorder || r.recorder === g.recorder) && inDays(localDay(r.start)))
+  const TL = TIMELINE.filter((r) => (!g.replicate || r.replicate === g.replicate) && (!g.stratum || strataOf[r.plot_name] === g.stratum) && (!g.device || r.device === g.device) && (!g.recorder || r.recorder === g.recorder) && inDays(localDay(r.start)))
   // device / recorder / date describe visits: keep the plots visited (surveyed or registered) under them
   const visit = Boolean(g.device || g.recorder || g.from || g.to)
-  const visited = new Set([...S.map((r) => r.plot_name), ...TL.map((r) => r.plot_name)])
-  const P = PLOTS.filter((p) => (!g.stratum || p.stratum === g.stratum) && (!g.replicate || p.replicate === g.replicate) && (!visit || visited.has(p.plot_name)))
+  // a plot row is one replicate: it is visited if its survey in THAT replicate passes, or its registration does
+  const surveyed = new Set(S.map((r) => `${r.plot_name}|${r.replicate}`))
+  const registered = new Set(TL.filter((r) => r.form === 'registration').map((r) => r.plot_name))
+  const P = PLOTS.filter((p) => (!g.stratum || p.stratum === g.stratum) && (!g.replicate || p.replicate === g.replicate) && (!visit || surveyed.has(`${p.plot_name}|${p.replicate}`) || registered.has(p.plot_name)))
   return { F, S, TL, P, active: Object.values(g).some(Boolean) }
 }
 
@@ -712,6 +714,7 @@ function MapTab({ d, t, showFlags }: Ctx) {
     for (const tr of TRANSECTS)
       data.push({ type: 'scattermap', mode: 'lines', lat: [tr.endpoint_a_lat, tr.midpoint_lat, tr.endpoint_b_lat], lon: [tr.endpoint_a_lon, tr.midpoint_lon, tr.endpoint_b_lon], line: { color: basemap === 'satellite' || t.theme === 'dark' ? '#ffffff' : '#00354d', width: 3 }, hoverinfo: 'skip', showlegend: false })
     const groups = colorBy === 'status' ? Object.keys(STATUS_STYLE) : ['error', 'warning', 'info', 'none']
+    const noneLabel = d.active ? 'no flags under the current filters' : 'no plot-level flags' // not the same as "passed every check"
     for (const g of groups) {
       const ps = d.P.filter((p) => (colorBy === 'status' ? plotStatus(p) === g : (worstByPlot[p.plot_name] ?? 'none') === g))
       if (!ps.length) continue
@@ -719,7 +722,7 @@ function MapTab({ d, t, showFlags }: Ctx) {
       data.push({
         type: 'scattermap',
         mode: 'markers',
-        name: `${g} (${ps.length})`,
+        name: `${colorBy === 'worst' && g === 'none' ? noneLabel : g} (${ps.length})`,
         lat: ps.map((p) => p.prescribed_lat),
         lon: ps.map((p) => p.prescribed_lon),
         marker: { color: st.color, size: ps.map((p) => (p.plot_name === sel ? st.size + 7 : st.size)), opacity: 0.95 },
@@ -732,7 +735,7 @@ function MapTab({ d, t, showFlags }: Ctx) {
     const lats = around.map((p) => p.prescribed_lat as number)
     const lons = around.map((p) => p.prescribed_lon as number)
     return { data, center: { lat: (Math.min(...lats) + Math.max(...lats)) / 2, lon: (Math.min(...lons) + Math.max(...lons)) / 2 } }
-  }, [basemap, colorBy, sel, t, worstByPlot, d.P])
+  }, [basemap, colorBy, sel, t, worstByPlot, d.P, d.active])
   return (
     <>
       <div className="qa-filters">
@@ -952,7 +955,7 @@ function TaxonomyTab({ d, showFlags }: Ctx) {
         />
       </Section>
       <Section
-        title="Suggested species-list updates"
+        title="Suggested species-list updates (whole run)"
         sub="For NS’s curators, from challenge2/outputs/species_list_suggestions.csv: names to add to the project list, spellings to confirm (GBIF’s spelling suggested), provisional ids to merge, taxa to check for range. Suggestions only: no data or list is changed."
         right={<button type="button" className="btn ghost sm" onClick={() => downloadCsv('species_list_suggestions.csv', SUGG, Object.keys(SUGG[0] ?? {}))}>Download CSV</button>}
       >
@@ -971,7 +974,7 @@ function TaxonomyTab({ d, showFlags }: Ctx) {
           ]}
         />
       </Section>
-      <Section title="Raw → resolved taxa" sub="Every resolved taxon in the canonical surveys and the raw keys (list labels or provisional slots) behind it. Several raw keys per row = a merge by NS’s curation." right={<input className="input" placeholder="Find a taxon…" value={q} onChange={(e) => setQ(e.target.value)} />}>
+      <Section title="Raw → resolved taxa (whole run)" sub="Every resolved taxon in the canonical surveys and the raw keys (list labels or provisional slots) behind it. Several raw keys per row = a merge by NS’s curation." right={<input className="input" placeholder="Find a taxon…" value={q} onChange={(e) => setQ(e.target.value)} />}>
         <DataTable
           rows={taxa}
           limit={40}

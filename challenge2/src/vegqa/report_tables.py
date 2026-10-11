@@ -83,15 +83,18 @@ def plots() -> str:
 
 def effort_plan() -> str:
     e = pd.read_csv(OUT / "effort_plan.csv")
-    e["share_of_primary_surveyed"] = (e.share_of_primary_surveyed * 100).round(0).astype(int).astype(str) + "%"
-    e.columns = ["stratum", "primary planned", "registered", "non-viable", "surveyed", "backups available", "backups used", "plots surveyed", "primary surveyed"]
+    e["share_of_primary_surveyed"] = [f"{v * 100:.0f}%" if pd.notna(v) else "—" for v in e.share_of_primary_surveyed]
+    e = e.rename(columns={"replicate": "replicate", "stratum": "stratum", "primary_planned": "primary planned", "primary_registered": "registered",
+                          "primary_non_viable": "non-viable", "primary_surveyed": "surveyed", "backups_available": "backups available",
+                          "backups_used": "backups used", "plots_surveyed": "plots surveyed", "share_of_primary_surveyed": "primary surveyed"})
     return _md(e)
 
 
 def effort_project() -> str:
     e = pd.read_csv(OUT / "effort_project.csv")
-    df = pd.DataFrame({"layer": e.layer, "plots": e.units, "taxa observed": e.S_obs, "in 1 plot": e.Q1_uniques, "in 2 plots": e.Q2_duplicates,
-                       "Chao2 (95% CI)": [f"{c:.0f} ({lo:.0f}–{hi:.0f})" for c, lo, hi in zip(e.chao2, e.chao2_lo95, e.chao2_hi95)],
+    fmt = lambda v: "n/a" if pd.isna(v) else f"{v:.0f}"
+    df = pd.DataFrame({"replicate": e.replicate, "layer": e.layer, "plots": e.units, "taxa observed": e.S_obs, "in 1 plot": e.Q1_uniques, "in 2 plots": e.Q2_duplicates,
+                       "Chao2 (95% CI)": [f"{fmt(c)} ({fmt(lo)}–{fmt(hi)})" for c, lo, hi in zip(e.chao2, e.chao2_lo95, e.chao2_hi95)],
                        "observed / Chao2": e.completeness, "coverage": e.coverage, "Hill q1 / q2": [f"{a:.0f} / {b:.0f}" for a, b in zip(e.hill_q1, e.hill_q2)]})
     return _md(df)
 
